@@ -113,14 +113,20 @@ nothing else:
 Every call takes an **account id**, never a path and never an executable location. The
 main process looks up the path itself. This is the central injection defence.
 
-### 4.3 `src/renderer/` — plain HTML, CSS, JS
+### 4.3 `src/renderer/` — React, built by Vite
 
-One screen. No framework, no bundler. Window options:
+One screen (`App.jsx`, `AccountRow`, `DeleteDialog`, `TextPromptDialog`), bundled by
+Vite into `dist-renderer/`. Window options:
 
     { contextIsolation: true, nodeIntegration: false, sandbox: true,
       webSecurity: true, preload: <preload.js> }
 
 CSP meta tag: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;`
+
+The bundle is served over a custom `app://` protocol registered as `standard` and
+`secure`, not over `file://`. Two reasons: ES modules are blocked by CORS on `file://`,
+and a real origin lets the CSP stay at `'self'` rather than needing `'unsafe-inline'`.
+The protocol handler rejects any path that escapes `dist-renderer/`.
 
 No remote content is ever loaded. `will-navigate` and `setWindowOpenHandler` are both
 blocked in the main process.

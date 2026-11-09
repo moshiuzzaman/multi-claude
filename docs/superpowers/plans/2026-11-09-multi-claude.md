@@ -6,7 +6,9 @@
 
 **Architecture:** A privileged Node main process owns every path, the `claude.exe` lookup, process scanning and deletion; a sandboxed renderer talks to it through a narrow preload bridge that only ever passes account **ids**, never paths. Profile isolation is achieved with Chromium's stock `--user-data-dir` flag — nothing about Claude Desktop is modified.
 
-**Tech Stack:** Electron 33.x, Node 22, `node:test` for unit tests, `electron-builder` for packaging. No renderer framework, no bundler.
+**Tech Stack:** Electron 33.x, Node 22, React 18 + Vite 5 for the renderer, `node:test` for unit tests, `electron-builder` for packaging.
+
+> **Change, 2026-11-09:** the renderer was switched from vanilla HTML to React + Vite at the user's request, before any UI code was written. Task 10 below reflects the original vanilla plan; the built implementation uses React components and an `app://` protocol handler instead. See the spec §4.3 for the current design.
 
 **Spec:** `docs/superpowers/specs/2026-11-09-multi-claude-account-manager-design.md`
 
