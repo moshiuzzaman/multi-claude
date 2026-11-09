@@ -56,37 +56,37 @@ one of those tokens off disk and use it — and Anthropic's Claude Code terms sa
 reserve the right to enforce that without notice. On accounts you rely on, that is not a
 risk worth taking. So the app never does it.
 
-**What it does instead.** Claude Code itself passes `rate_limits.five_hour` and
-`rate_limits.seven_day` (used percentage and reset time) to a *status-line* command, as a
-documented feature. Multi-Claude gives every account its own Claude Code config folder
-(`%APPDATA%\multi-claude\cc\<account id>`, via `CLAUDE_CONFIG_DIR`) with a small
-status-line recorder that copies **only** that `rate_limits` object to a file, which the
-app then reads.
+**What it does instead.** It asks Anthropic's own Claude Code, which is allowed to.
+Every account gets its own Claude Code config folder
+(`%APPDATA%\multi-claude\cc\<account id>`, via `CLAUDE_CONFIG_DIR`):
 
-1. **Connect** runs Anthropic's own `claude auth login` inside Multi-Claude, with no
-   terminal window. The CLI opens your browser; click **Authorize** with that account and
-   the dialog finishes by itself. If the browser shows a code instead, paste it into the
-   dialog: it is written straight to the Claude Code process — exactly like typing it into
-   a terminal — and is never stored, logged or exchanged by Multi-Claude. You do this
-   once per account. New accounts do this automatically:
-   **Add account** has an *Also connect Claude Code for usage limits* option, on by
-   default, that opens this sign-in right after creating the profile. Accounts added
-   before this existed need one **Connect** each from the Account tab. The unmodified Claude Code binary keeps
-   its own credentials in that folder; Multi-Claude never opens them.
-2. **Open Claude Code** starts a session as that account. After your first message the
-   limits appear, and they update every time you use Claude Code with that account.
-3. The limits are account-wide, so chat, Desktop and Claude Code usage all count toward
-   the same numbers.
+1. **Connect** — once per account — runs Anthropic's `claude auth login` inside
+   Multi-Claude with no terminal window. Your browser opens; click **Authorize** with that
+   account and the dialog finishes by itself. If the browser shows a code instead, paste it
+   into the dialog: it goes straight to the Claude Code process, exactly like typing it
+   into a terminal, and is never stored or logged. New accounts do this automatically when
+   added (the *Also connect Claude Code* option).
+2. **Fetching** — Multi-Claude then runs `claude -p "/usage"` for each signed-in account,
+   hidden. `/usage` is a built-in command: Claude Code answers it from Anthropic's usage
+   service and returns a structured report, **without calling a model**. Measured on this
+   machine with Claude Code 2.1.319: cost $0, zero turns. The panel shows every meter the
+   server reports — session, weekly, any per-model weekly limit — with reset times and the
+   server's own severity, plus extra-usage status.
+3. Results are cached for 90 seconds; **Refresh** fetches immediately.
 
-The newest Claude Code installed on the PC is used automatically. Things worth knowing:
+Safety nets, because getting this wrong would spend your usage silently:
 
-- Figures are as fresh as your last Claude Code message on that account; the panel shows
-  how old they are, and marks a window as reset once its reset time passes.
-- Anthropic documents `rate_limits` for Pro, Max and Ultra. A plan that doesn't report
-  them will simply show no figures.
-- Make sure you sign in with the same account the Desktop profile uses — the panel shows
-  the signed-in email so you can check.
-- Deleting an account also deletes its Claude Code sign-in folder.
+- The CLI is launched directly, never through a shell. During development Git Bash
+  rewrote `/usage` into `C:/Program Files/Git/usage`, which Claude Code then sent to the
+  model as an ordinary prompt.
+- The fetch also passes the cheapest model, a one-word system prompt and no tools, so if a
+  future Claude Code ever routed `/usage` to a model it would cost a fraction of a cent.
+- Every result's turn count is checked. A fetch that reached a model is shown as such, and
+  automatic refresh stops for that account; only a manual Refresh tries again.
+
+If `/usage` is ever unavailable, the panel falls back to what Claude Code's status line last
+recorded for that account (see `limits.js`). The newest Claude Code installed on the PC is
+used automatically; `/usage` reports need Claude Code 2.1.273 or later.
 
 ### The rolling gauges
 

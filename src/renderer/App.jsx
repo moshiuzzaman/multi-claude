@@ -121,7 +121,14 @@ export default function App() {
   // main process and the limits themselves are a small file per account.
   const loadLimits = useCallback(async (force = false) => {
     setLimitsLoading(true);
-    try { setLimits(await api.limits({ force })); }
+    try {
+      // Paint rows straight away from what is already known, then fetch.
+      // The full fetch starts Claude Code once per account and takes a few
+      // seconds, so the panel should never sit empty while it runs.
+      const quick = await api.limits({ cachedOnly: true });
+      setLimits((prev) => prev || quick);
+      setLimits(await api.limits({ force }));
+    }
     catch (e) { fail(e); }
     finally { setLimitsLoading(false); }
   }, [fail]);

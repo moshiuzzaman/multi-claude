@@ -22,9 +22,12 @@ const { readAccountInfo } = require('./account-info.js');
 const limitsMod = require('./limits.js');
 const ccCliMod = require('./cc-cli.js');
 const { createLoginManager } = require('./cc-login.js');
+const ccUsageMod = require('./cc-usage.js');
 
 const LIMITS_FILE = 'multi-claude-limits.json';
 const AUTH_TTL_MS = 2 * 60 * 1000;
+// How long a fetched /usage report is reused before Claude Code is asked again.
+const PLAN_TTL_MS = 90 * 1000;
 
 function err(code, message) {
   const e = new Error(message);
@@ -59,6 +62,11 @@ function createService(deps) {
   };
   let cliPromise = null;
   const authCache = new Map(); // account id -> { at, auth }
+  const planCache = new Map(); // account id -> { at, value } from /usage
+  // Accounts whose /usage fetch ever reached a model. Auto-refresh stops for
+  // them so a changed CLI can never quietly spend usage on a timer.
+  const planHalted = new Set();
+  const ccUsage = deps.ccUsage || { fetch: (cliPath, dir) => ccUsageMod.fetchUsage(cliPath, dir) };
   // Hidden `claude auth login` runs, one per account being signed in.
   const logins = deps.loginManager || createLoginManager({
     openExternal: (url) => deps.shellImpl && deps.shellImpl.openExternal && deps.shellImpl.openExternal(url)
@@ -284,6 +292,8 @@ function createService(deps) {
         try { await fsp.rm(cc, { recursive: true, force: true }); } catch { /* best effort */ }
       }
       authCache.delete(id);
+      planCache.delete(id);
+      planHalted.delete(id);
 
       data.accounts = data.accounts.filter((x) => x.id !== id);
       await persist();
@@ -373,7 +383,7 @@ function createService(deps) {
      * Each account's real Session (5hr) / Weekly (7 day) limits, as recorded by
      * that account's own Claude Code status line. See limits.js.
      */
-    async limits({ force = false } = {}) {
+    async limits({ force = false, cachedOnly = false } = {}) {
       const found = await cli();
       const now = Date.now();
 
@@ -384,7 +394,10 @@ function createService(deps) {
 
         if (connected && found) {
           const hit = authCache.get(a.id);
-          if (!force && hit && now - hit.at < AUTH_TTL_MS) {
+          if (cachedOnly) {
+            // Instant answer for first paint: no process is started.
+            auth = hit ? hit.auth : { loggedIn: false, pending: true };
+          } else if (!force && hit && now - hit.at < AUTH_TTL_MS) {
             auth = hit.auth;
           } else {
             auth = await ccCli.authStatus(found.path, dir);
@@ -392,8 +405,29 @@ function createService(deps) {
           }
         }
 
+        // Primary source: Claude Code's own /usage report, fetched with no
+        // window and no model call. Fallback: whatever the status line last
+        // recorded, if the account was ever used in Claude Code.
+        let plan = null;
+        if (connected && found && auth.loggedIn) {
+          const hit = planCache.get(a.id);
+          if (cachedOnly) {
+            plan = hit ? hit.value : null;
+          } else if (!force && hit && now - hit.at < PLAN_TTL_MS) {
+            plan = hit.value;
+          } else if (!force && planHalted.has(a.id)) {
+            plan = hit ? hit.value : { ok: false, reachedModel: true, reason: 'Paused: Claude Code answered /usage with the model.' };
+          } else {
+            plan = await ccUsage.fetch(found.path, dir);
+            plan.fetchedAt = now;
+            planCache.set(a.id, { at: now, value: plan });
+            if (plan.reachedModel) planHalted.add(a.id);
+            if (plan.needsSignIn) authCache.delete(a.id);
+          }
+        }
+
         const lim = connected ? await limitsMod.readLimits(path.join(dir, LIMITS_FILE), now) : null;
-        return { id: a.id, label: a.label, connected, auth, limits: lim };
+        return { id: a.id, label: a.label, connected, auth, plan, limits: lim };
       }));
 
       return {
@@ -418,7 +452,12 @@ function createService(deps) {
     async loginStatus({ id }) {
       find(id);
       const st = logins.status(id);
-      if (st.state === 'done') authCache.delete(id); // next limits() re-asks the CLI
+      if (st.state === 'done') {
+        // Next limits() re-asks the CLI and fetches a fresh report.
+        authCache.delete(id);
+        planCache.delete(id);
+        planHalted.delete(id);
+      }
       return st;
     },
 
@@ -516,6 +555,7 @@ function createService(deps) {
     _setScannerForTest(s) { scanner = s; },
     _setCloserForTest(c) { deps.closer = c; },
     _setSleepForTest(f) { deps.sleep = f; },
+    _expirePlanCacheForTest() { for (const v of planCache.values()) v.at = 0; },
     _setLocatorForTest(l) { locator = l; }
   };
 }

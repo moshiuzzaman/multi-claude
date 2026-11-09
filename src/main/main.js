@@ -196,7 +196,7 @@ if (!app.requestSingleInstanceLock()) {
                         `document.querySelectorAll('.nav-item')[${n}].click()`
                       );
                     }
-                    await new Promise((r) => setTimeout(r, 1400));
+                    await new Promise((r) => setTimeout(r, Number(process.env.MULTI_CLAUDE_SHOT_WAIT) || 1400));
                     const name = await win.webContents.executeJavaScript(
                       "document.querySelector('.page-head h1')?.textContent || 'view'"
                     );

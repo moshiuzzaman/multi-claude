@@ -21,9 +21,16 @@ function harness() {
   const authReply = { value: { loggedIn: false } };
   const cliInstalled = { value: true };
   const logins = [];
+  const usageFetches = [];
+  const usageReply = { value: { ok: true, reachedModel: false, meters: [
+    { kind: 'session', group: 'session', percent: 52, resetsAt: 1, severity: 'normal', isActive: true, title: 'Session (5hr)' }
+  ], extraUsage: null } };
   const svc = createService({
     configFile: path.join(base, 'cfg', 'accounts.json'),
     ccRoot: path.join(base, 'cfg', 'cc'),
+    ccUsage: {
+      fetch: async (cli, dir) => { usageFetches.push(dir); return JSON.parse(JSON.stringify(usageReply.value)); }
+    },
     loginManager: {
       start: (id, opts) => { logins.push({ id, ...opts }); return { state: 'waiting' }; },
       status: () => ({ state: 'waiting' }),
@@ -57,7 +64,7 @@ function harness() {
   });
 
   return { base, userProfile, profilesRoot, defaultProfileDir, svc, launched, shortcuts,
-           terminals, authCalls, authReply, cliInstalled, logins };
+           terminals, authCalls, authReply, cliInstalled, logins, usageFetches, usageReply };
 }
 
 function cleanup(h) {
@@ -528,6 +535,80 @@ test('deleting an account also removes its Claude Code sign-in folder', async ()
   await h.svc.remove({ id: a.id, confirmLabel: 'Gone With CC', unlockOutsideRoot: false });
   assert.ok(!fs.existsSync(dir), 'the per-account sign-in must not be left behind');
   assert.ok(fs.existsSync(path.join(h.base, 'cfg', 'cc')), 'the cc root itself survives');
+  cleanup(h);
+});
+
+test('limits fetches the /usage report for a signed-in account', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Plan' });
+  await h.svc.connectAccount({ id: a.id });
+  h.authReply.value = { loggedIn: true, email: 'me@x.com' };
+
+  const row = (await h.svc.limits({ force: true })).accounts.find((r) => r.id === a.id);
+  assert.strictEqual(row.plan.ok, true);
+  assert.strictEqual(row.plan.meters[0].percent, 52);
+  assert.strictEqual(h.usageFetches.length, 1);
+  cleanup(h);
+});
+
+test('limits does not fetch for an account that is not signed in', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Not Yet' });
+  await h.svc.connectAccount({ id: a.id });
+  h.authReply.value = { loggedIn: false };
+  const row = (await h.svc.limits({ force: true })).accounts.find((r) => r.id === a.id);
+  assert.strictEqual(row.plan, null);
+  assert.strictEqual(h.usageFetches.length, 0, 'never spawn /usage for a signed-out account');
+  cleanup(h);
+});
+
+test('the /usage report is cached between quick refreshes', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Cached Plan' });
+  await h.svc.connectAccount({ id: a.id });
+  h.authReply.value = { loggedIn: true };
+  await h.svc.limits();
+  await h.svc.limits();
+  await h.svc.limits();
+  assert.strictEqual(h.usageFetches.length, 1, 'the 20s panel refresh must not spawn Claude Code each time');
+  await h.svc.limits({ force: true });
+  assert.strictEqual(h.usageFetches.length, 2, 'Refresh fetches fresh');
+  cleanup(h);
+});
+
+test('a fetch that reached a model pauses automatic refresh for that account', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Spent' });
+  await h.svc.connectAccount({ id: a.id });
+  h.authReply.value = { loggedIn: true };
+  h.usageReply.value = { ok: false, reachedModel: true, reason: 'reached the model' };
+
+  await h.svc.limits({ force: true });
+  assert.strictEqual(h.usageFetches.length, 1);
+
+  // Even after the cache window, a non-forced refresh must not try again.
+  h.svc._expirePlanCacheForTest();
+  const row = (await h.svc.limits()).accounts.find((r) => r.id === a.id);
+  assert.strictEqual(h.usageFetches.length, 1, 'no automatic retry once it cost something');
+  assert.strictEqual(row.plan.reachedModel, true);
+  cleanup(h);
+});
+
+test('cachedOnly answers instantly without starting Claude Code', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Quick' });
+  await h.svc.connectAccount({ id: a.id });
+
+  const quick = (await h.svc.limits({ cachedOnly: true })).accounts.find((r) => r.id === a.id);
+  assert.strictEqual(quick.auth.pending, true, 'unknown yet, shown as checking');
+  assert.strictEqual(quick.plan, null);
+  assert.strictEqual(h.authCalls.length, 0, 'no CLI started for first paint');
+  assert.strictEqual(h.usageFetches.length, 0);
   cleanup(h);
 });
 
