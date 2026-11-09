@@ -14,10 +14,11 @@ const profiles = require('./profiles.js');
 const deleter = require('./deleter.js');
 const { createShortcut } = require('./shortcuts.js');
 const P = require('./paths.js');
-const { scanUsage } = require('./usage-reader.js');
+const { scanUsage, SUMMARY_VERSION } = require('./usage-reader.js');
 const { buildDashboard } = require('./usage-aggregate.js');
 const { createActivityLog, buildSessions, summariseActivity } = require('./activity-log.js');
 const { breakdown, purgeCaches } = require('./storage.js');
+const { readAccountInfo } = require('./account-info.js');
 
 function err(code, message) {
   const e = new Error(message);
@@ -47,7 +48,10 @@ function createService(deps) {
   async function loadUsageCache() {
     if (!deps.usageCacheFile) return;
     try {
-      usageCache = JSON.parse(await fsp.readFile(deps.usageCacheFile, 'utf8'));
+      const parsed = JSON.parse(await fsp.readFile(deps.usageCacheFile, 'utf8'));
+      // Summaries written by an older reader lack newer fields, and the cache
+      // key would never invalidate them. Discard rather than serve stale shape.
+      usageCache = parsed && parsed.__v === SUMMARY_VERSION && parsed.files ? parsed.files : {};
     } catch {
       usageCache = {}; // a missing or unreadable cache just means a cold scan
     }
@@ -79,7 +83,7 @@ function createService(deps) {
     try {
       await fsp.mkdir(path.dirname(deps.usageCacheFile), { recursive: true });
       const tmp = deps.usageCacheFile + '.tmp';
-      await fsp.writeFile(tmp, JSON.stringify(usageCache), 'utf8');
+      await fsp.writeFile(tmp, JSON.stringify({ __v: SUMMARY_VERSION, files: usageCache }), 'utf8');
       await fsp.rename(tmp, deps.usageCacheFile);
       usageCacheDirty = false;
     } catch {
@@ -260,6 +264,17 @@ function createService(deps) {
         ...buildDashboard(r.sessions, { days }),
         scan: { files: r.files, parsed: r.parsed, reused: r.reused }
       };
+    },
+
+    /**
+     * Identity of the account Claude Code is signed in as. One account only —
+     * see account-info.js for why there is no per-profile equivalent.
+     */
+    async accountInfo() {
+      if (!deps.claudeConfigFile) {
+        return { available: false, reason: 'Claude Code config path not configured.' };
+      }
+      return readAccountInfo(deps.claudeConfigFile);
     },
 
     /** Launch history that Multi-Claude observed itself. */

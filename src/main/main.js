@@ -57,6 +57,7 @@ if (!app.requestSingleInstanceLock()) {
       activityFile: path.join(appDir, 'activity.jsonl'),
       // Claude Code's session logs. Home-based, so shared by every profile.
       claudeProjectsRoot: path.join(userProfile, '.claude', 'projects'),
+      claudeConfigFile: path.join(userProfile, '.claude.json'),
       profilesRoot: path.join(userProfile, 'ClaudeProfiles'),
       userProfile,
       defaultProfileDir,
@@ -181,7 +182,10 @@ if (!app.requestSingleInstanceLock()) {
                   win.focus();
                   const base = process.env.MULTI_CLAUDE_SHOT.replace(/\.png$/i, '');
 
-                  for (let n = 0; n < 5; n++) {
+                  const views = await win.webContents.executeJavaScript(
+                    "document.querySelectorAll('.nav-item').length"
+                  );
+                  for (let n = 0; n < views; n++) {
                     if (n > 0) {
                       await win.webContents.executeJavaScript(
                         `document.querySelectorAll('.nav-item')[${n}].click()`

@@ -23,5 +23,6 @@ contextBridge.exposeInMainWorld('multiClaude', {
   usage: call('usage'),
   activity: call('activity'),
   storage: call('storage'),
-  purgeCache: call('purgeCache')
+  purgeCache: call('purgeCache'),
+  accountInfo: call('accountInfo')
 });

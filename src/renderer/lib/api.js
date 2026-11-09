@@ -32,5 +32,6 @@ export const api = {
   usage: (opts) => call('usage', opts),
   activity: (opts) => call('activity', opts),
   storage: (opts) => call('storage', opts),
-  purgeCache: (id) => call('purgeCache', { id })
+  purgeCache: (id) => call('purgeCache', { id }),
+  accountInfo: () => call('accountInfo')
 };
