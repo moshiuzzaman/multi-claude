@@ -14,6 +14,10 @@ const profiles = require('./profiles.js');
 const deleter = require('./deleter.js');
 const { createShortcut } = require('./shortcuts.js');
 const P = require('./paths.js');
+const { scanUsage } = require('./usage-reader.js');
+const { buildDashboard } = require('./usage-aggregate.js');
+const { createActivityLog, buildSessions, summariseActivity } = require('./activity-log.js');
+const { breakdown, purgeCaches } = require('./storage.js');
 
 function err(code, message) {
   const e = new Error(message);
@@ -21,12 +25,67 @@ function err(code, message) {
   return e;
 }
 
+// How long a measured profile size stays fresh. Long enough that moving
+// between views never re-walks, short enough that it is not stale by the time
+// anyone acts on it.
+const STORAGE_TTL_MS = 10 * 60 * 1000;
+
 function createService(deps) {
   let data = store.emptyStore();
   let scanner = deps.scanner;
   let locator = deps.locator;
 
+  // Usage scanning state. The cache turns a ~3.4s cold scan of 80k records
+  // into a ~20ms warm scan, so it is worth persisting across restarts.
+  let usageCache = {};
+  let usageCacheDirty = false;
+  let storageCache = {};
+  const activity = deps.activityFile ? createActivityLog({ file: deps.activityFile }) : null;
+
   const persist = () => store.save(deps.configFile, data);
+
+  async function loadUsageCache() {
+    if (!deps.usageCacheFile) return;
+    try {
+      usageCache = JSON.parse(await fsp.readFile(deps.usageCacheFile, 'utf8'));
+    } catch {
+      usageCache = {}; // a missing or unreadable cache just means a cold scan
+    }
+  }
+
+  async function loadStorageCache() {
+    if (!deps.storageCacheFile) return;
+    try {
+      storageCache = JSON.parse(await fsp.readFile(deps.storageCacheFile, 'utf8'));
+    } catch {
+      storageCache = {};
+    }
+  }
+
+  async function saveStorageCache() {
+    if (!deps.storageCacheFile) return;
+    try {
+      await fsp.mkdir(path.dirname(deps.storageCacheFile), { recursive: true });
+      const tmp = deps.storageCacheFile + '.tmp';
+      await fsp.writeFile(tmp, JSON.stringify(storageCache), 'utf8');
+      await fsp.rename(tmp, deps.storageCacheFile);
+    } catch {
+      // a cache write failure must never break the feature
+    }
+  }
+
+  async function saveUsageCache() {
+    if (!deps.usageCacheFile || !usageCacheDirty) return;
+    try {
+      await fsp.mkdir(path.dirname(deps.usageCacheFile), { recursive: true });
+      const tmp = deps.usageCacheFile + '.tmp';
+      await fsp.writeFile(tmp, JSON.stringify(usageCache), 'utf8');
+      await fsp.rename(tmp, deps.usageCacheFile);
+      usageCacheDirty = false;
+    } catch {
+      // the cache is an optimisation; failing to write it must never break usage
+    }
+  }
 
   const find = (id) => {
     const a = data.accounts.find((x) => x.id === id);
@@ -72,6 +131,8 @@ function createService(deps) {
       }
 
       await fsp.mkdir(deps.profilesRoot, { recursive: true });
+      await loadUsageCache();
+      await loadStorageCache();
       return { recoveredFrom };
     },
 
@@ -174,7 +235,92 @@ function createService(deps) {
       const running = data.accounts
         .filter((a) => set.has(P.normalizeDir(a.dir)))
         .map((a) => a.id);
+
+      // Only record when the scan actually succeeded. A failed scan returns an
+      // empty set, and treating that as "everything stopped" would write a
+      // stream of false stop events into the activity log.
+      if (ok && activity) {
+        try { await activity.record(running); } catch { /* logging is best effort */ }
+      }
+
       return { running, ok };
+    },
+
+    /** Token and cost metadata from Claude Code's session logs. */
+    async usage({ days = 30 } = {}) {
+      if (!deps.claudeProjectsRoot) {
+        throw err('no_usage_source', 'Claude Code session logs were not found on this machine.');
+      }
+      const r = await scanUsage({ projectsRoot: deps.claudeProjectsRoot, cache: usageCache });
+      if (r.parsed > 0) usageCacheDirty = true;
+      usageCache = r.cache;
+      saveUsageCache(); // deliberately not awaited: the answer should not wait on disk
+
+      return {
+        ...buildDashboard(r.sessions, { days }),
+        scan: { files: r.files, parsed: r.parsed, reused: r.reused }
+      };
+    },
+
+    /** Launch history that Multi-Claude observed itself. */
+    async activity({ days = 30 } = {}) {
+      if (!activity) return { accounts: [], daily: [], recent: [], observedSince: null };
+
+      const events = await activity.read();
+      const now = Date.now();
+      const sessions = buildSessions(events, now);
+      const summary = summariseActivity(sessions, { days, now });
+      const labels = Object.fromEntries(data.accounts.map((a) => [a.id, a.label]));
+      const name = (id) => labels[id] || '(removed account)';
+
+      return {
+        accounts: summary.accounts.map((a) => ({ ...a, label: name(a.id) })),
+        daily: summary.daily,
+        recent: sessions.slice(0, 60).map((s) => ({ ...s, label: name(s.id) })),
+        observedSince: events.length ? Math.min(...events.map((e) => e.t)) : null
+      };
+    },
+
+    /**
+     * Per-profile disk usage split into vm / runtime / cache / sessions / data.
+     *
+     * Walking these profiles means ~23 GB across hundreds of thousands of
+     * files, so results are cached on disk and reused for STORAGE_TTL_MS. The
+     * Recalculate button passes force:true.
+     */
+    async storage({ force = false } = {}) {
+      const now = Date.now();
+      const out = [];
+      let changed = false;
+
+      for (const a of data.accounts) {
+        const hit = storageCache[a.dir];
+        if (!force && hit && now - hit.at < STORAGE_TTL_MS) {
+          out.push({ id: a.id, label: a.label, kind: a.kind, dir: a.dir, ...hit.value, cached: true });
+          continue;
+        }
+        const value = await breakdown(a.dir);
+        storageCache[a.dir] = { at: now, value };
+        changed = true;
+        out.push({ id: a.id, label: a.label, kind: a.kind, dir: a.dir, ...value, cached: false });
+      }
+
+      if (changed) saveStorageCache(); // not awaited: the answer should not wait on disk
+      return out;
+    },
+
+    async purgeCache({ id }) {
+      const account = find(id);
+      const { dirs } = await scanner.scan();
+      return purgeCaches({ account, runningDirs: dirs });
+    },
+
+    /** Called on shutdown so an open activity session gets a real end time. */
+    async shutdown() {
+      if (activity) {
+        try { await activity.closeAll(); } catch { /* best effort */ }
+      }
+      await saveUsageCache(); // no-ops unless a scan actually changed it
     },
 
     async sizes() {

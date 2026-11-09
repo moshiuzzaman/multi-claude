@@ -48,8 +48,15 @@ if (!app.requestSingleInstanceLock()) {
       fsImpl: fs, env: process.env, runPowerShell
     });
 
+    const appDir = path.join(app.getPath('appData'), 'multi-claude');
+
     return createService({
-      configFile: path.join(app.getPath('appData'), 'multi-claude', 'accounts.json'),
+      configFile: path.join(appDir, 'accounts.json'),
+      usageCacheFile: path.join(appDir, 'usage-cache.json'),
+      storageCacheFile: path.join(appDir, 'storage-cache.json'),
+      activityFile: path.join(appDir, 'activity.jsonl'),
+      // Claude Code's session logs. Home-based, so shared by every profile.
+      claudeProjectsRoot: path.join(userProfile, '.claude', 'projects'),
       profilesRoot: path.join(userProfile, 'ClaudeProfiles'),
       userProfile,
       defaultProfileDir,
@@ -103,7 +110,7 @@ if (!app.requestSingleInstanceLock()) {
 
   function createWindow() {
     win = new BrowserWindow({
-      width: 780, height: 660, minWidth: 560, minHeight: 440,
+      width: 1140, height: 760, minWidth: 840, minHeight: 560,
       backgroundColor: '#1f1e1d',
       show: false,
       title: 'Multi-Claude',
@@ -112,6 +119,9 @@ if (!app.requestSingleInstanceLock()) {
         nodeIntegration: false,
         sandbox: true,
         webSecurity: true,
+        // The dashboard keeps polling and animating while in the background;
+        // throttling it makes the running indicators go stale.
+        backgroundThrottling: false,
         preload: path.join(__dirname, '..', 'preload', 'preload.js')
       }
     });
@@ -147,13 +157,49 @@ if (!app.requestSingleInstanceLock()) {
         log('[renderer] loaded');
         // The list arrives asynchronously over IPC, so poll briefly rather
         // than sampling once at load and reporting a meaningless zero.
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 48; i++) {
           try {
-            const rows = await win.webContents.executeJavaScript(
-              'document.querySelectorAll(".row").length'
+            const r = await win.webContents.executeJavaScript(
+              'JSON.stringify({panels:document.querySelectorAll(".panel").length,' +
+              'accts:document.querySelectorAll(".acct").length,' +
+              'nav:document.querySelectorAll(".nav-item").length,' +
+              'svg:document.querySelectorAll(".chart-svg").length,' +
+              'bars:document.querySelectorAll(".bar-row").length,' +
+              'skeleton:document.querySelectorAll(".skeleton").length})'
             );
-            if (rows > 0 || i === 19) {
-              log(`[renderer] account rows rendered: ${rows} (after ${(i + 1) * 250}ms)`);
+            const got = JSON.parse(r);
+            // Wait for real data, not merely a mounted shell: bars only render
+            // once the usage scan has returned.
+            const ready = got.panels > 0 && got.skeleton === 0 && got.bars > 0 && got.svg > 0;
+            if (ready || i === 47) {
+              log(`[renderer] rendered after ${(i + 1) * 250}ms: ${r}`);
+              if (process.env.MULTI_CLAUDE_SHOT) {
+                try {
+                  // An occluded window is not recomposited, so capturePage
+                  // would hand back a stale frame. Front it and let it paint.
+                  win.show();
+                  win.focus();
+                  const base = process.env.MULTI_CLAUDE_SHOT.replace(/\.png$/i, '');
+
+                  for (let n = 0; n < 5; n++) {
+                    if (n > 0) {
+                      await win.webContents.executeJavaScript(
+                        `document.querySelectorAll('.nav-item')[${n}].click()`
+                      );
+                    }
+                    await new Promise((r) => setTimeout(r, 1400));
+                    const name = await win.webContents.executeJavaScript(
+                      "document.querySelector('.page-head h1')?.textContent || 'view'"
+                    );
+                    const img = await win.webContents.capturePage();
+                    const out = `${base}-${n}-${String(name).toLowerCase()}.png`;
+                    await fsp.writeFile(out, img.toPNG());
+                    log(`[renderer] screenshot -> ${out}`);
+                  }
+                } catch (err) {
+                  log(`[renderer] screenshot failed: ${err.message}`);
+                }
+              }
               return;
             }
           } catch (e) {
@@ -203,6 +249,16 @@ if (!app.requestSingleInstanceLock()) {
     registerAppProtocol();
     ipc.register(service);
     createWindow();
+  });
+
+  // Close any open activity session and flush the usage cache before exiting.
+  let shuttingDown = false;
+  app.on('before-quit', async (e) => {
+    if (shuttingDown || !service) return;
+    shuttingDown = true;
+    e.preventDefault();
+    try { await service.shutdown(); } catch { /* best effort */ }
+    app.quit();
   });
 
   app.on('window-all-closed', () => app.quit());
