@@ -1,16 +1,18 @@
 'use strict';
-// Closing a running profile.
+// Quitting a running profile.
 //
-// Finding the right process is the whole problem. A Claude instance is a tree
-// of claude.exe processes, and the --user-data-dir flag is not on all of them:
-// an instance started normally (the default profile) has no flag on its main
-// process, only on its children. So we match on any process carrying the
-// profile's directory, then walk up through claude.exe parents to the root of
-// that instance's tree.
+// Finding the right process is half the problem. A Claude instance is a tree of
+// claude.exe processes, and --user-data-dir is not on all of them: an instance
+// started normally (the default profile) has no flag on its main process, only
+// on its children. So we match on any process carrying the profile's directory,
+// then walk up through claude.exe parents to the root of that instance's tree.
 //
-// The close itself is graceful: taskkill WITHOUT /F posts WM_CLOSE, which
-// Electron handles as a normal quit. Force-killing would risk losing whatever
-// the user had open, so it is never done implicitly.
+// The other half: Claude Desktop lives in the system tray. Closing its window
+// only hides it, and a graceful `taskkill` (no /F) cannot make it quit — we
+// measured both on a throwaway profile; the process survived each time and
+// only `/T /F` ended it. So quitting is a force-kill of that one instance's
+// tree. That stops anything running inside it, which is why the UI asks for
+// confirmation first and why this must never be called implicitly.
 
 const { normalizeDir } = require('./paths.js');
 
@@ -76,6 +78,7 @@ function findRootPids(processes, targetDir) {
 function createCloser({ runPowerShell }) {
   return {
     /**
+     * Force-quit every claude.exe tree using `dir`.
      * @returns {{ closed: number, pids: number[] }}
      * closed:0 means nothing was running for that profile.
      */
@@ -84,8 +87,10 @@ function createCloser({ runPowerShell }) {
       const roots = findRootPids(processes, dir);
       if (roots.length === 0) return { closed: 0, pids: [] };
 
-      // No /F: this asks the window to close rather than killing it outright.
-      const cmd = roots.map((pid) => `taskkill /PID ${pid}`).join('; ');
+      // /T takes the whole tree with its root; /F because a graceful request
+      // cannot make a tray-resident Claude quit. Only roots are named, so
+      // nothing outside this profile's instance is ever targeted.
+      const cmd = roots.map((pid) => `taskkill /PID ${pid} /T /F`).join('; ');
       try {
         await runPowerShell(cmd);
       } catch {

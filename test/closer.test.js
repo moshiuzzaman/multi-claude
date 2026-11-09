@@ -79,7 +79,7 @@ test('close reports nothing closed when the profile is idle', async () => {
   assert.deepStrictEqual(await closer.close(DEFAULT), { closed: 0, pids: [] });
 });
 
-test('close issues a graceful taskkill for the root pid only', async () => {
+test('close force-kills the root tree, and only the root', async () => {
   const calls = [];
   const closer = C.createCloser({
     runPowerShell: async (cmd) => {
@@ -94,9 +94,27 @@ test('close issues a graceful taskkill for the root pid only', async () => {
   const r = await closer.close(WORK);
   assert.deepStrictEqual(r, { closed: 1, pids: [100] });
   const kill = calls.find((c) => c.includes('taskkill'));
-  assert.ok(kill.includes('taskkill /PID 100'), 'kills the root');
-  assert.ok(!kill.includes('101'), 'does not kill children directly');
-  assert.ok(!/\/F\b/.test(kill), 'must not force-kill: that would lose unsaved work');
+  // Measured on a real profile: a graceful taskkill leaves a tray-resident
+  // Claude running, so /F is required. /T carries the children down with it.
+  assert.ok(kill.includes('taskkill /PID 100 /T /F'), 'force-kills the root with its tree');
+  assert.ok(!kill.includes('101'), 'children are reached via /T, never named directly');
+  assert.ok(!kill.includes('/PID 4'), 'the non-claude parent is never targeted');
+});
+
+test('close never targets another profile', async () => {
+  const calls = [];
+  const closer = C.createCloser({
+    runPowerShell: async (cmd) => {
+      calls.push(cmd);
+      if (cmd.includes('Win32_Process')) {
+        return [`100|4|${WORK}`, `200|4|`, `201|200|${DEFAULT}`].join('\n');
+      }
+      return '';
+    }
+  });
+  await closer.close(WORK);
+  const kill = calls.find((c) => c.includes('taskkill'));
+  assert.ok(!kill.includes('200') && !kill.includes('201'), 'the default instance is untouched');
 });
 
 test('close tolerates taskkill failing on an already-gone process', async () => {

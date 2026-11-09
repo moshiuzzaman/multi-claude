@@ -165,19 +165,28 @@ On first run the app registers your existing default account and, if you have on
 ## Launching and closing
 
 Each row carries one button that changes with the profile's state: **Launch** when it is
-idle, **Close** when it is running. Close is graceful — it finds the root `claude.exe` of
-that instance's process tree and posts a normal window-close (`taskkill` with no `/F`),
-so Claude shuts down the way it would if you clicked the X. Nothing is force-killed.
+idle, **Close** when it is running. Close asks for confirmation, then quits that profile.
 
-Finding the right process takes a little care, because `--user-data-dir` is not on every
-process in the tree: an instance started without the flag (your default profile) only has
-it on its children. So the lookup matches any process carrying the profile's directory and
-then walks up through `claude.exe` parents to the root, which keeps it inside that one
-instance.
+**Close is a force-quit, and that is deliberate.** Claude Desktop lives in the system tray:
+closing its window only hides it, and a polite `taskkill` (no `/F`) cannot make it quit.
+Both were tried against a throwaway profile and the process survived each time; only
+`taskkill /T /F` ended it. So Close ends that one instance's process tree, which also stops
+anything running inside it — an active chat, a Claude Code session. You stay signed in and
+nothing is deleted. That is why it asks first.
 
-When the running check itself fails, the button falls back to **Launch** rather than
-offering to close something that may not be open. Clicking Launch on an already-running
-profile simply focuses its existing window.
+Finding the right process takes care, because `--user-data-dir` is not on every process in
+the tree: an instance started without the flag (your default profile) only has it on its
+children. So the lookup matches any process carrying the profile's directory and walks up
+through `claude.exe` parents to the root, which keeps it inside that one instance. Only that
+root is named to `taskkill`, so no other account can be touched.
+
+After the kill the app waits until the process scan agrees the instance is gone, and reports
+what actually happened — it will say so if the profile survives, rather than claiming success.
+A failed scan is never read as "gone".
+
+When the running check itself fails, the button falls back to **Launch** rather than offering
+to quit something that may not be open. Launch on an already-running profile just focuses its
+existing window.
 
 ## Deleting an account
 

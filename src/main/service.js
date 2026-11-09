@@ -181,25 +181,41 @@ function createService(deps) {
     },
 
     /**
-     * Ask a running profile's Claude window to close. Graceful only — see
-     * closer.js. Returns { closed: 0 } when nothing was running, which the UI
-     * treats as "already closed" rather than an error.
+     * Quit a running profile — a force-kill of that one instance's process tree
+     * (see closer.js for why a graceful close cannot work). The caller must have
+     * confirmed with the user first: anything running inside it stops.
+     *
+     * Waits for the scan to agree the instance is gone, so the answer is what
+     * actually happened rather than what was attempted.
+     * Returns { closed, stillRunning }; closed:0 means it was not running.
      */
     async closeAccount({ id }) {
       const account = find(id);
       if (!deps.closer) throw err('unsupported', 'Closing is not available here.');
+
       const r = await deps.closer.close(account.dir);
-      if (r.closed > 0 && activity) {
-        // Reflect the close in the activity log without waiting for the poll.
-        try {
-          const { dirs } = await scanner.scan();
-          const set = new Set(dirs.map(P.normalizeDir).filter(Boolean));
-          await activity.record(
-            data.accounts.filter((a) => set.has(P.normalizeDir(a.dir))).map((a) => a.id)
-          );
-        } catch { /* best effort */ }
+      if (r.closed === 0) return { closed: 0, stillRunning: false };
+
+      const target = P.normalizeDir(account.dir);
+      const sleep = deps.sleep || ((ms) => new Promise((res) => setTimeout(res, ms)));
+      let stillRunning = true;
+
+      for (let i = 0; i < 8 && stillRunning; i++) {
+        await sleep(i === 0 ? 300 : 500);
+        const { dirs, ok } = await scanner.scan();
+        if (!ok) continue; // a failed scan proves nothing either way
+        const set = new Set(dirs.map(P.normalizeDir).filter(Boolean));
+        stillRunning = set.has(target);
+        if (activity) {
+          try {
+            await activity.record(
+              data.accounts.filter((a) => set.has(P.normalizeDir(a.dir))).map((a) => a.id)
+            );
+          } catch { /* best effort */ }
+        }
       }
-      return r;
+
+      return { closed: r.closed, stillRunning };
     },
 
     async remove({ id, confirmLabel, unlockOutsideRoot }) {
@@ -367,6 +383,8 @@ function createService(deps) {
     },
 
     _setScannerForTest(s) { scanner = s; },
+    _setCloserForTest(c) { deps.closer = c; },
+    _setSleepForTest(f) { deps.sleep = f; },
     _setLocatorForTest(l) { locator = l; }
   };
 }
