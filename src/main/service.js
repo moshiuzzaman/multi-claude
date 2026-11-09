@@ -19,6 +19,11 @@ const { buildDashboard } = require('./usage-aggregate.js');
 const { createActivityLog, buildSessions, summariseActivity } = require('./activity-log.js');
 const { breakdown, purgeCaches } = require('./storage.js');
 const { readAccountInfo } = require('./account-info.js');
+const limitsMod = require('./limits.js');
+const ccCliMod = require('./cc-cli.js');
+
+const LIMITS_FILE = 'multi-claude-limits.json';
+const AUTH_TTL_MS = 2 * 60 * 1000;
 
 function err(code, message) {
   const e = new Error(message);
@@ -44,6 +49,42 @@ function createService(deps) {
   const activity = deps.activityFile ? createActivityLog({ file: deps.activityFile }) : null;
 
   const persist = () => store.save(deps.configFile, data);
+
+  // ---- per-account Claude Code (for plan limits) ---------------------------
+  const ccCli = deps.ccCli || {
+    find: () => ccCliMod.findClaudeCli(),
+    authStatus: (cli, dir) => ccCliMod.authStatus(cli, dir),
+    openTerminal: (cli, dir, args, opts) => ccCliMod.openTerminal(cli, dir, args, opts)
+  };
+  let cliPromise = null;
+  const authCache = new Map(); // account id -> { at, auth }
+
+  const ccDirFor = (a) => (deps.ccRoot ? path.join(deps.ccRoot, a.id) : null);
+
+  async function cli() {
+    if (!cliPromise) cliPromise = Promise.resolve(ccCli.find()).catch(() => null);
+    const found = await cliPromise;
+    if (!found) cliPromise = null; // let a later call find a fresh install
+    return found;
+  }
+
+  /** Make sure this account's config dir records limits via the status line. */
+  async function prepareCcDir(a) {
+    const dir = ccDirFor(a);
+    if (!dir) throw err('unsupported', 'Plan limits are not available here.');
+    const recorder = await limitsMod.ensureRecorder(deps.recorderFile);
+    await limitsMod.ensureStatusLine(dir, limitsMod.statusLineCommand(recorder, path.join(dir, LIMITS_FILE)));
+    return dir;
+  }
+
+  async function requireCli() {
+    const found = await cli();
+    if (!found) {
+      throw err('no_claude_code',
+        'Claude Code is not installed. Install it from code.claude.com, then try again.');
+    }
+    return found;
+  }
 
   async function loadUsageCache() {
     if (!deps.usageCacheFile) return;
@@ -231,6 +272,14 @@ function createService(deps) {
         userProfile: deps.userProfile
       });
 
+      // The account's Claude Code sign-in goes with it. Guarded so it can only
+      // ever delete a folder inside Multi-Claude's own cc root.
+      const cc = ccDirFor(account);
+      if (cc && P.isInside(cc, deps.ccRoot)) {
+        try { await fsp.rm(cc, { recursive: true, force: true }); } catch { /* best effort */ }
+      }
+      authCache.delete(id);
+
       data.accounts = data.accounts.filter((x) => x.id !== id);
       await persist();
       return { ok: true };
@@ -313,6 +362,58 @@ function createService(deps) {
         return { available: false, reason: 'Claude Code config path not configured.' };
       }
       return readAccountInfo(deps.claudeConfigFile);
+    },
+
+    /**
+     * Each account's real Session (5hr) / Weekly (7 day) limits, as recorded by
+     * that account's own Claude Code status line. See limits.js.
+     */
+    async limits({ force = false } = {}) {
+      const found = await cli();
+      const now = Date.now();
+
+      const rows = await Promise.all(data.accounts.map(async (a) => {
+        const dir = ccDirFor(a);
+        const connected = !!dir && fs.existsSync(dir);
+        let auth = { loggedIn: false };
+
+        if (connected && found) {
+          const hit = authCache.get(a.id);
+          if (!force && hit && now - hit.at < AUTH_TTL_MS) {
+            auth = hit.auth;
+          } else {
+            auth = await ccCli.authStatus(found.path, dir);
+            authCache.set(a.id, { at: now, auth });
+          }
+        }
+
+        const lim = connected ? await limitsMod.readLimits(path.join(dir, LIMITS_FILE), now) : null;
+        return { id: a.id, label: a.label, connected, auth, limits: lim };
+      }));
+
+      return {
+        cli: found ? { version: found.version.join('.') } : null,
+        accounts: rows
+      };
+    },
+
+    /** Open Anthropic's own sign-in for this account, in a visible terminal. */
+    async connectAccount({ id }) {
+      const a = find(id);
+      const found = await requireCli();
+      const dir = await prepareCcDir(a);
+      authCache.delete(id);
+      ccCli.openTerminal(found.path, dir, ['auth', 'login'], { title: `Sign in: ${a.label}` });
+      return { ok: true };
+    },
+
+    /** Open an interactive Claude Code session as this account. */
+    async openClaudeCode({ id }) {
+      const a = find(id);
+      const found = await requireCli();
+      const dir = await prepareCcDir(a);
+      ccCli.openTerminal(found.path, dir, [], { title: `Claude Code: ${a.label}` });
+      return { ok: true };
     },
 
     /** Launch history that Multi-Claude observed itself. */

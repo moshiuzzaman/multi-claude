@@ -55,6 +55,9 @@ if (!app.requestSingleInstanceLock()) {
       configFile: path.join(appDir, 'accounts.json'),
       usageCacheFile: path.join(appDir, 'usage-cache.json'),
       storageCacheFile: path.join(appDir, 'storage-cache.json'),
+      // One Claude Code config dir per account, each with its own official sign-in.
+      ccRoot: path.join(appDir, 'cc'),
+      recorderFile: path.join(appDir, 'limits-recorder.ps1'),
       activityFile: path.join(appDir, 'activity.jsonl'),
       // Claude Code's session logs. Home-based, so shared by every profile.
       claudeProjectsRoot: path.join(userProfile, '.claude', 'projects'),

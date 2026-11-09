@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Gauge from '../charts/Gauge.jsx';
 import BarList from '../charts/BarList.jsx';
+import LimitsPanel from '../components/LimitsPanel.jsx';
 import { compact, full, foldOther } from '../lib/format.js';
 
 function shortSkill(key) {
@@ -35,7 +36,7 @@ const ORDER = [
   'organizationRateLimitTier', 'hasExtraUsageEnabled'
 ];
 
-export default function Account({ usage, usageLoading, accountInfo, accounts, actions }) {
+export default function Account({ usage, usageLoading, accountInfo, accounts, actions, limits, limitsLoading, limitsBusyId }) {
   const [win, setWin] = useState('day');
 
   const rolling = usage && !usage.unavailable ? usage.rolling : null;
@@ -51,13 +52,14 @@ export default function Account({ usage, usageLoading, accountInfo, accounts, ac
       </div>
 
       <div className="stack">
+        <LimitsPanel limits={limits} loading={limitsLoading} actions={actions} busyId={limitsBusyId} />
+
         {/* ---- rolling windows ---- */}
         <div className="panel">
-          <div className="panel-title">Recent token volume</div>
+          <div className="panel-title">Local token volume · all accounts</div>
           <div className="panel-note">
-            Shaped like Claude's Session and Weekly bars, but these are token counts from
-            your local logs — not a percentage of your plan allowance. Multi-Claude cannot
-            read your allowance; see the note at the bottom for where the real figures live.
+            Token counts from the Claude Code logs on this PC, compared with your own busiest
+            stretch. Not a plan limit — those are in the panel above, per account.
           </div>
 
           {usageLoading && !usage && <div className="skeleton" style={{ height: 120, marginTop: 14 }} />}
@@ -168,27 +170,6 @@ export default function Account({ usage, usageLoading, accountInfo, accounts, ac
           )}
         </div>
 
-        {/* ---- where the real limits are ---- */}
-        <div className="panel">
-          <div className="panel-title">Your real Session and Weekly limits</div>
-          <div className="panel-note">
-            Those percentages come from an authenticated request Claude Desktop makes with
-            your session token. They are not written to disk, so no third-party app can
-            read them — and Multi-Claude deliberately does not touch your credentials to
-            try. Open the account you care about and check there:
-          </div>
-          <div className="limit-links">
-            {accounts.map((a) => (
-              <button key={a.id} className="ghost" onClick={() => actions.launch(a)}>
-                Open {a.label} →
-              </button>
-            ))}
-          </div>
-          <div className="note" style={{ marginTop: 14 }}>
-            In Claude Desktop: click your avatar, then <strong>Account &amp; Usage</strong>.
-            The Session (5hr) and Weekly (7 day) bars there are the authoritative figures.
-          </div>
-        </div>
       </div>
     </>
   );

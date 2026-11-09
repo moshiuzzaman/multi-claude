@@ -22,6 +22,9 @@ export const api = {
   rename: (id, label) => call('rename', { id, label }),
   launch: (id) => call('launch', { id }),
   closeAccount: (id) => call('closeAccount', { id }),
+  limits: (opts) => call('limits', opts),
+  connectAccount: (id) => call('connectAccount', { id }),
+  openClaudeCode: (id) => call('openClaudeCode', { id }),
   remove: (id, confirmLabel, unlockOutsideRoot) =>
     call('remove', { id, confirmLabel, unlockOutsideRoot }),
   forget: (id) => call('forget', { id }),

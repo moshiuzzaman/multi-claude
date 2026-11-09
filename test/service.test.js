@@ -16,8 +16,19 @@ function harness() {
 
   const launched = [];
   const shortcuts = [];
+  const terminals = [];
+  const authCalls = [];
+  const authReply = { value: { loggedIn: false } };
+  const cliInstalled = { value: true };
   const svc = createService({
     configFile: path.join(base, 'cfg', 'accounts.json'),
+    ccRoot: path.join(base, 'cfg', 'cc'),
+    recorderFile: path.join(base, 'cfg', 'limits-recorder.ps1'),
+    ccCli: {
+      find: async () => (cliInstalled.value ? { path: 'C:\\cc\\claude.exe', version: [2, 1, 319] } : null),
+      authStatus: async (cli, dir) => { authCalls.push(dir); return authReply.value; },
+      openTerminal: (cli, dir, args) => { terminals.push({ dir, args }); }
+    },
     storageCacheFile: path.join(base, 'cfg', 'storage-cache.json'),
     activityFile: path.join(base, 'cfg', 'activity.jsonl'),
     usageCacheFile: path.join(base, 'cfg', 'usage-cache.json'),
@@ -36,7 +47,8 @@ function harness() {
     appExePath: 'C:\\MC\\Multi-Claude.exe'
   });
 
-  return { base, userProfile, profilesRoot, defaultProfileDir, svc, launched, shortcuts };
+  return { base, userProfile, profilesRoot, defaultProfileDir, svc, launched, shortcuts,
+           terminals, authCalls, authReply, cliInstalled };
 }
 
 function cleanup(h) {
@@ -421,6 +433,91 @@ test('closeAccount on an idle profile closes nothing', async () => {
   h.svc._setCloserForTest({ close: async () => ({ closed: 0, pids: [] }) });
   const r = await h.svc.closeAccount({ id: a.id });
   assert.deepStrictEqual(r, { closed: 0, stillRunning: false });
+  cleanup(h);
+});
+
+test('limits shows an account as not connected until it signs in', async () => {
+  const h = harness();
+  await h.svc.init();
+  const r = await h.svc.limits();
+  assert.strictEqual(r.cli.version, '2.1.319');
+  assert.strictEqual(r.accounts[0].connected, false);
+  assert.strictEqual(r.accounts[0].limits, null);
+  assert.strictEqual(h.authCalls.length, 0, 'no CLI call for an account never connected');
+  cleanup(h);
+});
+
+test('connectAccount wires the status line and opens the official sign-in', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Plan Test' });
+
+  await h.svc.connectAccount({ id: a.id });
+  const dir = path.join(h.base, 'cfg', 'cc', a.id);
+  const settings = JSON.parse(fs.readFileSync(path.join(dir, 'settings.json'), 'utf8'));
+  assert.match(settings.statusLine.command, /limits-recorder\.ps1/);
+  assert.match(settings.statusLine.command, /multi-claude-limits\.json/);
+  assert.ok(fs.existsSync(path.join(h.base, 'cfg', 'limits-recorder.ps1')));
+  assert.deepStrictEqual(h.terminals[0], { dir, args: ['auth', 'login'] });
+  cleanup(h);
+});
+
+test('limits reports the signed-in account and its recorded windows', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Has Limits' });
+  await h.svc.connectAccount({ id: a.id });
+
+  const dir = path.join(h.base, 'cfg', 'cc', a.id);
+  const later = Math.floor(Date.now() / 1000) + 3600;
+  fs.writeFileSync(path.join(dir, 'multi-claude-limits.json'), JSON.stringify({
+    recordedAt: Date.now(),
+    rate_limits: { five_hour: { used_percentage: 67, resets_at: later }, seven_day: { used_percentage: 16, resets_at: later } }
+  }));
+  h.authReply.value = { loggedIn: true, email: 'me@x.com', subscriptionType: 'pro' };
+
+  const row = (await h.svc.limits({ force: true })).accounts.find((r) => r.id === a.id);
+  assert.strictEqual(row.connected, true);
+  assert.strictEqual(row.auth.email, 'me@x.com');
+  assert.strictEqual(row.limits.fiveHour.usedPct, 67);
+  assert.strictEqual(row.limits.sevenDay.usedPct, 16);
+  cleanup(h);
+});
+
+test('limits caches the auth status between refreshes', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Cached Auth' });
+  await h.svc.connectAccount({ id: a.id });
+  await h.svc.limits();
+  await h.svc.limits();
+  assert.strictEqual(h.authCalls.length, 1, 'second refresh reuses the cached status');
+  await h.svc.limits({ force: true });
+  assert.strictEqual(h.authCalls.length, 2, 'force re-asks the CLI');
+  cleanup(h);
+});
+
+test('connectAccount fails clearly when Claude Code is not installed', async () => {
+  const h = harness();
+  h.cliInstalled.value = false;
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'No CLI' });
+  await assert.rejects(() => h.svc.connectAccount({ id: a.id }), (e) => e.code === 'no_claude_code');
+  assert.strictEqual(h.terminals.length, 0);
+  cleanup(h);
+});
+
+test('deleting an account also removes its Claude Code sign-in folder', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Gone With CC' });
+  await h.svc.connectAccount({ id: a.id });
+  const dir = path.join(h.base, 'cfg', 'cc', a.id);
+  assert.ok(fs.existsSync(dir));
+
+  await h.svc.remove({ id: a.id, confirmLabel: 'Gone With CC', unlockOutsideRoot: false });
+  assert.ok(!fs.existsSync(dir), 'the per-account sign-in must not be left behind');
+  assert.ok(fs.existsSync(path.join(h.base, 'cfg', 'cc')), 'the cc root itself survives');
   cleanup(h);
 });
 
