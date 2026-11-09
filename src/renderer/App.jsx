@@ -34,6 +34,9 @@ export default function App() {
   const [activity, setActivity] = useState(null);
   const [storage, setStorage] = useState(null);
   const [accountInfo, setAccountInfo] = useState(null);
+  const [limits, setLimits] = useState(null);
+  const [limitsLoading, setLimitsLoading] = useState(false);
+  const [limitsBusyId, setLimitsBusyId] = useState(null);
   const [days, setDays] = useState(30);
 
   const [toast, setToast] = useState(null);
@@ -112,6 +115,15 @@ export default function App() {
     return p;
   }, [fail]);
 
+  // Plan limits per account. Cheap to refresh: the auth status is cached in the
+  // main process and the limits themselves are a small file per account.
+  const loadLimits = useCallback(async (force = false) => {
+    setLimitsLoading(true);
+    try { setLimits(await api.limits({ force })); }
+    catch (e) { fail(e); }
+    finally { setLimitsLoading(false); }
+  }, [fail]);
+
   const loadAccountInfo = useCallback(async () => {
     try { setAccountInfo(await api.accountInfo()); }
     catch (e) { setAccountInfo({ available: false, reason: e.message }); }
@@ -140,6 +152,15 @@ export default function App() {
     setUsage(null);
     setActivity(null);
   };
+
+  // While the Account view is open and focused, re-read limits every 20 s so a
+  // figure recorded by a Claude Code session in another window shows up on its own.
+  useEffect(() => {
+    if (view !== 'account') return undefined;
+    loadLimits(false);
+    const t = setInterval(() => { if (document.hasFocus()) loadLimits(false); }, 20000);
+    return () => clearInterval(t);
+  }, [view, loadLimits]);
 
   // Poll only while focused: each scan spawns a PowerShell process.
   useEffect(() => {
@@ -230,6 +251,23 @@ export default function App() {
         say(freed > 0 ? `Freed ${(freed / 1048576).toFixed(0)} MB from ${a.label}.` : 'No cache to clear.');
       } catch (e) { fail(e); }
     },
+    connect: async (row) => {
+      setLimitsBusyId(row.id);
+      try {
+        await api.connectAccount(row.id);
+        say(`Sign-in opened for ${row.label}. Finish it in the browser, then press Refresh.`);
+      } catch (e) { fail(e); }
+      finally { setLimitsBusyId(null); }
+    },
+    openClaudeCode: async (row) => {
+      setLimitsBusyId(row.id);
+      try {
+        await api.openClaudeCode(row.id);
+        say(`Claude Code opened as ${row.label}. Its limits update after your first message.`);
+      } catch (e) { fail(e); }
+      finally { setLimitsBusyId(null); }
+    },
+    refreshLimits: (force) => loadLimits(force),
     startRename: setRenaming,
     startDelete: setDeleting,
     refreshUsage: () => { setUsage(null); },
@@ -238,6 +276,7 @@ export default function App() {
 
   const shared = {
     accounts, running, scanOk, sizes, usage, usageLoading, activity, storage, accountInfo,
+    limits, limitsLoading, limitsBusyId,
     days, setDays: changeRange, actions, setView
   };
 

@@ -27,10 +27,8 @@ The Usage and Dashboard views read Claude Code's own session logs in
 1. **It is Claude Code usage, not Claude.ai chat usage.** Your subscription's
    "messages used / limit remaining" is not exposed locally or through any API a
    third-party app can call. This app does not show it and does not estimate it.
-   The Session (5hr) and Weekly (7 day) percentages in Claude Desktop's own
-   Account & Usage panel come from an authenticated request made with your session
-   token; the only file on disk matching those terms is your credential store, which
-   this app never opens. The Account view says so and points you at the real panel.
+   Your real per-account Session and Weekly limits are a separate feature — see
+   **Usage limits by account** below.
 2. **Metadata only.** The reader extracts token counts, timestamps, model names, project
    folder paths and recorded cost. It never reads, stores or displays message text,
    prompts, replies or tool arguments. There is a test that asserts this.
@@ -42,6 +40,46 @@ The Usage and Dashboard views read Claude Code's own session logs in
 
 History is different: Multi-Claude observes it directly, so it is exact per account. The
 limit there is that it can only see what runs while the manager itself is open.
+
+### Usage limits by account
+
+The Account view shows each account's real **Session (5hr)** and **Weekly (7 day)**
+limits — the same numbers as Claude's own Account & Usage panel — through the one route
+Anthropic sanctions for it.
+
+**Why the app can't just read them like VS Code does.** VS Code, the Claude Code CLI and
+Claude Desktop are Anthropic's own apps. When you sign in, Anthropic's login hands *that
+app* a token, and it shows your limits by calling Anthropic with that token. You sign in
+to Claude Desktop, not to Multi-Claude. To do the same, Multi-Claude would have to take
+one of those tokens off disk and use it — and Anthropic's Claude Code terms say developers
+"may not collect, store, or intermediate Claude.ai credentials or session tokens", and
+reserve the right to enforce that without notice. On accounts you rely on, that is not a
+risk worth taking. So the app never does it.
+
+**What it does instead.** Claude Code itself passes `rate_limits.five_hour` and
+`rate_limits.seven_day` (used percentage and reset time) to a *status-line* command, as a
+documented feature. Multi-Claude gives every account its own Claude Code config folder
+(`%APPDATA%\multi-claude\cc\<account id>`, via `CLAUDE_CONFIG_DIR`) with a small
+status-line recorder that copies **only** that `rate_limits` object to a file, which the
+app then reads.
+
+1. **Connect** opens Anthropic's own `claude auth login` in a terminal you can see. You
+   sign in to that account in your browser, once. The unmodified Claude Code binary keeps
+   its own credentials in that folder; Multi-Claude never opens them.
+2. **Open Claude Code** starts a session as that account. After your first message the
+   limits appear, and they update every time you use Claude Code with that account.
+3. The limits are account-wide, so chat, Desktop and Claude Code usage all count toward
+   the same numbers.
+
+The newest Claude Code installed on the PC is used automatically. Things worth knowing:
+
+- Figures are as fresh as your last Claude Code message on that account; the panel shows
+  how old they are, and marks a window as reset once its reset time passes.
+- Anthropic documents `rate_limits` for Pro, Max and Ultra. A plan that doesn't report
+  them will simply show no figures.
+- Make sure you sign in with the same account the Desktop profile uses — the panel shows
+  the signed-in email so you can check.
+- Deleting an account also deletes its Claude Code sign-in folder.
 
 ### The rolling gauges
 
