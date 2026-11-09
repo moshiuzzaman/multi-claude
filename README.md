@@ -15,6 +15,7 @@ Replaces hand-edited `.bat` files like `Claude-Account2.bat`.
 | **Dashboard** | Headline token counts, tokens-per-day chart, model split, account shortcuts |
 | **Accounts** | Launch, open folder, make a shortcut, rename, delete |
 | **Usage** | Input/output/cache tokens and cost over time, by model, by project, by account |
+| **Account** | Rolling 5-hour / 7-day token volume, what's driving it (skills, plugins, MCP), and the Claude Code account card |
 | **History** | Which account was open, when, and for how long |
 | **Storage** | Per-profile disk usage split by category, with a cache purge |
 
@@ -26,6 +27,10 @@ The Usage and Dashboard views read Claude Code's own session logs in
 1. **It is Claude Code usage, not Claude.ai chat usage.** Your subscription's
    "messages used / limit remaining" is not exposed locally or through any API a
    third-party app can call. This app does not show it and does not estimate it.
+   The Session (5hr) and Weekly (7 day) percentages in Claude Desktop's own
+   Account & Usage panel come from an authenticated request made with your session
+   token; the only file on disk matching those terms is your credential store, which
+   this app never opens. The Account view says so and points you at the real panel.
 2. **Metadata only.** The reader extracts token counts, timestamps, model names, project
    folder paths and recorded cost. It never reads, stores or displays message text,
    prompts, replies or tool arguments. There is a test that asserts this.
@@ -37,6 +42,27 @@ The Usage and Dashboard views read Claude Code's own session logs in
 
 History is different: Multi-Claude observes it directly, so it is exact per account. The
 limit there is that it can only see what runs while the manager itself is open.
+
+### The rolling gauges
+
+The Account view's two bars are shaped like Claude's Session and Weekly meters, but a bar
+needs a denominator and there is no real allowance to use. The denominator is therefore
+**your own busiest comparable window in the last 30 days** — a number this app can
+actually compute — and every label says exactly that. They are token counts, never a
+percentage of a plan limit.
+
+Skills and plugins are measured in tokens, read straight off the assistant turns carrying
+`attributionSkill` / `attributionPlugin`. MCP servers are measured in **tool calls**
+instead: one turn can call several servers, so dividing its tokens between them would be
+an invented figure.
+
+### The account card
+
+`~/.claude.json` describes exactly one account — whichever Claude Code is signed in as —
+because it lives in your home folder and is shared by every profile. It can and does
+differ from the account a given Claude Desktop profile is logged into. There is no
+per-profile equivalent: that identity lives inside each profile's Chromium credential
+storage, which this app does not read.
 
 ### Performance
 
