@@ -9,7 +9,8 @@ const CHANNELS = [
   'list', 'add', 'rename', 'launch', 'remove', 'forget',
   'openFolder', 'createShortcut', 'locateExe', 'scan', 'sizes',
   'usage', 'activity', 'storage', 'purgeCache', 'accountInfo', 'closeAccount',
-  'limits', 'connectAccount', 'openClaudeCode'
+  'limits', 'connectAccount', 'openClaudeCode',
+  'loginStatus', 'loginSubmit', 'loginCancel', 'loginOpenPage'
 ];
 
 function register(service) {
@@ -30,6 +31,10 @@ function register(service) {
     limits: (p) => service.limits(p),
     connectAccount: (p) => service.connectAccount(p),
     openClaudeCode: (p) => service.openClaudeCode(p),
+    loginStatus: (p) => service.loginStatus(p),
+    loginSubmit: (p) => service.loginSubmit(p),
+    loginCancel: (p) => service.loginCancel(p),
+    loginOpenPage: (p) => service.loginOpenPage(p),
     remove: (p) => service.remove(p),
     forget: (p) => service.forget(p),
     openFolder: (p) => service.openFolder(p),

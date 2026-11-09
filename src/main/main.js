@@ -222,6 +222,33 @@ if (!app.requestSingleInstanceLock()) {
                   await win.webContents.executeJavaScript(
                     "[...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Cancel')?.click()"
                   );
+
+                  // Opt-in: exercise the real in-app sign-in with a deliberately
+                  // invalid code. Never completes a sign-in.
+                  if (process.env.MULTI_CLAUDE_SHOT_SIGNIN) {
+                    const js = (code) => win.webContents.executeJavaScript(code);
+                    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+                    await js("[...document.querySelectorAll('.nav-item')].find(b => b.textContent.includes('Account') && !b.textContent.includes('Accounts'))?.click()");
+                    await wait(1500);
+                    await js("[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Connect')?.click()");
+                    await wait(6000);
+                    await fsp.writeFile(`${base}-signin-1-waiting.png`, (await win.webContents.capturePage()).toPNG());
+                    await js("[...document.querySelectorAll('button')].find(b => b.textContent.includes(\"didn't open\"))?.click()");
+                    await wait(500);
+                    await js(`(() => {
+                      const el = document.getElementById('signin-code');
+                      const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+                      set.call(el, 'not-a-real-code#123');
+                      el.dispatchEvent(new Event('input', { bubbles: true }));
+                    })()`);
+                    await wait(300);
+                    await fsp.writeFile(`${base}-signin-2-paste.png`, (await win.webContents.capturePage()).toPNG());
+                    await js("[...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Submit')?.click()");
+                    await wait(9000);
+                    await fsp.writeFile(`${base}-signin-3-result.png`, (await win.webContents.capturePage()).toPNG());
+                    log('[renderer] sign-in probe captured');
+                    await js("[...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Cancel')?.click()");
+                  }
                 } catch (err) {
                   log(`[renderer] screenshot failed: ${err.message}`);
                 }

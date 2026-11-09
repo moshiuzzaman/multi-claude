@@ -3,6 +3,7 @@ import { api } from './lib/api.js';
 import Icon from './components/Icon.jsx';
 import DeleteDialog from './components/DeleteDialog.jsx';
 import QuitDialog from './components/QuitDialog.jsx';
+import SignInDialog from './components/SignInDialog.jsx';
 import TextPromptDialog from './components/TextPromptDialog.jsx';
 import Dashboard from './views/Dashboard.jsx';
 import Accounts from './views/Accounts.jsx';
@@ -43,6 +44,7 @@ export default function App() {
   const [exeMissing, setExeMissing] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [quitting, setQuitting] = useState(null);
+  const [signingIn, setSigningIn] = useState(null); // { id, label } while connecting
   const [renaming, setRenaming] = useState(null);
   const [adding, setAdding] = useState(false);
 
@@ -219,16 +221,10 @@ export default function App() {
         return;
       }
 
-      // The account exists either way; a failed Claude Code sign-in must not
-      // look like a failed Add. It can be retried from the Account tab.
-      try {
-        await api.connectAccount(a.id);
-        say(`Created ${a.label}. Sign in to Claude in the new window, then finish the Claude Code sign-in in your browser — use the same account for both.`);
-      } catch (e) {
-        say(`Created ${a.label}. Claude Code sign-in didn't start: ${e.message} You can connect it later from the Account tab.`, true);
-      }
-      setLimits(null);
-      loadLimits(true);
+      // The account exists either way; the sign-in dialog handles its own
+      // failures and can be retried later from the Account tab.
+      say(`Created ${a.label}. Sign in to Claude in the new window, and finish the Claude Code sign-in here.`);
+      setSigningIn({ id: a.id, label: a.label });
     },
     rename: async (label) => {
       try {
@@ -268,14 +264,8 @@ export default function App() {
         say(freed > 0 ? `Freed ${(freed / 1048576).toFixed(0)} MB from ${a.label}.` : 'No cache to clear.');
       } catch (e) { fail(e); }
     },
-    connect: async (row) => {
-      setLimitsBusyId(row.id);
-      try {
-        await api.connectAccount(row.id);
-        say(`Sign-in opened for ${row.label}. Finish it in the browser, then press Refresh.`);
-      } catch (e) { fail(e); }
-      finally { setLimitsBusyId(null); }
-    },
+    // Sign-in runs inside the app: no terminal window. See SignInDialog.
+    connect: (row) => setSigningIn({ id: row.id, label: row.label }),
     openClaudeCode: async (row) => {
       setLimitsBusyId(row.id);
       try {
@@ -371,6 +361,18 @@ export default function App() {
           confirmText="Rename"
           onConfirm={actions.rename}
           onCancel={() => setRenaming(null)}
+        />
+      )}
+
+      {signingIn && (
+        <SignInDialog
+          account={signingIn}
+          onDone={(acct) => {
+            setSigningIn(null);
+            say(`${acct.label} is connected. Use Claude Code once with it to load its limits.`);
+            loadLimits(true);
+          }}
+          onClose={() => { setSigningIn(null); loadLimits(true); }}
         />
       )}
 

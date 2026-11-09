@@ -25,6 +25,10 @@ export const api = {
   limits: (opts) => call('limits', opts),
   connectAccount: (id) => call('connectAccount', { id }),
   openClaudeCode: (id) => call('openClaudeCode', { id }),
+  loginStatus: (id) => call('loginStatus', { id }),
+  loginSubmit: (id, code) => call('loginSubmit', { id, code }),
+  loginCancel: (id) => call('loginCancel', { id }),
+  loginOpenPage: (id) => call('loginOpenPage', { id }),
   remove: (id, confirmLabel, unlockOutsideRoot) =>
     call('remove', { id, confirmLabel, unlockOutsideRoot }),
   forget: (id) => call('forget', { id }),

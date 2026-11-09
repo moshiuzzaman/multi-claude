@@ -20,9 +20,18 @@ function harness() {
   const authCalls = [];
   const authReply = { value: { loggedIn: false } };
   const cliInstalled = { value: true };
+  const logins = [];
   const svc = createService({
     configFile: path.join(base, 'cfg', 'accounts.json'),
     ccRoot: path.join(base, 'cfg', 'cc'),
+    loginManager: {
+      start: (id, opts) => { logins.push({ id, ...opts }); return { state: 'waiting' }; },
+      status: () => ({ state: 'waiting' }),
+      submit: () => ({ state: 'checking' }),
+      cancel: () => ({ state: 'cancelled' }),
+      openPage: () => ({ ok: true }),
+      cancelAll: () => {}
+    },
     recorderFile: path.join(base, 'cfg', 'limits-recorder.ps1'),
     ccCli: {
       find: async () => (cliInstalled.value ? { path: 'C:\\cc\\claude.exe', version: [2, 1, 319] } : null),
@@ -48,7 +57,7 @@ function harness() {
   });
 
   return { base, userProfile, profilesRoot, defaultProfileDir, svc, launched, shortcuts,
-           terminals, authCalls, authReply, cliInstalled };
+           terminals, authCalls, authReply, cliInstalled, logins };
 }
 
 function cleanup(h) {
@@ -447,7 +456,7 @@ test('limits shows an account as not connected until it signs in', async () => {
   cleanup(h);
 });
 
-test('connectAccount wires the status line and opens the official sign-in', async () => {
+test('connectAccount wires the status line and starts the hidden official sign-in', async () => {
   const h = harness();
   await h.svc.init();
   const a = await h.svc.add({ label: 'Plan Test' });
@@ -458,7 +467,8 @@ test('connectAccount wires the status line and opens the official sign-in', asyn
   assert.match(settings.statusLine.command, /limits-recorder\.ps1/);
   assert.match(settings.statusLine.command, /multi-claude-limits\.json/);
   assert.ok(fs.existsSync(path.join(h.base, 'cfg', 'limits-recorder.ps1')));
-  assert.deepStrictEqual(h.terminals[0], { dir, args: ['auth', 'login'] });
+  assert.strictEqual(h.terminals.length, 0, 'no terminal window for sign-in any more');
+  assert.deepStrictEqual(h.logins[0], { id: a.id, cliPath: 'C:\\cc\\claude.exe', configDir: dir });
   cleanup(h);
 });
 
@@ -503,7 +513,7 @@ test('connectAccount fails clearly when Claude Code is not installed', async () 
   await h.svc.init();
   const a = await h.svc.add({ label: 'No CLI' });
   await assert.rejects(() => h.svc.connectAccount({ id: a.id }), (e) => e.code === 'no_claude_code');
-  assert.strictEqual(h.terminals.length, 0);
+  assert.strictEqual(h.logins.length, 0);
   cleanup(h);
 });
 
