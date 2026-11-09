@@ -19,5 +19,9 @@ contextBridge.exposeInMainWorld('multiClaude', {
   createShortcut: call('createShortcut'),
   locateExe: call('locateExe'),
   scan: call('scan'),
-  sizes: call('sizes')
+  sizes: call('sizes'),
+  usage: call('usage'),
+  activity: call('activity'),
+  storage: call('storage'),
+  purgeCache: call('purgeCache')
 });

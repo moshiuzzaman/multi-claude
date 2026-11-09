@@ -28,13 +28,9 @@ export const api = {
   createShortcut: (id) => call('createShortcut', { id }),
   locateExe: () => call('locateExe'),
   scan: () => call('scan'),
-  sizes: () => call('sizes')
+  sizes: () => call('sizes'),
+  usage: (opts) => call('usage', opts),
+  activity: (opts) => call('activity', opts),
+  storage: (opts) => call('storage', opts),
+  purgeCache: (id) => call('purgeCache', { id })
 };
-
-export function formatSize(bytes) {
-  if (typeof bytes !== 'number' || bytes <= 0) return '';
-  const mb = bytes / (1024 * 1024);
-  if (mb < 1) return '<1 MB';
-  if (mb < 1024) return `${Math.round(mb)} MB`;
-  return `${(mb / 1024).toFixed(1)} GB`;
-}
