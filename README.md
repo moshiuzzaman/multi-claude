@@ -64,7 +64,10 @@ status-line recorder that copies **only** that `rate_limits` object to a file, w
 app then reads.
 
 1. **Connect** opens Anthropic's own `claude auth login` in a terminal you can see. You
-   sign in to that account in your browser, once. The unmodified Claude Code binary keeps
+   sign in to that account in your browser, once. New accounts do this automatically:
+   **Add account** has an *Also connect Claude Code for usage limits* option, on by
+   default, that opens this sign-in right after creating the profile. Accounts added
+   before this existed need one **Connect** each from the Account tab. The unmodified Claude Code binary keeps
    its own credentials in that folder; Multi-Claude never opens them.
 2. **Open Claude Code** starts a session as that account. After your first message the
    limits appear, and they update every time you use Claude Code with that account.

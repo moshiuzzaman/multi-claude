@@ -203,15 +203,32 @@ export default function App() {
         loadScan();
       }
     },
-    add: async (label) => {
+    add: async (label, connectClaudeCode) => {
+      let a;
       try {
-        const a = await api.add(label);
-        setAdding(false);
-        await loadAccounts();
-        setActivity(null);
-        say(`Created ${a.label}. Sign in to that account in the Claude window.`);
-        setTimeout(loadScan, 1500);
+        a = await api.add(label);
       } catch (e) { fail(e); throw e; }
+
+      setAdding(false);
+      await loadAccounts();
+      setActivity(null);
+      setTimeout(loadScan, 1500);
+
+      if (!connectClaudeCode) {
+        say(`Created ${a.label}. Sign in to that account in the Claude window.`);
+        return;
+      }
+
+      // The account exists either way; a failed Claude Code sign-in must not
+      // look like a failed Add. It can be retried from the Account tab.
+      try {
+        await api.connectAccount(a.id);
+        say(`Created ${a.label}. Sign in to Claude in the new window, then finish the Claude Code sign-in in your browser — use the same account for both.`);
+      } catch (e) {
+        say(`Created ${a.label}. Claude Code sign-in didn't start: ${e.message} You can connect it later from the Account tab.`, true);
+      }
+      setLimits(null);
+      loadLimits(true);
     },
     rename: async (label) => {
       try {
@@ -337,6 +354,11 @@ export default function App() {
           confirmText="Create and open"
           onConfirm={actions.add}
           onCancel={() => setAdding(false)}
+          option={{
+            label: 'Also connect Claude Code for usage limits',
+            hint: 'Opens Anthropic\'s own Claude Code sign-in too, so this account\'s Session and Weekly limits show in the Account tab. One time only. Sign in with the same account in both windows.',
+            defaultChecked: true
+          }}
         />
       )}
 
