@@ -51,9 +51,41 @@ function LimitBar({ title, win }) {
   );
 }
 
+/** One meter from Claude Code's /usage report. The server sets the severity. */
+function Meter({ m }) {
+  const state = m.severity === 'critical' ? 'critical' : m.severity === 'warning' ? 'warn' : 'ok';
+  return (
+    <div className="limit">
+      <div className="limit-head">
+        <span>{m.title}</span>
+        <span className="limit-pct">
+          {Math.round(m.percent)}% used
+          {state === 'warn' && <span className="limit-flag warn"> · near limit</span>}
+          {state === 'critical' && <span className="limit-flag critical"> · at limit</span>}
+        </span>
+      </div>
+      <div className="limit-track">
+        <div className={`limit-fill ${state}`} style={{ width: `${Math.max(m.percent, 1)}%` }} />
+      </div>
+      <div className="limit-foot">{m.resetsAt ? resetText(m.resetsAt) : ''}</div>
+    </div>
+  );
+}
+
+function extraUsageText(eu) {
+  if (!eu) return null;
+  if (!eu.enabled) return 'Extra usage: off';
+  const cur = eu.currency || 'USD';
+  const fmt = (c) => (c / 100).toLocaleString(undefined, { style: 'currency', currency: cur });
+  if (eu.usedCredits !== null && eu.monthlyLimit !== null) return `Extra usage: ${fmt(eu.usedCredits)} of ${fmt(eu.monthlyLimit)} this month`;
+  if (eu.usedCredits !== null) return `Extra usage: ${fmt(eu.usedCredits)} this month`;
+  return 'Extra usage: on';
+}
+
 function AccountLimits({ row, actions, busy }) {
   const { auth, limits, connected } = row;
   const signedIn = connected && auth && auth.loggedIn;
+  const checking = connected && auth && auth.pending;
 
   return (
     <div className="limit-card">
@@ -62,7 +94,8 @@ function AccountLimits({ row, actions, busy }) {
           <div className="limit-name">{row.label}</div>
           <div className="limit-who">
             {!connected && 'Not connected'}
-            {connected && !signedIn && 'Sign-in not finished'}
+            {checking && 'Checking sign-in…'}
+            {connected && !signedIn && !checking && 'Sign-in not finished'}
             {signedIn && (
               <>
                 Signed in as <strong>{auth.email || 'unknown'}</strong>
@@ -72,37 +105,45 @@ function AccountLimits({ row, actions, busy }) {
           </div>
         </div>
         <div className="limit-actions">
-          {!signedIn && (
+          {!signedIn && !checking && (
             <button className="primary" disabled={busy} onClick={() => actions.connect(row)}>
               {connected ? 'Sign in again' : 'Connect'}
-            </button>
-          )}
-          {signedIn && (
-            <button className="ghost" disabled={busy} onClick={() => actions.openClaudeCode(row)}>
-              Open Claude Code
             </button>
           )}
         </div>
       </div>
 
-      {signedIn && limits && (
+      {signedIn && row.plan && row.plan.ok && (
         <>
           <div className="limit-bars">
-            <LimitBar title="Session (5hr)" win={limits.fiveHour} />
-            <LimitBar title="Weekly (7 day)" win={limits.sevenDay} />
+            {row.plan.meters.map((m) => <Meter key={m.kind + (m.scopeLabel || '')} m={m} />)}
           </div>
-          {limits.recordedAt && (
-            <div className="limit-asof">As of {relativeTime(limits.recordedAt)} — updates whenever you use Claude Code with this account.</div>
-          )}
+          <div className="limit-asof">
+            {row.plan.fetchedAt ? `Updated ${relativeTime(row.plan.fetchedAt)}` : ''}
+            {extraUsageText(row.plan.extraUsage) ? ` · ${extraUsageText(row.plan.extraUsage)}` : ''}
+          </div>
         </>
       )}
 
-      {signedIn && !limits && (
-        <div className="note" style={{ marginTop: 12 }}>
-          Signed in. Use Claude Code once with this account (send any message) and its limits
-          appear here. If they never do, this plan doesn't report limits to Claude Code; Anthropic
-          documents this for Pro, Max and Ultra.
-        </div>
+      {signedIn && !row.plan && (
+        <div className="limit-hint">Loading this account's limits…</div>
+      )}
+
+      {signedIn && row.plan && !row.plan.ok && (
+        <>
+          {/* Fall back to what the status line last recorded, if anything. */}
+          {limits && (
+            <div className="limit-bars">
+              <LimitBar title="Session (5hr)" win={limits.fiveHour} />
+              <LimitBar title="Weekly (7 day)" win={limits.sevenDay} />
+            </div>
+          )}
+          <div className="note" style={{ marginTop: 12 }}>
+            {row.plan.reason}
+            {row.plan.needsSignIn && ' Use Sign in again above.'}
+            {row.plan.reachedModel && ' Automatic refresh is paused for this account so it cannot spend usage; Refresh still works.'}
+          </div>
+        </>
       )}
 
       {!connected && (
@@ -111,7 +152,7 @@ function AccountLimits({ row, actions, busy }) {
           never sees the password or the sign-in token.
         </div>
       )}
-      {connected && !signedIn && (
+      {connected && !signedIn && !checking && (
         <div className="limit-hint">
           The sign-in terminal may still be open. Finish it in the browser, then press Refresh.
         </div>
