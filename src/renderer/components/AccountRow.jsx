@@ -25,15 +25,25 @@ export default function AccountRow({ account, running, scanOk, size, lastUsed, a
           <span>{account.label}</span>
           {isDefault && <span className="pill">Default</span>}
           {account.kind === 'imported' && <span className="pill">Imported</span>}
-          {running && scanOk && <span className="pill accent">Running</span>}
+          {/* No "Running" pill: the dot and the Close button already say so. */}
         </div>
         <div className="meta" title={account.dir}>{meta.join('  ·  ')}</div>
       </div>
 
       <div className="actions">
-        <button className="primary" onClick={() => actions.launch(account)} disabled={missing && !isDefault}>
-          Launch
-        </button>
+        {/* One button, two states. When the scan could not run we fall back to
+            Launch: clicking it on an already-open profile just focuses the
+            existing window, whereas offering Close for something that may not
+            be running would be a lie. */}
+        {running && scanOk ? (
+          <button className="subtle" onClick={() => actions.close(account)} title="Close this Claude window">
+            Close
+          </button>
+        ) : (
+          <button className="primary" onClick={() => actions.launch(account)} disabled={missing && !isDefault}>
+            Launch
+          </button>
+        )}
         {!compactView && (
           <>
             <button className="ghost" onClick={() => actions.openFolder(account)} disabled={missing}>Folder</button>

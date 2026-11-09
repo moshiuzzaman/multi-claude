@@ -13,7 +13,7 @@ Replaces hand-edited `.bat` files like `Claude-Account2.bat`.
 | View | What it shows |
 |---|---|
 | **Dashboard** | Headline token counts, tokens-per-day chart, model split, account shortcuts |
-| **Accounts** | Launch, open folder, make a shortcut, rename, delete |
+| **Accounts** | Launch or Close, open folder, make a shortcut, rename, delete |
 | **Usage** | Input/output/cache tokens and cost over time, by model, by project, by account |
 | **Account** | Rolling 5-hour / 7-day token volume, what's driving it (skills, plugins, MCP), and the Claude Code account card |
 | **History** | Which account was open, when, and for how long |
@@ -161,6 +161,23 @@ the cache files is safe — they are rebuilt on next launch.
 
 On first run the app registers your existing default account and, if you have one, the
 `Claude_Work` folder — in place, so any old `.bat` files keep working.
+
+## Launching and closing
+
+Each row carries one button that changes with the profile's state: **Launch** when it is
+idle, **Close** when it is running. Close is graceful — it finds the root `claude.exe` of
+that instance's process tree and posts a normal window-close (`taskkill` with no `/F`),
+so Claude shuts down the way it would if you clicked the X. Nothing is force-killed.
+
+Finding the right process takes a little care, because `--user-data-dir` is not on every
+process in the tree: an instance started without the flag (your default profile) only has
+it on its children. So the lookup matches any process carrying the profile's directory and
+then walks up through `claude.exe` parents to the root, which keeps it inside that one
+instance.
+
+When the running check itself fails, the button falls back to **Launch** rather than
+offering to close something that may not be open. Clicking Launch on an already-running
+profile simply focuses its existing window.
 
 ## Deleting an account
 

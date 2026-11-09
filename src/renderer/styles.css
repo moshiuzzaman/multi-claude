@@ -303,6 +303,20 @@ button.danger {
   font-weight: 560;
 }
 
+/* The Close state of the Launch/Close toggle: solid enough to read as the
+   row's main action, cool enough not to compete with Launch's terracotta. */
+button.subtle {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07));
+  border-color: var(--glass-border-hi);
+  color: var(--text);
+  font-weight: 550;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+button.subtle:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.1));
+}
+
 button.ghost { padding: 5px 10px; font-size: 12.5px; background: transparent; }
 button.ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); }
 

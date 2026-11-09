@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('multiClaude', {
   add: call('add'),
   rename: call('rename'),
   launch: call('launch'),
+  closeAccount: call('closeAccount'),
   remove: call('remove'),
   forget: call('forget'),
   openFolder: call('openFolder'),
