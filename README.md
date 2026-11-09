@@ -59,6 +59,26 @@ is **unsigned**, so Windows SmartScreen will warn the first time you run it — 
 **More info → Run anyway**. Sign the build with a code-signing certificate if you want
 that warning gone.
 
+### If the build fails on symbolic links
+
+On a standard Windows account without Developer Mode, electron-builder cannot unpack its
+code-signing toolkit, because that archive contains macOS symlinks and creating symlinks
+needs a privilege the account does not hold:
+
+```
+ERROR: Cannot create symbolic link ... winCodeSign\<id>\darwin\10.12\lib\libcrypto.dylib
+```
+
+Nothing in that `darwin/` folder is used on Windows. Unpack the archive yourself without
+it, once, and every later build reuses the result:
+
+```bash
+node_modules/7zip-bin/win/x64/7za.exe x -y "$LOCALAPPDATA/electron-builder/Cache/winCodeSign/<id>.7z" "-o$LOCALAPPDATA/electron-builder/Cache/winCodeSign/winCodeSign-2.6.0" "-xr!darwin"
+```
+
+Enabling Windows Developer Mode fixes it permanently instead, if you would rather do
+that.
+
 ## Where things live
 
 | What | Where |

@@ -9,11 +9,11 @@
 // because ES modules are blocked by CORS on file:// and because a real origin
 // lets the Content-Security-Policy stay at 'self'.
 
-const { app, BrowserWindow, shell, protocol, net } = require('electron');
+const { app, BrowserWindow, shell, protocol } = require('electron');
 const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs');
-const { pathToFileURL } = require('node:url');
+const fsp = require('node:fs/promises');
 const { spawn } = require('node:child_process');
 
 const { createService } = require('./service.js');
@@ -64,6 +64,17 @@ if (!app.requestSingleInstanceLock()) {
     });
   }
 
+  const MIME = {
+    '.html': 'text/html',
+    '.js': 'text/javascript',
+    '.css': 'text/css',
+    '.json': 'application/json',
+    '.svg': 'image/svg+xml',
+    '.png': 'image/png',
+    '.ico': 'image/x-icon',
+    '.woff2': 'font/woff2'
+  };
+
   function registerAppProtocol() {
     protocol.handle('app', async (request) => {
       const url = new URL(request.url);
@@ -74,7 +85,19 @@ if (!app.requestSingleInstanceLock()) {
       if (file !== RENDERER_DIR && !file.startsWith(RENDERER_DIR + path.sep)) {
         return new Response('Forbidden', { status: 403 });
       }
-      return net.fetch(pathToFileURL(file).toString());
+
+      // Read through fs rather than net.fetch(file://): in a packaged build
+      // these files live inside app.asar, and only fs is asar-aware.
+      try {
+        const data = await fsp.readFile(file);
+        return new Response(data, {
+          headers: {
+            'content-type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream'
+          }
+        });
+      } catch {
+        return new Response('Not found', { status: 404 });
+      }
     });
   }
 
@@ -100,14 +123,37 @@ if (!app.requestSingleInstanceLock()) {
     win.webContents.on('will-navigate', (e) => e.preventDefault());
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
-    if (!app.isPackaged) {
-      win.webContents.on('console-message', (_e, level, message, line, source) => {
-        console.log(`[renderer] ${message} (${source}:${line})`);
+    // Diagnostics. A packaged Windows GUI app has no console to print to, so
+    // MULTI_CLAUDE_DEBUG=1 sends the same lines to a file instead.
+    if (!app.isPackaged || process.env.MULTI_CLAUDE_DEBUG) {
+      const logFile = process.env.MULTI_CLAUDE_DEBUG
+        ? path.join(os.tmpdir(), 'multi-claude-debug.log')
+        : null;
+      const log = (line) => {
+        if (logFile) {
+          try { fs.appendFileSync(logFile, line + '\n'); } catch { /* best effort */ }
+        } else {
+          console.log(line);
+        }
+      };
+
+      win.webContents.on('console-message', (_e, _level, message, line, source) => {
+        log(`[renderer] ${message} (${source}:${line})`);
       });
       win.webContents.on('did-fail-load', (_e, code, desc, url) => {
-        console.error(`[renderer] failed to load ${url}: ${desc} (${code})`);
+        log(`[renderer] FAILED to load ${url}: ${desc} (${code})`);
       });
-      win.webContents.on('did-finish-load', () => console.log('[renderer] loaded'));
+      win.webContents.on('did-finish-load', async () => {
+        log('[renderer] loaded');
+        try {
+          const rows = await win.webContents.executeJavaScript(
+            'document.querySelectorAll(".row").length'
+          );
+          log(`[renderer] account rows rendered: ${rows}`);
+        } catch (e) {
+          log(`[renderer] probe failed: ${e.message}`);
+        }
+      });
     }
 
     win.loadURL('app://bundle/index.html');
