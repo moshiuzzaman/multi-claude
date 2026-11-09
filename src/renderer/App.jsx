@@ -160,6 +160,16 @@ export default function App() {
         setTimeout(loadScan, 1500);
       } catch (e) { fail(e); }
     },
+    close: async (a) => {
+      try {
+        const { closed } = await api.closeAccount(a.id);
+        say(closed > 0 ? `Closing ${a.label}…` : `${a.label} is not open.`);
+        // A graceful close takes a moment to unwind, so confirm twice rather
+        // than leaving the row showing a stale state.
+        setTimeout(loadScan, 1200);
+        setTimeout(loadScan, 3500);
+      } catch (e) { fail(e); }
+    },
     add: async (label) => {
       try {
         const a = await api.add(label);

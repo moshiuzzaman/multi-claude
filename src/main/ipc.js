@@ -8,7 +8,7 @@ const { ipcMain, dialog } = require('electron');
 const CHANNELS = [
   'list', 'add', 'rename', 'launch', 'remove', 'forget',
   'openFolder', 'createShortcut', 'locateExe', 'scan', 'sizes',
-  'usage', 'activity', 'storage', 'purgeCache', 'accountInfo'
+  'usage', 'activity', 'storage', 'purgeCache', 'accountInfo', 'closeAccount'
 ];
 
 function register(service) {
@@ -25,6 +25,7 @@ function register(service) {
     add: (p) => service.add(p),
     rename: (p) => service.rename(p),
     launch: (p) => service.launch(p),
+    closeAccount: (p) => service.closeAccount(p),
     remove: (p) => service.remove(p),
     forget: (p) => service.forget(p),
     openFolder: (p) => service.openFolder(p),

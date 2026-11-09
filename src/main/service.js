@@ -180,6 +180,28 @@ function createService(deps) {
       return { ok: true };
     },
 
+    /**
+     * Ask a running profile's Claude window to close. Graceful only — see
+     * closer.js. Returns { closed: 0 } when nothing was running, which the UI
+     * treats as "already closed" rather than an error.
+     */
+    async closeAccount({ id }) {
+      const account = find(id);
+      if (!deps.closer) throw err('unsupported', 'Closing is not available here.');
+      const r = await deps.closer.close(account.dir);
+      if (r.closed > 0 && activity) {
+        // Reflect the close in the activity log without waiting for the poll.
+        try {
+          const { dirs } = await scanner.scan();
+          const set = new Set(dirs.map(P.normalizeDir).filter(Boolean));
+          await activity.record(
+            data.accounts.filter((a) => set.has(P.normalizeDir(a.dir))).map((a) => a.id)
+          );
+        } catch { /* best effort */ }
+      }
+      return r;
+    },
+
     async remove({ id, confirmLabel, unlockOutsideRoot }) {
       const account = find(id);
       const { dirs } = await scanner.scan();

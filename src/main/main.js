@@ -20,6 +20,7 @@ const { createService } = require('./service.js');
 const { createLocator, resolveDefaultProfileDir } = require('./claude-locator.js');
 const { createLauncher } = require('./launcher.js');
 const { createScanner } = require('./scanner.js');
+const { createCloser } = require('./closer.js');
 const { runPowerShell } = require('./run-powershell.js');
 const { parseLaunchArg } = require('./argv.js');
 const ipc = require('./ipc.js');
@@ -64,6 +65,7 @@ if (!app.requestSingleInstanceLock()) {
       locator: createLocator({ fsImpl: fs, env: process.env, runPowerShell }),
       launcher: createLauncher({ spawnImpl: spawn }),
       scanner: createScanner({ runPowerShell }),
+      closer: createCloser({ runPowerShell }),
       shellImpl: shell,
       desktopDir: app.getPath('desktop'),
       appExePath: process.execPath,

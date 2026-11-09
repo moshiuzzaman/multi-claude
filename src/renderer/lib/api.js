@@ -21,6 +21,7 @@ export const api = {
   add: (label) => call('add', { label }),
   rename: (id, label) => call('rename', { id, label }),
   launch: (id) => call('launch', { id }),
+  closeAccount: (id) => call('closeAccount', { id }),
   remove: (id, confirmLabel, unlockOutsideRoot) =>
     call('remove', { id, confirmLabel, unlockOutsideRoot }),
   forget: (id) => call('forget', { id }),
