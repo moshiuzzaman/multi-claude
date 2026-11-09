@@ -1,7 +1,7 @@
 import React from 'react';
 import AccountRow from '../components/AccountRow.jsx';
 
-export default function Accounts({ accounts, running, scanOk, sizes, activity, actions, onAdd }) {
+export default function Accounts({ accounts, running, scanOk, sizes, activity, actions, onAdd, openAccount }) {
   const lastUsed = {};
   if (activity) for (const a of activity.accounts) lastUsed[a.id] = a.lastUsed;
 
@@ -10,7 +10,7 @@ export default function Accounts({ accounts, running, scanOk, sizes, activity, a
       <div className="page-head">
         <div>
           <h1>Accounts</h1>
-          <div className="sub">Each account is a separate Claude profile folder.</div>
+          <div className="sub">Each account is a separate Claude profile. Click one to open its page.</div>
         </div>
         <span className="spacer" />
         <button className="primary" onClick={onAdd}>+ Add account</button>
@@ -27,6 +27,7 @@ export default function Accounts({ accounts, running, scanOk, sizes, activity, a
             size={sizes[a.id]}
             lastUsed={lastUsed[a.id]}
             actions={actions}
+            onOpen={() => openAccount(a.id)}
           />
         ))}
 

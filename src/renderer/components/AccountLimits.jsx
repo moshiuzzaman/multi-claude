@@ -1,7 +1,7 @@
 import React from 'react';
 import { relativeTime } from '../lib/format.js';
 
-function resetText(ms) {
+export function resetText(ms) {
   if (!ms) return '';
   const d = new Date(ms);
   const sameDay = d.toDateString() === new Date().toDateString();
@@ -52,7 +52,7 @@ function LimitBar({ title, win }) {
 }
 
 /** One meter from Claude Code's /usage report. The server sets the severity. */
-function Meter({ m }) {
+export function Meter({ m }) {
   const state = m.severity === 'critical' ? 'critical' : m.severity === 'warning' ? 'warn' : 'ok';
   return (
     <div className="limit">
@@ -72,7 +72,7 @@ function Meter({ m }) {
   );
 }
 
-function extraUsageText(eu) {
+export function extraUsageText(eu) {
   if (!eu) return null;
   if (!eu.enabled) return 'Extra usage: off';
   const cur = eu.currency || 'USD';
@@ -82,16 +82,29 @@ function extraUsageText(eu) {
   return 'Extra usage: on';
 }
 
-function AccountLimits({ row, actions, busy }) {
+/**
+ * One account's plan limits: sign-in state, its meters, and Connect when it
+ * isn't signed in. Used on the Dashboard cards and on the account's own page.
+ */
+export function LimitsBlock({ row, actions, busy, cliMissing }) {
+  if (cliMissing) {
+    return (
+      <div className="note">
+        Claude Code isn't installed on this PC, and it's what reports usage limits.
+        Install it from code.claude.com, then refresh.
+      </div>
+    );
+  }
+  if (!row) return <div className="skeleton" style={{ height: 70 }} />;
+
   const { auth, limits, connected } = row;
   const signedIn = connected && auth && auth.loggedIn;
   const checking = connected && auth && auth.pending;
 
   return (
-    <div className="limit-card">
+    <div className="limit-block">
       <div className="limit-card-head">
         <div>
-          <div className="limit-name">{row.label}</div>
           <div className="limit-who">
             {!connected && 'Not connected'}
             {checking && 'Checking sign-in…'}
@@ -154,41 +167,7 @@ function AccountLimits({ row, actions, busy }) {
       )}
       {connected && !signedIn && !checking && (
         <div className="limit-hint">
-          The sign-in terminal may still be open. Finish it in the browser, then press Refresh.
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function LimitsPanel({ limits, loading, actions, busyId }) {
-  return (
-    <div className="panel">
-      <div className="panel-title" style={{ justifyContent: 'space-between' }}>
-        <span>Usage limits by account</span>
-        <button className="ghost" onClick={() => actions.refreshLimits(true)} disabled={loading}>
-          {loading ? 'Refreshing…' : 'Refresh'}
-        </button>
-      </div>
-      <div className="panel-note">
-        Your real Session and Weekly limits, as Claude Code reports them for each signed-in
-        account. These are account-wide: chat, Desktop and Claude Code all count toward them.
-      </div>
-
-      {!limits && <div className="skeleton" style={{ height: 120, marginTop: 14 }} />}
-
-      {limits && !limits.cli && (
-        <div className="note" style={{ marginTop: 14 }}>
-          Claude Code isn't installed on this PC, and it's what reports these limits.
-          Install it from code.claude.com, then press Refresh.
-        </div>
-      )}
-
-      {limits && limits.cli && (
-        <div className="limit-list">
-          {limits.accounts.map((row) => (
-            <AccountLimits key={row.id} row={row} actions={actions} busy={busyId === row.id} />
-          ))}
+          Sign-in isn't finished for this account. Use Sign in again to complete it.
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { bytes, relativeTime } from '../lib/format.js';
 
-export default function AccountRow({ account, running, scanOk, size, lastUsed, actions, compactView }) {
+export default function AccountRow({ account, running, scanOk, size, lastUsed, actions, compactView, onOpen }) {
   const isDefault = account.kind === 'default';
   const missing = account.exists === false;
 
@@ -20,7 +20,12 @@ export default function AccountRow({ account, running, scanOk, size, lastUsed, a
     <div className={missing ? 'acct missing' : 'acct'}>
       <span className={dotClass} title={dotTitle} />
 
-      <div className="info">
+      <div
+        className={onOpen ? 'info clickable' : 'info'}
+        onClick={onOpen}
+        role={onOpen ? 'button' : undefined}
+        title={onOpen ? 'Open this account' : undefined}
+      >
         <div className="name">
           <span>{account.label}</span>
           {isDefault && <span className="pill">Default</span>}

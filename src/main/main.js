@@ -206,6 +206,14 @@ if (!app.requestSingleInstanceLock()) {
                     log(`[renderer] screenshot -> ${out}`);
                   }
 
+                  // Capture one account's own page (Dashboard -> first card).
+                  await win.webContents.executeJavaScript("document.querySelectorAll('.nav-item')[0].click()");
+                  await new Promise((r) => setTimeout(r, 800));
+                  await win.webContents.executeJavaScript("document.querySelector('.acct-card')?.click()");
+                  await new Promise((r) => setTimeout(r, Number(process.env.MULTI_CLAUDE_SHOT_WAIT) || 1400));
+                  await fsp.writeFile(`${base}-detail.png`, (await win.webContents.capturePage()).toPNG());
+                  log(`[renderer] screenshot -> ${base}-detail.png`);
+
                   // Also capture the Add dialog, which no view shows on its own.
                   await win.webContents.executeJavaScript(
                     "document.querySelectorAll('.nav-item')[1].click()"

@@ -8,14 +8,15 @@ Replaces hand-edited `.bat` files like `Claude-Account2.bat`.
 
 > Not affiliated with, or endorsed by, Anthropic.
 
-## The five views
+## Views
+
+Everything is per account. Nothing is summed or merged across accounts.
 
 | View | What it shows |
 |---|---|
-| **Dashboard** | Headline token counts, tokens-per-day chart, model split, account shortcuts |
-| **Accounts** | Launch or Close, open folder, make a shortcut, rename, delete |
-| **Usage** | Input/output/cache tokens and cost over time, by model, by project, by account |
-| **Account** | Rolling 5-hour / 7-day token volume, what's driving it (skills, plugins, MCP), and the Claude Code account card |
+| **Dashboard** | One card per account: its own Session and Weekly limits, whether it is running, Launch/Close. Click a card to open the account. |
+| **Account page** | Everything about that one account: its usage limits, its actions (Launch/Close, folder, shortcut, rename, delete), its disk usage, and its launch history. |
+| **Accounts** | The list of accounts with their actions; click one to open its page |
 | **History** | Which account was open, when, and for how long |
 | **Storage** | Per-profile disk usage split by category, with a cache purge |
 
