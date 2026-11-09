@@ -1,11 +1,50 @@
 # Multi-Claude
 
-A small Windows app for keeping several Claude Desktop accounts side by side — add a
-profile, launch it, give it a desktop shortcut, delete it when you are done.
+A Windows app for keeping several Claude Desktop accounts side by side — add a profile,
+launch it, give it a desktop shortcut, delete it when you are done — plus dashboards for
+token usage, launch history and disk storage.
 
 Replaces hand-edited `.bat` files like `Claude-Account2.bat`.
 
 > Not affiliated with, or endorsed by, Anthropic.
+
+## The five views
+
+| View | What it shows |
+|---|---|
+| **Dashboard** | Headline token counts, tokens-per-day chart, model split, account shortcuts |
+| **Accounts** | Launch, open folder, make a shortcut, rename, delete |
+| **Usage** | Input/output/cache tokens and cost over time, by model, by project, by account |
+| **History** | Which account was open, when, and for how long |
+| **Storage** | Per-profile disk usage split by category, with a cache purge |
+
+## Where the usage numbers come from — and what they are not
+
+The Usage and Dashboard views read Claude Code's own session logs in
+`~/.claude/projects`. Three things are worth being precise about:
+
+1. **It is Claude Code usage, not Claude.ai chat usage.** Your subscription's
+   "messages used / limit remaining" is not exposed locally or through any API a
+   third-party app can call. This app does not show it and does not estimate it.
+2. **Metadata only.** The reader extracts token counts, timestamps, model names, project
+   folder paths and recorded cost. It never reads, stores or displays message text,
+   prompts, replies or tool arguments. There is a test that asserts this.
+3. **Attribution is partial, and labelled as such.** Those logs live in your home folder
+   and are shared by every profile. Only sessions carrying an `organizationUuid` can be
+   attributed to an account — roughly a third — and the rest are grouped under
+   "Unattributed" rather than guessed at. Cost is recorded by a minority of sessions, so
+   it is shown as a partial figure with the session count beside it.
+
+History is different: Multi-Claude observes it directly, so it is exact per account. The
+limit there is that it can only see what runs while the manager itself is open.
+
+### Performance
+
+The first usage scan parses tens of thousands of records and takes a few seconds; the
+first storage walk adds up every file across profiles that can run to tens of gigabytes.
+Both results are cached in `%APPDATA%\multi-claude\`, so every later launch is instant.
+Storage is re-measured on demand with the **Recalculate** button, and after any delete or
+cache purge.
 
 ## How it works
 
@@ -87,8 +126,12 @@ that.
 | Imported `Claude_Work` | left exactly where it is |
 | Default account | `%LOCALAPPDATA%\Claude-Data\<package family>` |
 | App config | `%APPDATA%\multi-claude\accounts.json` |
+| Usage cache | `%APPDATA%\multi-claude\usage-cache.json` |
+| Storage cache | `%APPDATA%\multi-claude\storage-cache.json` |
+| Launch history | `%APPDATA%\multi-claude\activity.jsonl` |
 
-`accounts.json` holds names, folder paths and ids. No credentials, ever.
+`accounts.json` holds names, folder paths and ids. No credentials, ever. Deleting any of
+the cache files is safe — they are rebuilt on next launch.
 
 On first run the app registers your existing default account and, if you have one, the
 `Claude_Work` folder — in place, so any old `.bat` files keep working.
@@ -128,6 +171,17 @@ npm test              # unit tests, no Electron needed
 npm run build:renderer
 npm start
 ```
+
+Two environment variables help when the window itself misbehaves:
+
+```bash
+MULTI_CLAUDE_DEBUG=1                      # renderer console + load events -> %TEMP%\multi-claude-debug.log
+MULTI_CLAUDE_SHOT=C:\path\shot.png        # screenshot every view, then keep running
+```
+
+`MULTI_CLAUDE_DEBUG` exists because a packaged Windows GUI app has no console to print
+to. `MULTI_CLAUDE_SHOT` fronts the window before capturing — an occluded Electron window
+is not recomposited, so a naive `capturePage()` returns a stale frame.
 
 The main process (`src/main/`) owns every path, the `claude.exe` lookup, process
 scanning and deletion. The renderer (`src/renderer/`, React + Vite) is sandboxed with

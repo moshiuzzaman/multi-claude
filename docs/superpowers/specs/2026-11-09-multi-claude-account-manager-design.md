@@ -294,3 +294,81 @@ unsigned, so SmartScreen warns on first run; the README says so and explains
 - Windows only, by design.
 - Shortcut icons use the Multi-Claude icon rather than Claude's, because the Claude
   executable path changes on every update and would break a pinned icon.
+
+---
+
+# Version 2 — dashboards
+
+Date: 2026-11-09
+Status: Built
+
+## 11. What changed
+
+Added token/cost usage, launch history, a disk-storage breakdown, and a five-view
+dark-glass UI (React + Vite). The account management of version 1 is unchanged.
+
+## 12. The data-access boundary
+
+Version 1 held an absolute rule: never read anything inside a profile or inside Claude's
+data. Version 2 relaxes it **in exactly one direction**, with the user's explicit
+agreement:
+
+- The app may read `~/.claude/projects/**/*.jsonl` for **metadata only** — token counts,
+  timestamps, model names, project folder paths, recorded cost.
+- It must never read, store, return or display message text, prompts, replies, titles or
+  tool arguments. `usage.test.js` asserts a summary never contains message content.
+- Profile directories themselves are still only created, measured and deleted wholesale.
+  Nothing inside one is ever parsed.
+
+Anyone extending `usage-reader.js` inherits that constraint.
+
+## 13. What the data can and cannot say
+
+Verified against 226 real session files (81,866 records, May–Nov 2026):
+
+| Question | Answer |
+|---|---|
+| Claude.ai subscription usage? | **Not available.** Not local, not in any callable API. Never estimated. |
+| Claude Code token counts? | Yes — `message.usage` on ~26k records. Reliable. |
+| Cost? | Only on `cost-state` records, present in **28 of 226** sessions. Shown as partial, with the session count. |
+| Per-account attribution? | Only via `attachment.organizationUuid`, present in **75 of 226**. The rest go to an "Unattributed" bucket. |
+
+`~/.claude` is keyed to the home directory, not to `--user-data-dir`, so it is shared by
+every profile. That is why attribution is partial and why it cannot be fixed by reading
+harder.
+
+A correction worth recording: an early probe reported ~$1,020 of cost by summing every
+`cost-state` record. Those are *running totals* rewritten as a session progresses, so the
+same spend was counted repeatedly. Taking the last record per session gives $249.06.
+
+## 14. New modules
+
+| Module | Responsibility |
+|---|---|
+| `usage-reader.js` | Parse session logs into per-session summaries. Substring prefilter before `JSON.parse`; async with periodic yields so a cold scan never freezes the window; incremental cache keyed on size + mtime. |
+| `usage-aggregate.js` | Pure. Sessions → daily series, per-model, per-project, per-org, totals. Ranks by the metric the UI displays. |
+| `activity-log.js` | Append-only JSONL of launch/stop transitions, folded into sessions and daily totals. |
+| `storage.js` | Per-profile bytes by category, plus a guarded cache purge. |
+
+## 15. Measured costs and the caches they forced
+
+| Operation | Cold | Warm |
+|---|---|---|
+| Usage scan (226 files, 81,866 records) | ~3.4 s | ~20 ms |
+| Storage walk (~23 GB across 3 profiles) | ~3.5 s | instant |
+
+Both are cached to disk. Two bugs came out of this and are worth not repeating:
+
+- Two mount effects each fired a storage walk. Concurrent walks of the same disk are far
+  slower than one, so requests are now de-duplicated by an in-flight promise.
+- `vm_bundles` was counted as "profile data". It is 8.8 GB of a 10 GB profile, so it now
+  has its own category — otherwise the UI claims a user's login data weighs 8.8 GB.
+
+## 16. Charts
+
+Hand-rolled inline SVG; no chart library. Categorical colours are the validated
+dark-surface slots, assigned in fixed order and never cycled or reassigned by rank. Two
+slots sit at ΔE 4.0 under tritanopia, so every stacked segment and bar carries a direct
+label and a legend — colour is never the sole encoding. Cache reads get their own chart
+rather than sharing an axis with token counts, which would flatten the smaller series to
+a flat line.
