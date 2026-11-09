@@ -1,7 +1,8 @@
 # Multi-Claude — Account Manager (Design)
 
 Date: 2026-11-09
-Status: Approved for implementation
+Status: Built. Version 1 below, then Version 2 and Version 3 as amendments; where they
+disagree, the later version wins.
 Supersedes: `Claude-Account2.bat`
 
 ## 1. Problem
@@ -300,7 +301,14 @@ unsigned, so SmartScreen warns on first run; the README says so and explains
 # Version 2 — dashboards
 
 Date: 2026-11-09
-Status: Built
+Status: Built, then partly removed in Version 3
+
+> **Superseded in part.** Version 3 removed every view that merged usage across accounts:
+> the Usage tab, the Account tab (local token gauges, skill/plugin/MCP contributions, the
+> single Claude Code account card) and the token tiles and chart on the Dashboard. The
+> modules behind them (`usage-reader.js`, `usage-aggregate.js`, `account-info.js`) remain
+> but are unused by the UI. Launch history (`activity-log.js`) and the storage breakdown
+> (`storage.js`) are still in use. The data-access boundary in §12 still holds.
 
 ## 11. What changed
 
@@ -372,3 +380,130 @@ slots sit at ΔE 4.0 under tritanopia, so every stacked segment and bar carries 
 label and a legend — colour is never the sole encoding. Cache reads get their own chart
 rather than sharing an axis with token counts, which would flatten the smaller series to
 a flat line.
+
+---
+
+# Version 3 — per-account limits and views
+
+Date: 2026-11-09
+Status: Built
+
+## 17. What changed
+
+- **Everything is per account.** The Dashboard is one card per account; each card and each
+  account's own page show only that account's data. All views that merged usage across
+  accounts were removed (see the note at the top of Version 2).
+- **Real plan limits per account** — Session (5hr), Weekly, and any per-model weekly meter,
+  with reset times — fetched by Multi-Claude itself, with no window and no message sent.
+- **Sign-in to Claude Code inside the app**, with no terminal window, once per account; new
+  accounts start it automatically when added.
+- **Launch/Close toggle.** A running profile offers Close, which quits it.
+
+## 18. Close is a force-quit
+
+Claude Desktop lives in the system tray, so closing its window only hides it. Measured on a
+throwaway profile: a plain `taskkill`, and a `taskkill /T`, both left the process running;
+only `taskkill /T /F` ended it. So Close:
+
+1. asks for confirmation (anything running inside that profile stops with it);
+2. finds the profile's instance by matching any `claude.exe` whose command line carries the
+   profile's `--user-data-dir`, then walking up through `claude.exe` parents to the root —
+   needed because the default instance's main process has no flag at all, only its
+   children do;
+3. runs `taskkill /PID <root> /T /F` naming only that root, so no other account is touched;
+4. waits until the process scan agrees the instance is gone and reports `stillRunning`
+   honestly. A failed scan is never read as "gone".
+
+Verified against live processes: four accounts resolved to four distinct roots with no
+overlap, and a real throwaway profile was quit in 2.6 s with the other accounts untouched.
+
+## 19. Per-account plan limits
+
+### 19.1 Why not read them like VS Code does
+
+VS Code, the Claude Code CLI and Claude Desktop are Anthropic's own clients; each holds a
+token Anthropic issued to it. Reading such a token off disk and calling the usage endpoint
+with it is technically possible and explicitly forbidden: Anthropic's Claude Code terms
+say developers "may not collect, store, or intermediate Claude.ai credentials or session
+tokens", and reserve the right to enforce that without notice. Multi-Claude never does it.
+
+### 19.2 The route used
+
+Anthropic's terms do allow "an end user signing in to the unmodified Claude Code binary with
+their own Claude subscription". So each account gets its own Claude Code config folder,
+`%APPDATA%\multi-claude\cc\<account id>`, selected with `CLAUDE_CONFIG_DIR`. Verified: a fresh
+folder reports `loggedIn: false` while the default one reports signed-in, so accounts are
+genuinely isolated.
+
+**Primary source — `claude -p "/usage"`.** `/usage` is a built-in command answered from
+Anthropic's usage service. With `--output-format stream-json` the result carries a structured
+`usage_report` (`rate_limits.limits[]`: `kind`, `group`, `percent`, `resets_at`, `scope`,
+`severity`, `is_active`; plus `extra_usage`). Measured with Claude Code 2.1.319: **$0, zero
+turns, no model called.** Requires Claude Code 2.1.273 or later; the newest binary installed
+on the PC is chosen automatically (this machine had 2.1.112, 2.1.224, 2.1.317 and 2.1.319).
+
+**Fallback — the status line.** Claude Code passes `rate_limits.five_hour` / `seven_day` to a
+status-line command. Each config folder registers a small PowerShell recorder that copies
+only that object to `multi-claude-limits.json`. Used only when `/usage` is unavailable.
+
+### 19.3 Safety nets — this fetch must never spend usage silently
+
+During development, Git Bash rewrote `/usage` into `C:/Program Files/Git/usage` before the
+CLI saw it; Claude Code sent that path to the model as an ordinary prompt, costing about
+$0.14 of the Default account's session quota. Hence:
+
+- the CLI is spawned directly with `shell: false`, and a test asserts `/usage` arrives intact;
+- the fetch also passes `--model haiku --system-prompt x --tools "" --strict-mcp-config
+  --setting-sources ""`, so if a future CLI ever routed `/usage` to a model it would cost a
+  fraction of a cent (measured: $0.0004);
+- every result's turn count is checked; a fetch that reached a model is shown as such and
+  automatic refresh pauses for that account (manual Refresh still works);
+- stdin is closed (`stdio: ['ignore', ...]`), which also removes a 3 s wait.
+
+### 19.4 Caching and loading
+
+Sign-in status is cached for 2 minutes and `/usage` reports for 90 seconds per account, so
+the UI's 20-second refresh rarely starts Claude Code. A first, cache-only call paints every
+account immediately; real figures fill in as each account's fetch returns.
+
+## 20. Sign-in inside the app
+
+Connect runs `claude auth login` as a hidden child process (piped stdio, `windowsHide`) — in
+effect a terminal without a window. Verified that the CLI behaves identically without a TTY.
+
+- The CLI opens the browser; clicking **Authorize** usually completes the sign-in by itself.
+- If the browser shows a code, the user pastes it into the dialog. It is written straight
+  to the CLI's stdin and forgotten: never stored, logged, returned or exchanged by the app.
+  Multi-line input is rejected so nothing extra can reach the CLI.
+- "Open the sign-in page again" only ever opens the URL the CLI printed, and only on
+  Anthropic hosts over https; the renderer never supplies a URL.
+- A wrong code produces the CLI's own error, shown with Try again; sign-in times out after
+  10 minutes; hidden sign-ins are cancelled on quit.
+- Adding an account has an option, on by default, that opens this sign-in straight away.
+
+## 21. Per-account UI
+
+- **Dashboard:** one card per account — its own Session and Weekly meters, sign-in email,
+  running state with Launch/Close, size and last use, or Connect when not signed in.
+- **Account page** (click a card, or a row on Accounts): that account's limits, actions,
+  storage breakdown with cache purge, and its activity (time open, launches, recent sessions).
+- Accounts, History and Storage tabs remain.
+
+## 22. New modules
+
+| Module | Responsibility |
+|---|---|
+| `closer.js` | Find an instance's root `claude.exe` and force-quit its tree |
+| `cc-cli.js` | Find the newest Claude Code; run `auth status` per config folder |
+| `cc-login.js` | Hidden `claude auth login` sessions: status, code relay, cancel, timeout |
+| `cc-usage.js` | `claude -p "/usage"` fetch and parsing, with the safety nets in §19.3 |
+| `limits.js` | Status-line recorder and fallback limits file |
+
+## 23. Environment finding
+
+When Multi-Claude is launched by a process inside the Store version of Claude Desktop (as
+happened throughout development, via Claude Code in its Code tab), Windows redirects its
+`%APPDATA%` writes into `%LOCALAPPDATA%\Packages\Claude_<id>\LocalCache\Roaming\`. Its accounts,
+history and Claude Code sign-ins then live in that virtualized copy. Launching from
+`start.cmd`, Explorer or the Start Menu uses the real AppData, and starts with that location's
+data instead.

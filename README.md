@@ -1,8 +1,8 @@
 # Multi-Claude
 
 A Windows app for keeping several Claude Desktop accounts side by side — add a profile,
-launch it, give it a desktop shortcut, delete it when you are done — plus dashboards for
-token usage, launch history and disk storage.
+launch or close it, give it a desktop shortcut, delete it when you are done — and see each
+account's own real Session and Weekly usage limits, launch history and disk usage.
 
 Replaces hand-edited `.bat` files like `Claude-Account2.bat`.
 
@@ -20,32 +20,10 @@ Everything is per account. Nothing is summed or merged across accounts.
 | **History** | Which account was open, when, and for how long |
 | **Storage** | Per-profile disk usage split by category, with a cache purge |
 
-## Where the usage numbers come from — and what they are not
+## Usage limits per account
 
-The Usage and Dashboard views read Claude Code's own session logs in
-`~/.claude/projects`. Three things are worth being precise about:
-
-1. **It is Claude Code usage, not Claude.ai chat usage.** Your subscription's
-   "messages used / limit remaining" is not exposed locally or through any API a
-   third-party app can call. This app does not show it and does not estimate it.
-   Your real per-account Session and Weekly limits are a separate feature — see
-   **Usage limits by account** below.
-2. **Metadata only.** The reader extracts token counts, timestamps, model names, project
-   folder paths and recorded cost. It never reads, stores or displays message text,
-   prompts, replies or tool arguments. There is a test that asserts this.
-3. **Attribution is partial, and labelled as such.** Those logs live in your home folder
-   and are shared by every profile. Only sessions carrying an `organizationUuid` can be
-   attributed to an account — roughly a third — and the rest are grouped under
-   "Unattributed" rather than guessed at. Cost is recorded by a minority of sessions, so
-   it is shown as a partial figure with the session count beside it.
-
-History is different: Multi-Claude observes it directly, so it is exact per account. The
-limit there is that it can only see what runs while the manager itself is open.
-
-### Usage limits by account
-
-The Account view shows each account's real **Session (5hr)** and **Weekly (7 day)**
-limits — the same numbers as Claude's own Account & Usage panel — through the one route
+Each account's Dashboard card and its own page show that account's real **Session (5hr)**
+and **Weekly** limits — the same numbers as Claude's own Account & Usage panel — through the one route
 Anthropic sanctions for it.
 
 **Why the app can't just read them like VS Code does.** VS Code, the Claude Code CLI and
@@ -70,7 +48,7 @@ Every account gets its own Claude Code config folder
 2. **Fetching** — Multi-Claude then runs `claude -p "/usage"` for each signed-in account,
    hidden. `/usage` is a built-in command: Claude Code answers it from Anthropic's usage
    service and returns a structured report, **without calling a model**. Measured on this
-   machine with Claude Code 2.1.319: cost $0, zero turns. The panel shows every meter the
+   machine with Claude Code 2.1.319: cost $0, zero turns. Each account shows every meter the
    server reports — session, weekly, any per-model weekly limit — with reset times and the
    server's own severity, plus extra-usage status.
 3. Results are cached for 90 seconds; **Refresh** fetches immediately.
@@ -85,37 +63,19 @@ Safety nets, because getting this wrong would spend your usage silently:
 - Every result's turn count is checked. A fetch that reached a model is shown as such, and
   automatic refresh stops for that account; only a manual Refresh tries again.
 
-If `/usage` is ever unavailable, the panel falls back to what Claude Code's status line last
+If `/usage` is ever unavailable, the account falls back to what Claude Code's status line last
 recorded for that account (see `limits.js`). The newest Claude Code installed on the PC is
 used automatically; `/usage` reports need Claude Code 2.1.273 or later.
 
-### The rolling gauges
+## Activity and storage
 
-The Account view's two bars are shaped like Claude's Session and Weekly meters, but a bar
-needs a denominator and there is no real allowance to use. The denominator is therefore
-**your own busiest comparable window in the last 30 days** — a number this app can
-actually compute — and every label says exactly that. They are token counts, never a
-percentage of a plan limit.
+**History** is observed by Multi-Claude itself, so it is exact per account. The limit is
+that it can only see what runs while the manager is open: a profile started from a desktop
+shortcut with the manager closed is recorded from the moment the manager next opens.
 
-Skills and plugins are measured in tokens, read straight off the assistant turns carrying
-`attributionSkill` / `attributionPlugin`. MCP servers are measured in **tool calls**
-instead: one turn can call several servers, so dividing its tokens between them would be
-an invented figure.
-
-### The account card
-
-`~/.claude.json` describes exactly one account — whichever Claude Code is signed in as —
-because it lives in your home folder and is shared by every profile. It can and does
-differ from the account a given Claude Desktop profile is logged into. There is no
-per-profile equivalent: that identity lives inside each profile's Chromium credential
-storage, which this app does not read.
-
-### Performance
-
-The first usage scan parses tens of thousands of records and takes a few seconds; the
-first storage walk adds up every file across profiles that can run to tens of gigabytes.
-Both results are cached in `%APPDATA%\multi-claude\`, so every later launch is instant.
-Storage is re-measured on demand with the **Recalculate** button, and after any delete or
+**Storage** adds up every file in each profile, which can run to tens of gigabytes, so the
+first measurement takes a few seconds. Results are cached in `%APPDATA%\multi-claude\` and
+reused for 10 minutes; they are re-measured with **Recalculate**, and after any delete or
 cache purge.
 
 ## How it works
@@ -198,12 +158,17 @@ that.
 | Imported `Claude_Work` | left exactly where it is |
 | Default account | `%LOCALAPPDATA%\Claude-Data\<package family>` |
 | App config | `%APPDATA%\multi-claude\accounts.json` |
-| Usage cache | `%APPDATA%\multi-claude\usage-cache.json` |
 | Storage cache | `%APPDATA%\multi-claude\storage-cache.json` |
 | Launch history | `%APPDATA%\multi-claude\activity.jsonl` |
+| Each account's Claude Code sign-in (for usage limits) | `%APPDATA%\multi-claude\cc\<account id>` |
+| Status-line recorder (limits fallback) | `%APPDATA%\multi-claude\limits-recorder.ps1` |
 
 `accounts.json` holds names, folder paths and ids. No credentials, ever. Deleting any of
 the cache files is safe — they are rebuilt on next launch.
+
+The `cc\<account id>` folders belong to Anthropic's Claude Code: it keeps that account's
+sign-in there. Multi-Claude creates the folder and its status-line setting, and deletes the
+folder with the account, but never reads the credentials inside it.
 
 On first run the app registers your existing default account and, if you have one, the
 `Claude_Work` folder — in place, so any old `.bat` files keep working.
@@ -261,6 +226,12 @@ goes stale. Clicking one launches the profile without opening the manager window
   package identity, so `claude://` deep links and some notification routing still go to
   the default instance. This applies equally to the `.bat` approach.
 - Shortcut icons use the Multi-Claude icon, not Claude's.
+- **Start it yourself, not from inside Claude Desktop.** If Multi-Claude is launched by a
+  process running inside the Store version of Claude Desktop (for example by Claude Code
+  in its Code tab), Windows redirects its `%APPDATA%` writes into Claude's package folder
+  (`%LOCALAPPDATA%\Packages\Claude_<id>\LocalCache\Roaming\`). Its accounts, history and
+  Claude Code sign-ins then live there instead of in your real AppData. Starting it from
+  `start.cmd`, Explorer or the Start Menu uses the real location.
 
 ## Development
 
@@ -274,7 +245,9 @@ Two environment variables help when the window itself misbehaves:
 
 ```bash
 MULTI_CLAUDE_DEBUG=1                      # renderer console + load events -> %TEMP%\multi-claude-debug.log
-MULTI_CLAUDE_SHOT=C:\path\shot.png        # screenshot every view, then keep running
+MULTI_CLAUDE_SHOT=C:\path\shot.png        # screenshot every view, one account page and the Add dialog
+MULTI_CLAUDE_SHOT_WAIT=12000              # ms to wait on each view before capturing (default 1400)
+MULTI_CLAUDE_SHOT_SIGNIN=1                # also drive the sign-in dialog with an invalid code
 ```
 
 `MULTI_CLAUDE_DEBUG` exists because a packaged Windows GUI app has no console to print
@@ -286,3 +259,7 @@ scanning and deletion. The renderer (`src/renderer/`, React + Vite) is sandboxed
 `contextIsolation` on and talks to the main process through a preload bridge that only
 ever passes account **ids** — never filesystem paths. The UI is served over a custom
 `app://` protocol so the Content-Security-Policy can stay at `'self'`.
+
+`src/main/usage-reader.js`, `usage-aggregate.js` and `account-info.js` (with their tests)
+still exist, but nothing in the UI uses them any more: they powered the removed views that
+merged usage across all accounts. They are safe to delete along with their IPC channels.

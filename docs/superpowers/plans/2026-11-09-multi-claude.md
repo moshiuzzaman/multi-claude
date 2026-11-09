@@ -1,5 +1,10 @@
 # Multi-Claude Implementation Plan
 
+> **Historical record.** This is the original Version 1 implementation plan, kept as written.
+> It does not describe the current app. For what is built now, see the design spec
+> (`docs/superpowers/specs/2026-11-09-multi-claude-account-manager-design.md`, Versions 2 and 3)
+> and the README.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A Windows Electron app that lists Claude Desktop profiles and can add, launch, rename, create shortcuts for, and permanently delete them.
