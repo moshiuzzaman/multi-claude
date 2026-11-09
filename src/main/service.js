@@ -21,6 +21,7 @@ const { breakdown, purgeCaches } = require('./storage.js');
 const { readAccountInfo } = require('./account-info.js');
 const limitsMod = require('./limits.js');
 const ccCliMod = require('./cc-cli.js');
+const { createLoginManager } = require('./cc-login.js');
 
 const LIMITS_FILE = 'multi-claude-limits.json';
 const AUTH_TTL_MS = 2 * 60 * 1000;
@@ -58,6 +59,10 @@ function createService(deps) {
   };
   let cliPromise = null;
   const authCache = new Map(); // account id -> { at, auth }
+  // Hidden `claude auth login` runs, one per account being signed in.
+  const logins = deps.loginManager || createLoginManager({
+    openExternal: (url) => deps.shellImpl && deps.shellImpl.openExternal && deps.shellImpl.openExternal(url)
+  });
 
   const ccDirFor = (a) => (deps.ccRoot ? path.join(deps.ccRoot, a.id) : null);
 
@@ -397,14 +402,38 @@ function createService(deps) {
       };
     },
 
-    /** Open Anthropic's own sign-in for this account, in a visible terminal. */
+    /**
+     * Start Anthropic's own sign-in for this account, with no terminal window.
+     * The CLI opens the browser; the UI polls loginStatus and can pass a pasted
+     * code through loginSubmit. See cc-login.js.
+     */
     async connectAccount({ id }) {
       const a = find(id);
       const found = await requireCli();
       const dir = await prepareCcDir(a);
       authCache.delete(id);
-      ccCli.openTerminal(found.path, dir, ['auth', 'login'], { title: `Sign in: ${a.label}` });
-      return { ok: true };
+      return logins.start(id, { cliPath: found.path, configDir: dir });
+    },
+
+    async loginStatus({ id }) {
+      find(id);
+      const st = logins.status(id);
+      if (st.state === 'done') authCache.delete(id); // next limits() re-asks the CLI
+      return st;
+    },
+
+    async loginSubmit({ id, code }) {
+      find(id);
+      return logins.submit(id, code);
+    },
+
+    async loginCancel({ id }) {
+      return logins.cancel(id);
+    },
+
+    async loginOpenPage({ id }) {
+      find(id);
+      return logins.openPage(id);
     },
 
     /** Open an interactive Claude Code session as this account. */
@@ -471,6 +500,7 @@ function createService(deps) {
 
     /** Called on shutdown so an open activity session gets a real end time. */
     async shutdown() {
+      try { logins.cancelAll(); } catch { /* best effort */ }
       if (activity) {
         try { await activity.closeAll(); } catch { /* best effort */ }
       }

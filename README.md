@@ -63,8 +63,12 @@ documented feature. Multi-Claude gives every account its own Claude Code config 
 status-line recorder that copies **only** that `rate_limits` object to a file, which the
 app then reads.
 
-1. **Connect** opens Anthropic's own `claude auth login` in a terminal you can see. You
-   sign in to that account in your browser, once. New accounts do this automatically:
+1. **Connect** runs Anthropic's own `claude auth login` inside Multi-Claude, with no
+   terminal window. The CLI opens your browser; click **Authorize** with that account and
+   the dialog finishes by itself. If the browser shows a code instead, paste it into the
+   dialog: it is written straight to the Claude Code process — exactly like typing it into
+   a terminal — and is never stored, logged or exchanged by Multi-Claude. You do this
+   once per account. New accounts do this automatically:
    **Add account** has an *Also connect Claude Code for usage limits* option, on by
    default, that opens this sign-in right after creating the profile. Accounts added
    before this existed need one **Connect** each from the Account tab. The unmodified Claude Code binary keeps
