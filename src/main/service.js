@@ -156,7 +156,8 @@ function createService(deps) {
           shell: deps.shellImpl,
           desktopDir: deps.desktopDir,
           exePath: deps.appExePath,
-          account: a
+          account: a,
+          argsPrefix: deps.shortcutArgsPrefix || ''
         })
       };
     },

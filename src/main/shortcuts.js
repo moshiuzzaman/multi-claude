@@ -13,12 +13,17 @@ function shortcutName(label) {
   return `Claude - ${clean === '' ? 'account' : clean}.lnk`;
 }
 
-function createShortcut({ shell, desktopDir, exePath, account }) {
+/**
+ * argsPrefix exists for development runs, where the target is electron.exe and
+ * the project directory has to precede the flag. It is empty in a packaged
+ * build, where the target is Multi-Claude.exe itself.
+ */
+function createShortcut({ shell, desktopDir, exePath, account, argsPrefix = '' }) {
   const target = path.join(desktopDir, shortcutName(account.label));
 
   const ok = shell.writeShortcutLink(target, 'create', {
     target: exePath,
-    args: `--launch ${account.id}`,
+    args: `${argsPrefix}--launch ${account.id}`,
     icon: exePath,
     iconIndex: 0,
     description: `Open Claude with the ${account.label} profile`
