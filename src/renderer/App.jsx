@@ -7,37 +7,31 @@ import SignInDialog from './components/SignInDialog.jsx';
 import TextPromptDialog from './components/TextPromptDialog.jsx';
 import Dashboard from './views/Dashboard.jsx';
 import Accounts from './views/Accounts.jsx';
-import Usage from './views/Usage.jsx';
 import History from './views/History.jsx';
 import Storage from './views/Storage.jsx';
-import Account from './views/Account.jsx';
+import AccountDetail from './views/AccountDetail.jsx';
 
 const POLL_MS = 5000;
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'accounts', label: 'Accounts', icon: 'accounts' },
-  { id: 'usage', label: 'Usage', icon: 'usage' },
-  { id: 'account', label: 'Account', icon: 'id' },
   { id: 'history', label: 'History', icon: 'history' },
   { id: 'storage', label: 'Storage', icon: 'storage' }
 ];
 
 export default function App() {
   const [view, setView] = useState('dashboard');
+  const [detailId, setDetailId] = useState(null); // account shown on the 'detail' page
 
   const [accounts, setAccounts] = useState([]);
   const [running, setRunning] = useState([]);
   const [scanOk, setScanOk] = useState(true);
 
-  const [usage, setUsage] = useState(null);
-  const [usageLoading, setUsageLoading] = useState(false);
   const [activity, setActivity] = useState(null);
   const [storage, setStorage] = useState(null);
-  const [accountInfo, setAccountInfo] = useState(null);
   const [limits, setLimits] = useState(null);
   const [limitsLoading, setLimitsLoading] = useState(false);
-  const [limitsBusyId, setLimitsBusyId] = useState(null);
   const [days, setDays] = useState(30);
 
   const [toast, setToast] = useState(null);
@@ -82,18 +76,6 @@ export default function App() {
     [storage]
   );
 
-  const loadUsage = useCallback(async (d) => {
-    setUsageLoading(true);
-    try {
-      setUsage(await api.usage({ days: d }));
-    } catch (e) {
-      if (e.code !== 'no_usage_source') fail(e);
-      setUsage({ unavailable: true, message: e.message });
-    } finally {
-      setUsageLoading(false);
-    }
-  }, [fail]);
-
   const loadActivity = useCallback(async (d) => {
     try { setActivity(await api.activity({ days: d })); } catch (e) { fail(e); }
   }, [fail]);
@@ -133,39 +115,29 @@ export default function App() {
     finally { setLimitsLoading(false); }
   }, [fail]);
 
-  const loadAccountInfo = useCallback(async () => {
-    try { setAccountInfo(await api.accountInfo()); }
-    catch (e) { setAccountInfo({ available: false, reason: e.message }); }
-  }, []);
-
   useEffect(() => {
     loadAccounts();
     loadScan();
     loadStorage();
-    loadAccountInfo();
-  }, [loadAccounts, loadScan, loadStorage, loadAccountInfo]);
-
-  // The usage scan is the expensive one (a cold parse of ~80k records), so it
-  // only runs for the views that actually show it, and only once per range.
-  useEffect(() => {
-    if ((view === 'dashboard' || view === 'usage' || view === 'account') && !usage && !usageLoading) loadUsage(days);
-  }, [view, usage, usageLoading, days, loadUsage]);
+  }, [loadAccounts, loadScan, loadStorage]);
 
   useEffect(() => {
-    if ((view === 'dashboard' || view === 'history') && !activity) loadActivity(days);
+    if ((view === 'dashboard' || view === 'history' || view === 'detail') && !activity) loadActivity(days);
   }, [view, activity, days, loadActivity]);
 
 
   const changeRange = (d) => {
     setDays(d);
-    setUsage(null);
     setActivity(null);
   };
 
-  // While the Account view is open and focused, re-read limits every 20 s so a
-  // figure recorded by a Claude Code session in another window shows up on its own.
+  const openAccount = (id) => { setDetailId(id); setView('detail'); };
+
+  // Limits are shown on the Dashboard cards and on each account's page. While
+  // either is open and focused, re-read every 20 s; the main process caches the
+  // real /usage fetch for 90 s, so this rarely starts Claude Code.
   useEffect(() => {
-    if (view !== 'account') return undefined;
+    if (view !== 'dashboard' && view !== 'detail') return undefined;
     loadLimits(false);
     const t = setInterval(() => { if (document.hasFocus()) loadLimits(false); }, 20000);
     return () => clearInterval(t);
@@ -229,7 +201,7 @@ export default function App() {
       }
 
       // The account exists either way; the sign-in dialog handles its own
-      // failures and can be retried later from the Account tab.
+      // failures and can be retried later from the account's card or page.
       say(`Created ${a.label}. Sign in to Claude in the new window, and finish the Claude Code sign-in here.`);
       setSigningIn({ id: a.id, label: a.label });
     },
@@ -246,6 +218,7 @@ export default function App() {
       const a = deleting;
       await api.remove(a.id, confirmLabel, unlock);
       setDeleting(null);
+      if (view === 'detail' && detailId === a.id) setView('dashboard');
       await loadAccounts();
       loadStorage(true);
       say(`Deleted ${a.label} from this PC.`);
@@ -273,25 +246,16 @@ export default function App() {
     },
     // Sign-in runs inside the app: no terminal window. See SignInDialog.
     connect: (row) => setSigningIn({ id: row.id, label: row.label }),
-    openClaudeCode: async (row) => {
-      setLimitsBusyId(row.id);
-      try {
-        await api.openClaudeCode(row.id);
-        say(`Claude Code opened as ${row.label}. Its limits update after your first message.`);
-      } catch (e) { fail(e); }
-      finally { setLimitsBusyId(null); }
-    },
     refreshLimits: (force) => loadLimits(force),
     startRename: setRenaming,
     startDelete: setDeleting,
-    refreshUsage: () => { setUsage(null); },
     refreshStorage: () => { setStorage(null); loadStorage(true); }
   };
 
   const shared = {
-    accounts, running, scanOk, sizes, usage, usageLoading, activity, storage, accountInfo,
-    limits, limitsLoading, limitsBusyId,
-    days, setDays: changeRange, actions, setView
+    accounts, running, scanOk, sizes, activity, storage,
+    limits, limitsLoading,
+    days, setDays: changeRange, actions, setView, openAccount
   };
 
   const onLocateExe = async () => {
@@ -312,7 +276,7 @@ export default function App() {
         {NAV.map((n) => (
           <button
             key={n.id}
-            className={view === n.id ? 'nav-item active' : 'nav-item'}
+            className={view === n.id || (view === 'detail' && n.id === 'dashboard') ? 'nav-item active' : 'nav-item'}
             onClick={() => setView(n.id)}
           >
             <Icon name={n.icon} />
@@ -334,10 +298,9 @@ export default function App() {
           </div>
         )}
 
-        {view === 'dashboard' && <Dashboard {...shared} />}
+        {view === 'dashboard' && <Dashboard {...shared} onAdd={() => setAdding(true)} />}
         {view === 'accounts' && <Accounts {...shared} onAdd={() => setAdding(true)} />}
-        {view === 'usage' && <Usage {...shared} />}
-        {view === 'account' && <Account {...shared} />}
+        {view === 'detail' && <AccountDetail {...shared} accountId={detailId} />}
         {view === 'history' && <History {...shared} />}
         {view === 'storage' && <Storage {...shared} />}
       </main>
@@ -353,7 +316,7 @@ export default function App() {
           onCancel={() => setAdding(false)}
           option={{
             label: 'Also connect Claude Code for usage limits',
-            hint: 'Opens Anthropic\'s own Claude Code sign-in too, so this account\'s Session and Weekly limits show in the Account tab. One time only. Sign in with the same account in both windows.',
+            hint: 'Opens Anthropic\'s own Claude Code sign-in too, so this account\'s Session and Weekly limits show on its card and its own page. One time only. Sign in with the same account in both windows.',
             defaultChecked: true
           }}
         />
@@ -376,7 +339,7 @@ export default function App() {
           account={signingIn}
           onDone={(acct) => {
             setSigningIn(null);
-            say(`${acct.label} is connected. Use Claude Code once with it to load its limits.`);
+            say(`${acct.label} is connected. Loading its limits…`);
             loadLimits(true);
           }}
           onClose={() => { setSigningIn(null); loadLimits(true); }}
