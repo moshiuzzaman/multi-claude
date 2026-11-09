@@ -6,12 +6,40 @@
   "description": "Launch and manage separate Claude Desktop profiles. Not affiliated with Anthropic.",
   "main": "src/main/main.js",
   "scripts": {
-    "start": "electron .",
+    "build:renderer": "vite build",
+    "start": "npm run build:renderer && electron .",
     "test": "node --test \"test/*.test.js\"",
-    "dist": "electron-builder"
+    "dist": "npm run build:renderer && electron-builder"
   },
   "engines": {
     "node": ">=22"
+  },
+  "build": {
+    "appId": "dev.multiclaude.app",
+    "productName": "Multi-Claude",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/main/**/*",
+      "src/preload/**/*",
+      "dist-renderer/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Multi-Claude"
+    }
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.7.0",

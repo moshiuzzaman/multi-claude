@@ -53,6 +53,19 @@ test('createShortcut targets Multi-Claude with --launch <id>', () => {
   assert.strictEqual(written[0].opts.args, '--launch abc123de');
 });
 
+test('createShortcut prefixes args for a development run', () => {
+  const written = [];
+  const shell = {
+    writeShortcutLink: (p, op, opts) => { written.push(opts); return true; }
+  };
+  S.createShortcut({
+    shell, desktopDir: 'C:\\Desktop', exePath: 'C:\\el\\electron.exe',
+    account: { id: 'abc123de', label: 'Work' },
+    argsPrefix: '"C:\\proj" '
+  });
+  assert.strictEqual(written[0].args, '"C:\\proj" --launch abc123de');
+});
+
 test('createShortcut surfaces a failed write', () => {
   const shell = { writeShortcutLink: () => false };
   assert.throws(
