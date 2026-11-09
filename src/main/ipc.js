@@ -8,7 +8,7 @@ const { ipcMain, dialog } = require('electron');
 const CHANNELS = [
   'list', 'add', 'rename', 'launch', 'remove', 'forget',
   'openFolder', 'createShortcut', 'locateExe', 'scan', 'sizes',
-  'usage', 'activity', 'storage', 'purgeCache'
+  'usage', 'activity', 'storage', 'purgeCache', 'accountInfo'
 ];
 
 function register(service) {
@@ -35,6 +35,7 @@ function register(service) {
     activity: (p) => service.activity(p),
     storage: () => service.storage(),
     purgeCache: (p) => service.purgeCache(p),
+    accountInfo: () => service.accountInfo(),
 
     // The only path that ever enters the main process from the UI, and it
     // comes from a native file dialog rather than from renderer script.

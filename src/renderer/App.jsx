@@ -8,6 +8,7 @@ import Accounts from './views/Accounts.jsx';
 import Usage from './views/Usage.jsx';
 import History from './views/History.jsx';
 import Storage from './views/Storage.jsx';
+import Account from './views/Account.jsx';
 
 const POLL_MS = 5000;
 
@@ -15,6 +16,7 @@ const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'accounts', label: 'Accounts', icon: 'accounts' },
   { id: 'usage', label: 'Usage', icon: 'usage' },
+  { id: 'account', label: 'Account', icon: 'id' },
   { id: 'history', label: 'History', icon: 'history' },
   { id: 'storage', label: 'Storage', icon: 'storage' }
 ];
@@ -30,6 +32,7 @@ export default function App() {
   const [usageLoading, setUsageLoading] = useState(false);
   const [activity, setActivity] = useState(null);
   const [storage, setStorage] = useState(null);
+  const [accountInfo, setAccountInfo] = useState(null);
   const [days, setDays] = useState(30);
 
   const [toast, setToast] = useState(null);
@@ -107,16 +110,22 @@ export default function App() {
     return p;
   }, [fail]);
 
+  const loadAccountInfo = useCallback(async () => {
+    try { setAccountInfo(await api.accountInfo()); }
+    catch (e) { setAccountInfo({ available: false, reason: e.message }); }
+  }, []);
+
   useEffect(() => {
     loadAccounts();
     loadScan();
     loadStorage();
-  }, [loadAccounts, loadScan, loadStorage]);
+    loadAccountInfo();
+  }, [loadAccounts, loadScan, loadStorage, loadAccountInfo]);
 
   // The usage scan is the expensive one (a cold parse of ~80k records), so it
   // only runs for the views that actually show it, and only once per range.
   useEffect(() => {
-    if ((view === 'dashboard' || view === 'usage') && !usage && !usageLoading) loadUsage(days);
+    if ((view === 'dashboard' || view === 'usage' || view === 'account') && !usage && !usageLoading) loadUsage(days);
   }, [view, usage, usageLoading, days, loadUsage]);
 
   useEffect(() => {
@@ -206,7 +215,7 @@ export default function App() {
   };
 
   const shared = {
-    accounts, running, scanOk, sizes, usage, usageLoading, activity, storage,
+    accounts, running, scanOk, sizes, usage, usageLoading, activity, storage, accountInfo,
     days, setDays: changeRange, actions, setView
   };
 
@@ -253,6 +262,7 @@ export default function App() {
         {view === 'dashboard' && <Dashboard {...shared} />}
         {view === 'accounts' && <Accounts {...shared} onAdd={() => setAdding(true)} />}
         {view === 'usage' && <Usage {...shared} />}
+        {view === 'account' && <Account {...shared} />}
         {view === 'history' && <History {...shared} />}
         {view === 'storage' && <Storage {...shared} />}
       </main>

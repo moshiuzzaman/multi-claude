@@ -85,3 +85,16 @@ export const SERIES = [
 export function seriesColor(i) {
   return SERIES[i] || 'var(--faint)';
 }
+
+/**
+ * Keep the top `n` entries and roll everything else into a single "Other" row,
+ * rather than handing a 7th series a colour the palette does not have.
+ */
+export function foldOther(items, n = 6) {
+  if (!items || items.length <= n) return items || [];
+  const head = items.slice(0, n);
+  const rest = items.slice(n);
+  const value = rest.reduce((a, b) => a + b.value, 0);
+  if (value <= 0) return head;
+  return [...head, { key: '__other', label: `Other (${rest.length})`, value, other: true }];
+}

@@ -226,7 +226,137 @@ test('byModel and byProject are ranked by the metric the UI displays', () => {
   assert.ok(d.byModel[0].output > d.byModel[1].output, 'list order matches the printed numbers');
 });
 
+test('summariseSession attributes tokens to skills and plugins, and counts MCP calls', () => {
+  const text = [
+    line({
+      type: 'assistant', sessionId: 's', timestamp: '2026-11-03T10:00:00Z',
+      attributionSkill: 'superpowers:brainstorming',
+      attributionPlugin: 'superpowers',
+      message: {
+        model: 'claude-opus-5-5',
+        content: [
+          { type: 'tool_use', name: 'mcp__Claude_Browser__navigate', input: { url: 'SECRET' } },
+          { type: 'tool_use', name: 'mcp__ccd_turn__update_plan', input: { x: 'SECRET' } },
+          { type: 'tool_use', name: 'Read', input: { path: 'SECRET' } }
+        ],
+        usage: { input_tokens: 10, output_tokens: 90 }
+      }
+    })
+  ].join('\n');
+
+  const s = summariseSession(text, 'f');
+  assert.strictEqual(s.bySkill['superpowers:brainstorming'].output, 90);
+  assert.strictEqual(s.byPlugin['superpowers'].output, 90);
+  assert.strictEqual(s.byMcpCalls['Claude_Browser'], 1);
+  assert.strictEqual(s.byMcpCalls['ccd_turn'], 1);
+  assert.ok(!('Read' in s.byMcpCalls), 'non-MCP tools are not counted as servers');
+  assert.ok(!JSON.stringify(s).includes('SECRET'), 'tool arguments must never be retained');
+});
+
+test('rolling windows sum only the hours inside them', () => {
+  const now = Date.parse('2026-11-03T12:30:00');
+  const mk = (iso, out) => line({
+    type: 'assistant', sessionId: 's', timestamp: iso,
+    message: { model: 'm', usage: { input_tokens: 0, output_tokens: out } }
+  });
+
+  const s = summariseSession([
+    mk('2026-11-03T11:00:00', 100),   // ~1.5h ago  -> in both windows
+    mk('2026-11-03T04:00:00', 500),   // ~8.5h ago  -> week only
+    mk('2026-10-20T10:00:00', 900)    // 14 days ago -> neither
+  ].join('\n'), 'f');
+
+  const d = buildDashboard([s], { days: 30, now });
+  assert.strictEqual(d.rolling.fiveHour.output, 100);
+  assert.strictEqual(d.rolling.sevenDay.output, 600);
+  assert.strictEqual(d.totals.output, 1500, 'all-time is unaffected by the windows');
+});
+
+test('peakWindow finds the busiest run of consecutive hours', () => {
+  const { peakWindow } = require('../src/main/usage-aggregate.js');
+  assert.strictEqual(peakWindow([1, 1, 1, 1, 1, 1], 5), 5);
+  assert.strictEqual(peakWindow([0, 0, 9, 9, 0, 0], 2), 18);
+  assert.strictEqual(peakWindow([5], 5), 0, 'not enough hours to fill a window');
+  assert.strictEqual(peakWindow([], 5), 0);
+});
+
+test('rolling windows carry a peak to compare against', () => {
+  const now = Date.parse('2026-11-03T12:30:00');
+  const mk = (iso, out) => line({
+    type: 'assistant', sessionId: 's', timestamp: iso,
+    message: { model: 'm', usage: { input_tokens: 0, output_tokens: out } }
+  });
+  // A busy stretch two weeks back should set the peak, not the recent hour.
+  const s = summariseSession([
+    mk('2026-11-03T11:00:00', 100),
+    mk('2026-10-25T10:00:00', 4000),
+    mk('2026-10-25T11:00:00', 4000)
+  ].join('\n'), 'f');
+
+  const d = buildDashboard([s], { days: 30, now });
+  assert.strictEqual(d.rolling.fiveHour.output, 100);
+  assert.strictEqual(d.rolling.fiveHour.peak, 8000, 'peak comes from the busiest 5h, anywhere in 30d');
+  assert.strictEqual(d.rolling.peakWindowDays, 30);
+});
+
+test('contributions only include sessions active inside the window', () => {
+  const now = Date.parse('2026-11-03T12:00:00');
+  const recent = summariseSession(line({
+    type: 'assistant', sessionId: 'r', timestamp: '2026-11-03T09:00:00',
+    attributionSkill: 'recent-skill', attributionPlugin: 'p1',
+    message: { model: 'm', usage: { input_tokens: 1, output_tokens: 50 } }
+  }), 'a');
+  const old = summariseSession(line({
+    type: 'assistant', sessionId: 'o', timestamp: '2026-10-01T09:00:00',
+    attributionSkill: 'old-skill', attributionPlugin: 'p2',
+    message: { model: 'm', usage: { input_tokens: 1, output_tokens: 999 } }
+  }), 'b');
+
+  const d = buildDashboard([recent, old], { days: 30, now });
+  assert.deepStrictEqual(d.contrib.day.skills.map((x) => x.key), ['recent-skill']);
+  assert.deepStrictEqual(d.contrib.week.skills.map((x) => x.key), ['recent-skill']);
+  assert.deepStrictEqual(d.contrib.day.plugins.map((x) => x.key), ['p1']);
+});
+
+test('contributions rank MCP servers by call count', () => {
+  const now = Date.parse('2026-11-03T12:00:00');
+  const s = summariseSession([
+    line({
+      type: 'assistant', sessionId: 's', timestamp: '2026-11-03T10:00:00',
+      message: {
+        model: 'm',
+        content: [
+          { type: 'tool_use', name: 'mcp__alpha__a' },
+          { type: 'tool_use', name: 'mcp__alpha__b' },
+          { type: 'tool_use', name: 'mcp__beta__c' }
+        ],
+        usage: { input_tokens: 1, output_tokens: 1 }
+      }
+    })
+  ].join('\n'), 'f');
+
+  const d = buildDashboard([s], { days: 30, now });
+  assert.deepStrictEqual(d.contrib.day.mcp.map((x) => [x.key, x.value]), [['alpha', 2], ['beta', 1]]);
+});
+
 test('projectName falls back sensibly', () => {
   assert.strictEqual(projectName('C:\\a\\b\\myproj'), 'myproj');
   assert.strictEqual(projectName(null), '(unknown)');
+});
+
+test('a cache written by an older reader is discarded, not served', async () => {
+  // Simulates the real failure: a summary cached before the reader learned to
+  // extract skills. The file is unchanged, so the mtime key alone would reuse it.
+  const key = 'R\\a.jsonl';
+  const files = { [key]: { mtimeMs: 100, text: SESSION_A } };
+  const fsImpl = fakeFs(files);
+  const first = await scanUsage({ projectsRoot: 'R', cache: {}, fsImpl });
+  assert.ok(first.sessions[0].bySkill, 'current reader produces the field');
+
+  const stale = JSON.parse(JSON.stringify(first.cache));
+  delete stale[key].session.bySkill;
+  const reused = await scanUsage({ projectsRoot: 'R', cache: stale, fsImpl });
+  assert.strictEqual(reused.parsed, 0, 'the cache key alone cannot tell it is stale');
+  assert.strictEqual(reused.sessions[0].bySkill, undefined,
+    'which is exactly why the service must version the cache file');
 });

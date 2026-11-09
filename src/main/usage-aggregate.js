@@ -53,6 +53,106 @@ function topN(map, n, metric = (b) => b.output) {
     .slice(0, n);
 }
 
+/** "2026-11-09T14" -> epoch ms for the start of that local hour. */
+function hourKeyToTime(key) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/.exec(String(key));
+  if (!m) return null;
+  return new Date(+m[1], +m[2] - 1, +m[3], +m[4]).getTime();
+}
+
+/**
+ * Token volume inside a rolling window, summed from hourly buckets.
+ *
+ * This is NOT a percentage of any plan limit — those live behind an
+ * authenticated API call and are deliberately not reproduced here. It is the
+ * raw local token volume over the same span, and the UI must label it so.
+ */
+function rollingWindow(sessions, ms, now) {
+  const cutoff = now - ms;
+  const total = emptyBucket();
+  for (const s of sessions) {
+    for (const [hk, bucket] of Object.entries(s.byHour || {})) {
+      const t = hourKeyToTime(hk);
+      // An hour bucket counts when the hour it covers ends after the cutoff.
+      if (t !== null && t + 3600000 > cutoff) addInto(total, bucket);
+    }
+  }
+  return { ...total, since: cutoff, windowMs: ms };
+}
+
+/**
+ * Hourly token totals for the last `hours` hours, as a dense array.
+ * Dense so a sliding window can run over it without gaps.
+ */
+function hourlyGrid(sessions, now, hours) {
+  const end = Math.floor(now / 3600000) * 3600000;
+  const start = end - (hours - 1) * 3600000;
+  const grid = new Array(hours).fill(0);
+
+  for (const s of sessions) {
+    for (const [hk, b] of Object.entries(s.byHour || {})) {
+      const t = hourKeyToTime(hk);
+      if (t === null) continue;
+      const idx = Math.round((t - start) / 3600000);
+      if (idx >= 0 && idx < hours) grid[idx] += b.output + b.input;
+    }
+  }
+  return grid;
+}
+
+/** Largest sum across any `w` consecutive hours. */
+function peakWindow(grid, w) {
+  let best = 0;
+  let sum = 0;
+  for (let i = 0; i < grid.length; i++) {
+    sum += grid[i];
+    if (i >= w) sum -= grid[i - w];
+    if (i >= w - 1 && sum > best) best = sum;
+  }
+  return best;
+}
+
+function rankMap(map, metric, n = 8) {
+  return Object.entries(map)
+    .map(([key, v]) => (typeof v === 'number' ? { key, value: v } : { key, ...v, value: metric(v) }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, n);
+}
+
+/**
+ * What drove usage, over sessions that were last active inside the window.
+ * Session-level granularity, which is exact in its own terms and is how the
+ * UI labels it.
+ */
+function contributions(sessions, ms, now) {
+  const cutoff = now - ms;
+  const skills = {};
+  const plugins = {};
+  const mcp = {};
+
+  for (const s of sessions) {
+    if (!s.lastTs || s.lastTs < cutoff) continue;
+    for (const [k, b] of Object.entries(s.bySkill || {})) {
+      if (!skills[k]) skills[k] = emptyBucket();
+      addInto(skills[k], b);
+    }
+    for (const [k, b] of Object.entries(s.byPlugin || {})) {
+      if (!plugins[k]) plugins[k] = emptyBucket();
+      addInto(plugins[k], b);
+    }
+    for (const [k, calls] of Object.entries(s.byMcpCalls || {})) {
+      mcp[k] = (mcp[k] || 0) + calls;
+    }
+  }
+
+  const tokenMetric = (b) => b.output + b.input;
+  return {
+    skills: rankMap(skills, tokenMetric),
+    plugins: rankMap(plugins, tokenMetric),
+    mcp: rankMap(mcp, null)
+  };
+}
+
 /**
  * @param sessions summaries from usage-reader
  * @param days     size of the daily window, e.g. 30
@@ -132,8 +232,26 @@ function buildDashboard(sessions, { days = 30, now = Date.now() } = {}) {
       attributedSessions,
       firstTs,
       lastTs
+    },
+    // A bare "1.2M tokens" has no shape, and a progress bar needs a
+    // denominator. There is no real plan limit available, so the honest
+    // denominator is the user's own busiest comparable window this month.
+    rolling: (() => {
+      const grid = hourlyGrid(sessions, now, 30 * 24);
+      return {
+        fiveHour: { ...rollingWindow(sessions, 5 * 3600 * 1000, now), peak: peakWindow(grid, 5) },
+        sevenDay: { ...rollingWindow(sessions, 7 * 24 * 3600 * 1000, now), peak: peakWindow(grid, 7 * 24) },
+        peakWindowDays: 30
+      };
+    })(),
+    contrib: {
+      day: contributions(sessions, 24 * 3600 * 1000, now),
+      week: contributions(sessions, 7 * 24 * 3600 * 1000, now)
     }
   };
 }
 
-module.exports = { buildDashboard, dayRange, projectName, UNATTRIBUTED };
+module.exports = {
+  buildDashboard, dayRange, projectName, UNATTRIBUTED,
+  rollingWindow, contributions, hourKeyToTime, hourlyGrid, peakWindow
+};

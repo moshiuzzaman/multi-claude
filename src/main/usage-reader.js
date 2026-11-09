@@ -18,6 +18,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+// Bump whenever the shape of a session summary changes. The on-disk cache is
+// keyed on file size and mtime, so without this a cached summary would keep
+// being reused after the reader learned to extract new fields — and those
+// fields would silently read as empty forever.
+const SUMMARY_VERSION = 2;
+
 /** Cheap substring prefilter: JSON.parse on 80k lines is the expensive part. */
 const INTERESTING = ['"usage"', '"cost-state"', '"organizationUuid"', '"session-owner"', '"cwd"'];
 
@@ -30,6 +36,18 @@ function dayKey(ts) {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return null;
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Hourly resolution, which is what the rolling 5-hour window is built from. */
+function hourKey(ts) {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${dayKey(ts)}T${String(d.getHours()).padStart(2, '0')}`;
+}
+
+function bucketIn(map, key) {
+  if (!map[key]) map[key] = emptyBucket();
+  return map[key];
 }
 
 function emptyBucket() {
@@ -62,7 +80,14 @@ function summariseSession(text, filePath) {
     costRecorded: false,
     totals: emptyBucket(),
     byModel: {},
-    byDay: {}
+    byDay: {},
+    byHour: {},
+    // Attribution, straight off the assistant records that carry usage.
+    bySkill: {},
+    byPlugin: {},
+    // MCP is counted in tool calls, not tokens: one assistant turn can call
+    // several servers, so splitting its tokens between them would be invented.
+    byMcpCalls: {}
   };
 
   let sawUsage = false;
@@ -112,9 +137,27 @@ function summariseSession(text, filePath) {
     }
 
     const day = ts ? dayKey(ts) : null;
-    if (day) {
-      if (!session.byDay[day]) session.byDay[day] = emptyBucket();
-      addUsage(session.byDay[day], u);
+    if (day) addUsage(bucketIn(session.byDay, day), u);
+
+    const hour = ts ? hourKey(ts) : null;
+    if (hour) addUsage(bucketIn(session.byHour, hour), u);
+
+    if (typeof o.attributionSkill === 'string' && o.attributionSkill) {
+      addUsage(bucketIn(session.bySkill, o.attributionSkill), u);
+    }
+    if (typeof o.attributionPlugin === 'string' && o.attributionPlugin) {
+      addUsage(bucketIn(session.byPlugin, o.attributionPlugin), u);
+    }
+
+    // Tool NAMES only. Arguments are never read out of the block.
+    const content = o.message && o.message.content;
+    if (Array.isArray(content)) {
+      for (const b of content) {
+        if (!b || b.type !== 'tool_use' || typeof b.name !== 'string') continue;
+        if (!b.name.startsWith('mcp__')) continue;
+        const server = b.name.split('__')[1];
+        if (server) session.byMcpCalls[server] = (session.byMcpCalls[server] || 0) + 1;
+      }
     }
   }
 
@@ -183,10 +226,12 @@ async function scanUsage({ projectsRoot, cache = {}, fsImpl = fs, onProgress, yi
 }
 
 module.exports = {
+  SUMMARY_VERSION,
   summariseSession,
   listSessionFiles,
   scanUsage,
   emptyBucket,
   addUsage,
-  dayKey
+  dayKey,
+  hourKey
 };

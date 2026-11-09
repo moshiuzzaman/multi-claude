@@ -19,7 +19,7 @@ export default function BarList({ items, max, renderValue, colorAt }) {
   return (
     <div className="bars">
       {items.map((item, i) => {
-        const color = colorAt ? colorAt(i, item) : seriesColor(i);
+        const color = item.other ? 'var(--faint)' : colorAt ? colorAt(i, item) : seriesColor(i);
         const pct = Math.max(1.5, (item.value / top) * 100);
         return (
           <div className="bar-row" key={item.key}>
@@ -33,10 +33,10 @@ export default function BarList({ items, max, renderValue, colorAt }) {
               </span>
             </div>
             <div className="bar-track">
-              <div
-                className="bar-fill"
-                style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}, ${color}cc)` }}
-              />
+              {/* Solid fill: the colour arrives as a CSS variable, so string
+                  concatenation like `${color}cc` would produce invalid CSS and
+                  silently drop the whole declaration. */}
+              <div className="bar-fill" style={{ width: `${pct}%`, background: color, color }} />
             </div>
           </div>
         );
