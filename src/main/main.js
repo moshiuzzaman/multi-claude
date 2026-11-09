@@ -205,6 +205,23 @@ if (!app.requestSingleInstanceLock()) {
                     await fsp.writeFile(out, img.toPNG());
                     log(`[renderer] screenshot -> ${out}`);
                   }
+
+                  // Also capture the Add dialog, which no view shows on its own.
+                  await win.webContents.executeJavaScript(
+                    "document.querySelectorAll('.nav-item')[1].click()"
+                  );
+                  await new Promise((r) => setTimeout(r, 800));
+                  await win.webContents.executeJavaScript(
+                    "[...document.querySelectorAll('button')].find(b => b.textContent.includes('Add account'))?.click()"
+                  );
+                  await new Promise((r) => setTimeout(r, 800));
+                  const dlg = await win.webContents.capturePage();
+                  await fsp.writeFile(`${base}-dialog-add.png`, dlg.toPNG());
+                  log(`[renderer] screenshot -> ${base}-dialog-add.png`);
+                  // Close it without creating anything.
+                  await win.webContents.executeJavaScript(
+                    "[...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Cancel')?.click()"
+                  );
                 } catch (err) {
                   log(`[renderer] screenshot failed: ${err.message}`);
                 }
