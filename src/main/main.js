@@ -145,13 +145,22 @@ if (!app.requestSingleInstanceLock()) {
       });
       win.webContents.on('did-finish-load', async () => {
         log('[renderer] loaded');
-        try {
-          const rows = await win.webContents.executeJavaScript(
-            'document.querySelectorAll(".row").length'
-          );
-          log(`[renderer] account rows rendered: ${rows}`);
-        } catch (e) {
-          log(`[renderer] probe failed: ${e.message}`);
+        // The list arrives asynchronously over IPC, so poll briefly rather
+        // than sampling once at load and reporting a meaningless zero.
+        for (let i = 0; i < 20; i++) {
+          try {
+            const rows = await win.webContents.executeJavaScript(
+              'document.querySelectorAll(".row").length'
+            );
+            if (rows > 0 || i === 19) {
+              log(`[renderer] account rows rendered: ${rows} (after ${(i + 1) * 250}ms)`);
+              return;
+            }
+          } catch (e) {
+            log(`[renderer] probe failed: ${e.message}`);
+            return;
+          }
+          await new Promise((r) => setTimeout(r, 250));
         }
       });
     }
