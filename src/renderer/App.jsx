@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from './lib/api.js';
 import Icon from './components/Icon.jsx';
 import DeleteDialog from './components/DeleteDialog.jsx';
+import QuitDialog from './components/QuitDialog.jsx';
 import TextPromptDialog from './components/TextPromptDialog.jsx';
 import Dashboard from './views/Dashboard.jsx';
 import Accounts from './views/Accounts.jsx';
@@ -38,6 +39,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [exeMissing, setExeMissing] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [quitting, setQuitting] = useState(null);
   const [renaming, setRenaming] = useState(null);
   const [adding, setAdding] = useState(false);
 
@@ -160,15 +162,25 @@ export default function App() {
         setTimeout(loadScan, 1500);
       } catch (e) { fail(e); }
     },
-    close: async (a) => {
+    // Close asks first: quitting ends the whole process, which also stops
+    // anything running inside that profile.
+    close: (a) => setQuitting(a),
+    confirmQuit: async () => {
+      const a = quitting;
       try {
-        const { closed } = await api.closeAccount(a.id);
-        say(closed > 0 ? `Closing ${a.label}…` : `${a.label} is not open.`);
-        // A graceful close takes a moment to unwind, so confirm twice rather
-        // than leaving the row showing a stale state.
-        setTimeout(loadScan, 1200);
-        setTimeout(loadScan, 3500);
-      } catch (e) { fail(e); }
+        const { closed, stillRunning } = await api.closeAccount(a.id);
+        setQuitting(null);
+        if (closed === 0) say(`${a.label} was not running.`);
+        else if (stillRunning) say(`${a.label} is still running. Try again, or end it from Task Manager.`, true);
+        else say(`${a.label} closed.`);
+      } catch (e) {
+        setQuitting(null);
+        fail(e);
+      } finally {
+        // The service already waited for the scan to agree; this just refreshes
+        // the row so the button flips to Launch immediately.
+        loadScan();
+      }
     },
     add: async (label) => {
       try {
@@ -299,6 +311,10 @@ export default function App() {
           onConfirm={actions.rename}
           onCancel={() => setRenaming(null)}
         />
+      )}
+
+      {quitting && (
+        <QuitDialog account={quitting} onConfirm={actions.confirmQuit} onCancel={() => setQuitting(null)} />
       )}
 
       {deleting && (

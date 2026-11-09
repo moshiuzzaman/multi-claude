@@ -371,6 +371,59 @@ test('usage fails clearly when there is no log directory', async () => {
   cleanup(h);
 });
 
+test('closeAccount reports stillRunning:false once the scan agrees it is gone', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Quit Me' });
+
+  let alive = true;
+  h.svc._setCloserForTest({ close: async () => { alive = false; return { closed: 1, pids: [1] }; } });
+  h.svc._setSleepForTest(async () => {});
+  h.svc._setScannerForTest({ scan: async () => ({ dirs: alive ? [a.dir] : [], ok: true }) });
+
+  const r = await h.svc.closeAccount({ id: a.id });
+  assert.deepStrictEqual(r, { closed: 1, stillRunning: false });
+  cleanup(h);
+});
+
+test('closeAccount tells the truth when the instance survives', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Stubborn' });
+
+  h.svc._setCloserForTest({ close: async () => ({ closed: 1, pids: [1] }) });
+  h.svc._setSleepForTest(async () => {});
+  h.svc._setScannerForTest({ scan: async () => ({ dirs: [a.dir], ok: true }) });
+
+  const r = await h.svc.closeAccount({ id: a.id });
+  assert.strictEqual(r.stillRunning, true, 'must not claim success while the scan still sees it');
+  cleanup(h);
+});
+
+test('closeAccount does not read a failed scan as success', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Unknown' });
+
+  h.svc._setCloserForTest({ close: async () => ({ closed: 1, pids: [1] }) });
+  h.svc._setSleepForTest(async () => {});
+  h.svc._setScannerForTest({ scan: async () => ({ dirs: [], ok: false }) });
+
+  const r = await h.svc.closeAccount({ id: a.id });
+  assert.strictEqual(r.stillRunning, true, 'an empty set from a failed scan proves nothing');
+  cleanup(h);
+});
+
+test('closeAccount on an idle profile closes nothing', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Idle' });
+  h.svc._setCloserForTest({ close: async () => ({ closed: 0, pids: [] }) });
+  const r = await h.svc.closeAccount({ id: a.id });
+  assert.deepStrictEqual(r, { closed: 0, stillRunning: false });
+  cleanup(h);
+});
+
 test('launch fails cleanly when claude.exe cannot be found', async () => {
   const h = harness();
   await h.svc.init();
