@@ -11,6 +11,76 @@
 **Spec:** `docs/superpowers/specs/2026-11-10-vscode-switch-account-design.md`
 **Supersedes:** `docs/superpowers/plans/2026-11-10-vscode-per-account.md` (shipped, now being partly reverted)
 
+---
+
+## Status — resume here
+
+**As of 2026-11-10, 18:20. Nothing in this plan is implemented yet: 0 of 6 tasks done.**
+Verify that before trusting this note — `git log --oneline f613a1f..HEAD` should be
+empty apart from this status commit.
+
+### Where the work is
+
+- Branch `feat/vscode-switch-account`, in the worktree
+  `C:\Users\BS01085\Music\multi-Claude\.worktrees\vscode-switch-account`, cut from
+  `f613a1f` on `main`.
+- `npm install` has been run there. `npm test` is green at **205 tests**, which is
+  the baseline this plan starts from.
+- `main` carries **v1** of this feature, already merged at `0fb6187` — the
+  per-account `--user-data-dir` design. This plan deletes much of it. Do not treat
+  v1's code or its README section as the target state.
+
+### What is already settled — do not re-open
+
+**The mechanism is proven live, not inferred.** Before any code was written, the
+managed block was pasted by hand into the real
+`%APPDATA%\Code\User\settings.json` while a VS Code was already running:
+
+```
+--- config dir BEFORE ---          block written 18:17:09
+  17:52:32  .claude.json
+  13:16:21  .credentials.json
+--- config dir AFTER ---
+  18:17:14  .claude.json       <- moved 5s after the write
+  13:16:21  .credentials.json  <- never touched
+```
+
+The already-open editor refreshed its Claude hosts against the new account's
+config dir, with no new window and no reload, and the credential file was not
+touched. The settings file was restored afterwards. So §2 of the spec is
+established fact.
+
+**Three decisions the project owner made**, which the design encodes:
+
+1. Replace v1 rather than keep both mechanisms. One VS Code, one active account.
+2. Write the setting as a comment-marked managed block. No JSONC parser, and no
+   runtime dependency — the packaged build ships no `node_modules`.
+3. No UI indicator of which account is active. The button switches; that is all.
+
+### How to continue
+
+1. Work from the worktree above, on `feat/vscode-switch-account`.
+2. Invoke `superpowers:subagent-driven-development` with this plan file.
+3. Task briefs are already extracted to
+   `.superpowers/sdd/2026-11-10-vscode-switch-account/task-<n>-brief.md`. That
+   directory is git-ignored scratch, so if it is gone, regenerate it with the
+   skill's `scripts/task-brief`.
+4. The ledger is `.superpowers/sdd/2026-11-10-vscode-switch-account/progress.md`.
+   It currently records only the pre-flight proof above.
+5. Work Tasks 1 → 6 in order; each ends with its own commit. Then a whole-branch
+   review, then `superpowers:finishing-a-development-branch`.
+
+### Loose ends on this machine
+
+- v1 created `%APPDATA%\multi-claude\vscode\` for per-account profiles. It is
+  empty and this plan stops using it; delete it once v2 ships.
+- The installed Multi-Claude is the 1.1.0 build from before either version. A
+  `npm run dist` is needed to put any of this in the installed app, and it must
+  be run from an ordinary terminal — see the README's *Build from your own
+  terminal*.
+
+---
+
 ## Global Constraints
 
 - Windows only. No new runtime dependency: `package.json`'s `files` array ships only `src/`, `dist-renderer/` and `package.json`, so anything in `node_modules` would not be packaged. **`settings.json` is JSONC — never parse it.**
