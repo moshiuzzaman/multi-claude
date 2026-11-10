@@ -127,6 +127,7 @@ test('launch never goes through a shell and opens no folder', () => {
 
   V.launch('C:\\vs\\Code.exe', { profileDir: 'C:\\p', ccDir: 'C:\\c' }, spawnImpl);
 
-  assert.notStrictEqual(calls[0].opts.shell, true);
+  assert.ok(!calls[0].opts.shell, 'never through a shell');
+  assert.ok(calls[0].opts.env.PATH, 'inherits the environment');
   assert.strictEqual(calls[0].args.length, 2, 'no folder argument: VS Code restores its own session');
 });

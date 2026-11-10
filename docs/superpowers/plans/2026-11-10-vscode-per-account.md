@@ -802,4 +802,4 @@ git commit -m "docs: the per-account VS Code button"
 
 **Placeholders.** None — every step carries the code it needs.
 
-**Type consistency.** `seedProfile` returns `{ copied, skipped }` in Task 2 and is read as `seed.skipped === 'override'` in Task 4. `launch` takes `(exePath, { profileDir, ccDir }, spawnImpl)` in Task 3 and is called as `vscode.launch(exe, { profileDir, ccDir })` in Task 4. `find()` returns a bare path string, unlike `ccCli.find()` which returns `{ path, version }` — Task 4 uses it as a string throughout. `openVsCode` returns `{ ok, settingsSkipped }` in Task 4 and is read as `r.settingsSkipped` in Task 6.
+**Type consistency.** `seedProfile` returns `{ copied, skipped }` in Task 2 and is passed straight through as `settingsSkipped` in Task 4. `launch` takes `(exePath, { profileDir, ccDir }, spawnImpl)` in Task 3 and is called as `vscode.launch(exe, { profileDir, ccDir })` in Task 4. `find()` returns a bare path string, unlike `ccCli.find()` which returns `{ path, version }` — Task 4 uses it as a string throughout. `openVsCode` returns `{ ok, settingsSkipped }` in Task 4 and is read as `r.settingsSkipped` in Task 6.

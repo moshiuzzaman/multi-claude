@@ -552,6 +552,24 @@ test('deleting an account also removes its Claude Code sign-in folder', async ()
   cleanup(h);
 });
 
+test('deleting an account also removes its VS Code profile', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Gone With VS' });
+  const root = path.join(h.base, 'cfg', 'vscode');
+  const dir = path.join(root, a.id);
+  const sibling = path.join(root, 'someone-else');
+  fs.mkdirSync(path.join(dir, 'User'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'User', 'settings.json'), '{}');
+  fs.mkdirSync(sibling, { recursive: true });
+
+  await h.svc.remove({ id: a.id, confirmLabel: 'Gone With VS', unlockOutsideRoot: false });
+  assert.ok(!fs.existsSync(dir), 'the VS Code profile must not be left behind');
+  assert.ok(fs.existsSync(sibling), 'another profile under the root survives');
+  assert.ok(fs.existsSync(root), 'the vscode root itself survives');
+  cleanup(h);
+});
+
 test('limits fetches the /usage report for a signed-in account', async () => {
   const h = harness();
   await h.svc.init();
@@ -647,6 +665,7 @@ test('openVsCode launches with the account own profile and config dir', async ()
   assert.strictEqual(res.settingsSkipped, null);
   assert.strictEqual(h.vsLaunches.length, 1);
   assert.strictEqual(h.vsLaunches[0].exe, 'C:\\vs\\Code.exe');
+  assert.ok(h.vsLaunches[0].profileDir.startsWith(path.join(h.base, 'cfg', 'vscode')));
   assert.ok(h.vsLaunches[0].profileDir.endsWith(a.id));
   assert.ok(h.vsLaunches[0].ccDir.endsWith(a.id));
   assert.notStrictEqual(h.vsLaunches[0].profileDir, h.vsLaunches[0].ccDir);
