@@ -82,6 +82,57 @@ function createService(deps) {
     launch: (exe) => vscodeMod.launch(exe)
   };
 
+  // VS Code settings changes run one at a time. Each is read-modify-write on
+  // one file through one temp name, so two overlapping clicks could otherwise
+  // rename the same temp file twice or have the earlier click land last.
+  let vscodeQueue = Promise.resolve();
+  function vscodeSerially(fn) {
+    const run = vscodeQueue.then(fn, fn);
+    vscodeQueue = run.catch(() => {});
+    return run;
+  }
+
+  const VSCODE_BACKUPS_KEPT = 3;
+
+  /**
+   * Replace the user's VS Code settings with `next`, given the `current` text.
+   *
+   * Writes to the file a symlinked settings.json points at, so a dotfiles link
+   * survives — renaming onto the link would replace it with a plain file.
+   * Backs up first and keeps only the newest few backups, so repeated
+   * switching never litters the user's folder.
+   */
+  async function writeVsCodeSettings(file, current, next) {
+    let target = file;
+    try { target = await fsp.realpath(file); } catch { /* not there yet: write it where it belongs */ }
+    const dir = path.dirname(target);
+    const base = path.basename(target);
+    await fsp.mkdir(dir, { recursive: true });
+
+    if (current !== '') {
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      try { await fsp.writeFile(path.join(dir, `${base}.multi-claude-${stamp}.bak`), current); } catch { /* best effort */ }
+      try {
+        // ISO timestamps sort lexically in time order, oldest first.
+        const old = (await fsp.readdir(dir))
+          .filter((n) => n.startsWith(`${base}.multi-claude-`) && n.endsWith('.bak'))
+          .sort()
+          .slice(0, -VSCODE_BACKUPS_KEPT);
+        for (const n of old) await fsp.rm(path.join(dir, n), { force: true });
+      } catch { /* best effort */ }
+    }
+
+    // Temp file and rename, so VS Code's own watcher never sees a half-file.
+    const tmp = path.join(dir, `${base}.tmp`);
+    await fsp.writeFile(tmp, next);
+    try {
+      await fsp.rename(tmp, target);
+    } catch (e) {
+      try { await fsp.rm(tmp, { force: true }); } catch { /* best effort */ }
+      throw e;
+    }
+  }
+
   async function cli() {
     if (!cliPromise) cliPromise = Promise.resolve(ccCli.find()).catch(() => null);
     const found = await cliPromise;
@@ -299,6 +350,20 @@ function createService(deps) {
       if (cc && P.isInside(cc, deps.ccRoot)) {
         try { await fsp.rm(cc, { recursive: true, force: true }); } catch { /* best effort */ }
       }
+      // If VS Code was using this account, it would now point at a deleted
+      // folder and look signed out. Take the block out instead, so VS Code
+      // falls back to the plain ~/.claude. Best effort: the account is gone
+      // either way, and a settings problem must not undo that.
+      if (cc && deps.vscodeSettingsFile) {
+        await vscodeSerially(async () => {
+          const file = deps.vscodeSettingsFile;
+          const text = await fsp.readFile(file, 'utf8');
+          const pointed = vscodeSettings.readManaged(text);
+          if (pointed && path.resolve(pointed).toLowerCase() === path.resolve(cc).toLowerCase()) {
+            await writeVsCodeSettings(file, text, vscodeSettings.removeManaged(text));
+          }
+        }).catch(() => {});
+      }
       authCache.delete(id);
       planCache.delete(id);
       planHalted.delete(id);
@@ -502,41 +567,35 @@ function createService(deps) {
       const a = find(id);
       const file = deps.vscodeSettingsFile;
       if (!file) throw err('unsupported', 'VS Code settings are not available here.');
-      const ccDir = await prepareCcDir(a);
+      return vscodeSerially(async () => {
+        const ccDir = await prepareCcDir(a);
 
-      let text = '';
-      try {
-        text = await fsp.readFile(file, 'utf8');
-      } catch (e) {
-        // Not being there is fine — we create it. Anything else means it
-        // exists and cannot be read, and writing would destroy it.
-        if (!e || e.code !== 'ENOENT') {
-          throw err('vscode_settings', `Could not read your VS Code settings: ${e && e.message}`);
+        let text = '';
+        try {
+          text = await fsp.readFile(file, 'utf8');
+        } catch (e) {
+          // Not being there is fine — we create it. Anything else means it
+          // exists and cannot be read, and writing would destroy it.
+          if (!e || e.code !== 'ENOENT') {
+            throw err('vscode_settings', `Could not read your VS Code settings: ${e && e.message}`);
+          }
         }
-      }
 
-      // A key outside our block is the user's own. Do not fight it: in JSONC
-      // the last key wins, so a second copy could silently pick the account.
-      if (vscodeSettings.hasForeignKey(text)) {
-        return { ok: true, switched: false, reason: 'foreign', launched: false };
-      }
+        // A key outside our block is the user's own. Do not fight it: in JSONC
+        // the last key wins, so a second copy could silently pick the account.
+        if (vscodeSettings.hasForeignKey(text)) {
+          return { ok: true, switched: false, reason: 'foreign', launched: false };
+        }
 
-      await fsp.mkdir(path.dirname(file), { recursive: true });
-      if (text !== '') {
-        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-        try { await fsp.writeFile(`${file}.multi-claude-${stamp}.bak`, text); } catch { /* best effort */ }
-      }
-      // Temp file and rename, so VS Code's own watcher never sees a half-file.
-      const tmp = `${file}.tmp`;
-      await fsp.writeFile(tmp, vscodeSettings.writeManaged(text, ccDir));
-      await fsp.rename(tmp, file);
+        await writeVsCodeSettings(file, text, vscodeSettings.writeManaged(text, ccDir));
 
-      // An open editor picks the setting up by itself; only start one if none is.
-      if (await vscode.isRunning()) return { ok: true, switched: true, launched: false };
-      const exe = await vscode.find();
-      if (!exe) return { ok: true, switched: true, launched: false, notFound: true };
-      vscode.launch(exe);
-      return { ok: true, switched: true, launched: true };
+        // An open editor picks the setting up by itself; only start one if none is.
+        if (await vscode.isRunning()) return { ok: true, switched: true, launched: false };
+        const exe = await vscode.find();
+        if (!exe) return { ok: true, switched: true, launched: false, notFound: true };
+        vscode.launch(exe);
+        return { ok: true, switched: true, launched: true };
+      });
     },
 
     /** Launch history that Multi-Claude observed itself. */

@@ -237,9 +237,15 @@ extensions, your settings, and the sign-ins you already have inside those
 extensions.
 
 Multi-Claude writes the setting inside comment markers and replaces only what
-is between them, keeping a timestamped `.bak` beside the file each time. If you
+is between them. Before each change it saves a timestamped `.bak` beside the
+file, keeping the newest three. If `settings.json` is a symlink — a dotfiles
+setup — the file it points at is the one changed, and the link is kept. If you
 set `claudeCode.environmentVariables` yourself, outside those markers, yours
 wins and the button says so rather than fighting you.
+
+Deleting the account VS Code is using takes the block back out, so VS Code
+falls back to your plain `~/.claude` rather than pointing at a folder that no
+longer exists.
 
 If VS Code is not running, the button starts it. If it is not in one of the
 usual install locations, the setting is still written and takes effect the next

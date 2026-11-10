@@ -78,4 +78,19 @@ function writeManaged(text, ccDir) {
   return `${s.slice(0, open + 1)}${nl}  ${block}${sep}${rest}`;
 }
 
-module.exports = { OVERRIDE_KEY, BEGIN, END, readManaged, hasForeignKey, writeManaged };
+/**
+ * The file text with the managed block taken out, along with the indent before
+ * it and the line break after it — so the file reads as it did before the
+ * block was first written.
+ */
+function removeManaged(text) {
+  const s = String(text ?? '');
+  const at = findBlock(s);
+  if (!at) return s;
+  const lineStart = s.lastIndexOf('\n', at.start - 1) + 1;
+  const start = /^[ \t]*$/.test(s.slice(lineStart, at.start)) ? lineStart : at.start;
+  const after = /^\r?\n/.exec(s.slice(at.end));
+  return s.slice(0, start) + s.slice(at.end + (after ? after[0].length : 0));
+}
+
+module.exports = { OVERRIDE_KEY, BEGIN, END, readManaged, hasForeignKey, writeManaged, removeManaged };
