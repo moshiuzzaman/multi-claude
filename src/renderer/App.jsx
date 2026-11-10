@@ -237,6 +237,25 @@ export default function App() {
         say(`Desktop shortcut created for ${a.label}.`);
       } catch (e) { fail(e); }
     },
+    openVsCode: async (a) => {
+      try {
+        const r = await api.openVsCode(a.id);
+        const why = r && r.settingsSkipped;
+        if (why === 'override') {
+          say(`Opening VS Code for ${a.label}. Your own settings were not copied: they set claudeCode.environmentVariables, which would override the account.`);
+        } else if (why === 'unreadable') {
+          say(`Opening VS Code for ${a.label}. Your own settings were not copied: settings.json could not be read.`);
+        } else {
+          say(`Opening VS Code for ${a.label}.`);
+        }
+      } catch (e) { fail(e); }
+    },
+    openTerminal: async (a) => {
+      try {
+        await api.openClaudeCode(a.id);
+        say(`Opening a Claude Code terminal for ${a.label}.`);
+      } catch (e) { fail(e); }
+    },
     purgeCache: async (a) => {
       try {
         const { freed } = await api.purgeCache(a.id);
