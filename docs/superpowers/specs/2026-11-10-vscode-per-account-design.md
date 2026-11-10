@@ -125,8 +125,10 @@ and `vscodeUserDir` pointing at `%APPDATA%\Code\User`. Each account's profile is
 
 ### 4.4 Deletion
 
-`deleter.js` removes `vscode\<id>` alongside `cc\<id>`. The existing deletion guards are
-unchanged; this path is app-owned and derived from the account id, never user-supplied.
+`service.remove` removes `vscode\<id>` immediately after the existing `cc\<id>`
+cleanup, guarded by the same `P.isInside` check against the app's own root. The
+deletion guards in `deleter.js` are unchanged; this path is app-owned and derived
+from the account id, never user-supplied.
 
 ### 4.5 Wiring
 
