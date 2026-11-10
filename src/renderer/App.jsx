@@ -237,16 +237,17 @@ export default function App() {
         say(`Desktop shortcut created for ${a.label}.`);
       } catch (e) { fail(e); }
     },
-    openVsCode: async (a) => {
+    useVsCodeAccount: async (a) => {
       try {
-        const r = await api.openVsCode(a.id);
-        const why = r && r.settingsSkipped;
-        if (why === 'override') {
-          say(`Opening VS Code for ${a.label}. Your own settings were not copied: they set claudeCode.environmentVariables, which would override the account.`);
-        } else if (why === 'unreadable') {
-          say(`Opening VS Code for ${a.label}. Your own settings were not copied: settings.json could not be read.`);
+        const r = await api.useVsCodeAccount(a.id);
+        if (r && r.switched === false) {
+          say('VS Code still has your own claudeCode.environmentVariables setting, so it is in control. Remove it to let Multi-Claude switch accounts.', true);
+        } else if (r && r.notFound) {
+          say(`VS Code will use ${a.label} next time it starts. It was not found in the usual install locations, so it was not opened.`);
+        } else if (r && r.launched) {
+          say(`VS Code is opening, using ${a.label}.`);
         } else {
-          say(`Opening VS Code for ${a.label}.`);
+          say(`VS Code is now using ${a.label}.`);
         }
       } catch (e) { fail(e); }
     },
