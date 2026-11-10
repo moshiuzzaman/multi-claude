@@ -100,3 +100,33 @@ test('seedProfile creates User/ even with no source files at all', async () => {
   assert.deepStrictEqual(res, { copied: [], skipped: null });
   assert.ok(fsSync.existsSync(path.join(profile, 'User')));
 });
+
+test('launch passes the profile dir and the account config dir, detached', () => {
+  const calls = [];
+  let unrefed = false;
+  const spawnImpl = (exe, args, opts) => {
+    calls.push({ exe, args, opts });
+    return { unref: () => { unrefed = true; } };
+  };
+
+  V.launch('C:\\vs\\Code.exe',
+    { profileDir: 'C:\\mc\\vscode\\abc123', ccDir: 'C:\\mc\\cc\\abc123' }, spawnImpl);
+
+  assert.strictEqual(calls.length, 1);
+  assert.strictEqual(calls[0].exe, 'C:\\vs\\Code.exe');
+  assert.deepStrictEqual(calls[0].args, ['--user-data-dir', 'C:\\mc\\vscode\\abc123']);
+  assert.strictEqual(calls[0].opts.env.CLAUDE_CONFIG_DIR, 'C:\\mc\\cc\\abc123');
+  assert.strictEqual(calls[0].opts.detached, true);
+  assert.strictEqual(calls[0].opts.stdio, 'ignore');
+  assert.ok(unrefed, 'the child must be unref()ed so Multi-Claude can exit');
+});
+
+test('launch never goes through a shell and opens no folder', () => {
+  const calls = [];
+  const spawnImpl = (exe, args, opts) => { calls.push({ exe, args, opts }); return { unref() {} }; };
+
+  V.launch('C:\\vs\\Code.exe', { profileDir: 'C:\\p', ccDir: 'C:\\c' }, spawnImpl);
+
+  assert.notStrictEqual(calls[0].opts.shell, true);
+  assert.strictEqual(calls[0].args.length, 2, 'no folder argument: VS Code restores its own session');
+});
