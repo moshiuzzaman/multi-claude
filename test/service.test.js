@@ -18,9 +18,8 @@ function harness() {
   const shortcuts = [];
   const terminals = [];
   const vsLaunches = [];
-  const seeds = [];
   const vsCodeInstalled = { value: true };
-  const seedSkip = { value: null };
+  const vsCodeRunning = { value: false };
   const authCalls = [];
   const authReply = { value: { loggedIn: false } };
   const cliInstalled = { value: true };
@@ -32,15 +31,11 @@ function harness() {
   const svc = createService({
     configFile: path.join(base, 'cfg', 'accounts.json'),
     ccRoot: path.join(base, 'cfg', 'cc'),
-    vscodeRoot: path.join(base, 'cfg', 'vscode'),
-    vscodeUserDir: path.join(base, 'code-user'),
+    vscodeSettingsFile: path.join(base, 'code-user', 'settings.json'),
     vscode: {
       find: async () => (vsCodeInstalled.value ? 'C:\\vs\\Code.exe' : null),
-      seedProfile: async (profileDir, userDir) => {
-        seeds.push({ profileDir, userDir });
-        return { copied: ['settings.json'], skipped: seedSkip.value };
-      },
-      launch: (exe, opts) => { vsLaunches.push({ exe, ...opts }); }
+      isRunning: async () => vsCodeRunning.value,
+      launch: (exe) => { vsLaunches.push(exe); }
     },
     ccUsage: {
       fetch: async (cli, dir) => { usageFetches.push(dir); return JSON.parse(JSON.stringify(usageReply.value)); }
@@ -78,7 +73,8 @@ function harness() {
   });
 
   return { base, userProfile, profilesRoot, defaultProfileDir, svc, launched, shortcuts,
-           terminals, vsLaunches, seeds, vsCodeInstalled, seedSkip, authCalls, authReply, cliInstalled, logins, usageFetches, usageReply };
+           terminals, vsLaunches, vsCodeInstalled, vsCodeRunning,
+           vscodeSettingsFile: path.join(base, 'code-user', 'settings.json'), authCalls, authReply, cliInstalled, logins, usageFetches, usageReply };
 }
 
 function cleanup(h) {
@@ -552,24 +548,6 @@ test('deleting an account also removes its Claude Code sign-in folder', async ()
   cleanup(h);
 });
 
-test('deleting an account also removes its VS Code profile', async () => {
-  const h = harness();
-  await h.svc.init();
-  const a = await h.svc.add({ label: 'Gone With VS' });
-  const root = path.join(h.base, 'cfg', 'vscode');
-  const dir = path.join(root, a.id);
-  const sibling = path.join(root, 'someone-else');
-  fs.mkdirSync(path.join(dir, 'User'), { recursive: true });
-  fs.writeFileSync(path.join(dir, 'User', 'settings.json'), '{}');
-  fs.mkdirSync(sibling, { recursive: true });
-
-  await h.svc.remove({ id: a.id, confirmLabel: 'Gone With VS', unlockOutsideRoot: false });
-  assert.ok(!fs.existsSync(dir), 'the VS Code profile must not be left behind');
-  assert.ok(fs.existsSync(sibling), 'another profile under the root survives');
-  assert.ok(fs.existsSync(root), 'the vscode root itself survives');
-  cleanup(h);
-});
-
 test('limits fetches the /usage report for a signed-in account', async () => {
   const h = harness();
   await h.svc.init();
@@ -653,49 +631,104 @@ test('launch fails cleanly when claude.exe cannot be found', async () => {
   cleanup(h);
 });
 
-test('openVsCode launches with the account own profile and config dir', async () => {
+test('useVsCodeAccount writes the account config dir into settings', async () => {
   const h = harness();
   await h.svc.init();
   const accounts = await h.svc.list();
   const a = accounts[0];
 
-  const res = await h.svc.openVsCode({ id: a.id });
+  const res = await h.svc.useVsCodeAccount({ id: a.id });
 
   assert.strictEqual(res.ok, true);
-  assert.strictEqual(res.settingsSkipped, null);
-  assert.strictEqual(h.vsLaunches.length, 1);
-  assert.strictEqual(h.vsLaunches[0].exe, 'C:\\vs\\Code.exe');
-  assert.ok(h.vsLaunches[0].profileDir.startsWith(path.join(h.base, 'cfg', 'vscode')));
-  assert.ok(h.vsLaunches[0].profileDir.endsWith(a.id));
-  assert.ok(h.vsLaunches[0].ccDir.endsWith(a.id));
-  assert.notStrictEqual(h.vsLaunches[0].profileDir, h.vsLaunches[0].ccDir);
-  assert.strictEqual(h.seeds.length, 1);
+  assert.strictEqual(res.switched, true);
+  const text = fs.readFileSync(h.vscodeSettingsFile, 'utf8');
+  assert.ok(text.includes(a.id), 'the account config dir is in the file');
+  assert.ok(!fs.existsSync(`${h.vscodeSettingsFile}.tmp`), 'no temp file is left behind');
   cleanup(h);
 });
 
-test('openVsCode reports when settings were not copied', async () => {
+test('useVsCodeAccount starts VS Code only when it is not already running', async () => {
   const h = harness();
   await h.svc.init();
   const accounts = await h.svc.list();
-  h.seedSkip.value = 'override';
 
-  const res = await h.svc.openVsCode({ id: accounts[0].id });
+  h.vsCodeRunning.value = true;
+  const running = await h.svc.useVsCodeAccount({ id: accounts[0].id });
+  assert.strictEqual(running.launched, false);
+  assert.strictEqual(h.vsLaunches.length, 0, 'an open editor is never given a second window');
 
-  assert.strictEqual(res.settingsSkipped, 'override');
-  assert.strictEqual(h.vsLaunches.length, 1, 'a skipped seed must not stop the launch');
+  h.vsCodeRunning.value = false;
+  const closed = await h.svc.useVsCodeAccount({ id: accounts[0].id });
+  assert.strictEqual(closed.launched, true);
+  assert.deepStrictEqual(h.vsLaunches, ['C:\\vs\\Code.exe']);
   cleanup(h);
 });
 
-test('openVsCode fails clearly when VS Code is not installed', async () => {
+test('useVsCodeAccount still switches when VS Code cannot be found, and says so', async () => {
   const h = harness();
   await h.svc.init();
   const accounts = await h.svc.list();
   h.vsCodeInstalled.value = false;
 
-  await assert.rejects(
-    () => h.svc.openVsCode({ id: accounts[0].id }),
-    (e) => e.code === 'no_vscode'
+  const res = await h.svc.useVsCodeAccount({ id: accounts[0].id });
+
+  assert.strictEqual(res.switched, true);
+  assert.strictEqual(res.launched, false);
+  assert.strictEqual(res.notFound, true);
+  assert.ok(fs.existsSync(h.vscodeSettingsFile), 'the setting is written regardless');
+  cleanup(h);
+});
+
+test('useVsCodeAccount refuses to fight a setting the user made', async () => {
+  const h = harness();
+  await h.svc.init();
+  const accounts = await h.svc.list();
+  fs.mkdirSync(path.dirname(h.vscodeSettingsFile), { recursive: true });
+  fs.writeFileSync(h.vscodeSettingsFile, '{\n  "claudeCode.environmentVariables": [],\n}\n');
+
+  const res = await h.svc.useVsCodeAccount({ id: accounts[0].id });
+
+  assert.strictEqual(res.switched, false);
+  assert.strictEqual(res.reason, 'foreign');
+  assert.strictEqual(
+    fs.readFileSync(h.vscodeSettingsFile, 'utf8'),
+    '{\n  "claudeCode.environmentVariables": [],\n}\n',
+    'the file is untouched'
   );
   assert.strictEqual(h.vsLaunches.length, 0);
+  cleanup(h);
+});
+
+test('useVsCodeAccount fails clearly when the settings file cannot be read', async () => {
+  const h = harness();
+  await h.svc.init();
+  const accounts = await h.svc.list();
+  // A directory where settings.json should be: present, unreadable (EISDIR).
+  fs.mkdirSync(h.vscodeSettingsFile, { recursive: true });
+
+  await assert.rejects(
+    () => h.svc.useVsCodeAccount({ id: accounts[0].id }),
+    (e) => e.code === 'vscode_settings'
+  );
+  assert.strictEqual(h.vsLaunches.length, 0);
+  cleanup(h);
+});
+
+test('useVsCodeAccount backs the settings file up before changing it', async () => {
+  const h = harness();
+  await h.svc.init();
+  const accounts = await h.svc.list();
+  fs.mkdirSync(path.dirname(h.vscodeSettingsFile), { recursive: true });
+  fs.writeFileSync(h.vscodeSettingsFile, '{\n  "editor.fontSize": 13,\n}\n');
+
+  await h.svc.useVsCodeAccount({ id: accounts[0].id });
+
+  const backups = fs.readdirSync(path.dirname(h.vscodeSettingsFile))
+    .filter((n) => n.includes('multi-claude') && n.endsWith('.bak'));
+  assert.strictEqual(backups.length, 1);
+  assert.ok(fs.readFileSync(path.join(path.dirname(h.vscodeSettingsFile), backups[0]), 'utf8')
+    .includes('editor.fontSize'), 'the backup holds the previous version');
+  assert.ok(fs.readFileSync(h.vscodeSettingsFile, 'utf8').includes('editor.fontSize'),
+    'the user setting survives the switch');
   cleanup(h);
 });

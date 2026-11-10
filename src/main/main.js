@@ -57,10 +57,10 @@ if (!app.requestSingleInstanceLock()) {
       storageCacheFile: path.join(appDir, 'storage-cache.json'),
       // One Claude Code config dir per account, each with its own official sign-in.
       ccRoot: path.join(appDir, 'cc'),
-      // One VS Code profile per account. Separate processes are the only way a
-      // per-account CLAUDE_CONFIG_DIR survives VS Code's single-instance handoff.
-      vscodeRoot: path.join(appDir, 'vscode'),
-      vscodeUserDir: path.join(app.getPath('appData'), 'Code', 'User'),
+      // One VS Code, one account at a time: the account is a setting in the
+      // user's own settings.json, which the extension watches.
+      vscodeSettingsFile: path.join(app.getPath('appData'), 'Code', 'User', 'settings.json'),
+      runPowerShell,
       recorderFile: path.join(appDir, 'limits-recorder.ps1'),
       activityFile: path.join(appDir, 'activity.jsonl'),
       // Claude Code's session logs. Home-based, so shared by every profile.
