@@ -137,7 +137,7 @@ git commit -m "feat: find the installed VS Code"
 
 **Interfaces:**
 - Consumes: `OVERRIDE_KEY` from Task 1.
-- Produces: `async seedProfile(profileDir, sourceUserDir, fspImpl) -> { copied: string[], skipped: 'override' | null }`.
+- Produces: `async seedProfile(profileDir, sourceUserDir, fspImpl) -> { copied: string[], skipped: 'override' | 'unreadable' | null }`.
 
 Settings are re-copied on **every** launch, by decision in spec §3. A setting changed inside an account window is therefore discarded next launch; that is deliberate, and it makes each launch re-assert a known-good state.
 
@@ -198,6 +198,21 @@ test('seedProfile copies nothing when the source settings would override the acc
   assert.strictEqual(fsSync.existsSync(path.join(profile, 'User', 'keybindings.json')), false);
 });
 
+test('seedProfile copies nothing when a source file exists but cannot be read', async () => {
+  const base = tmp();
+  const source = path.join(base, 'Code', 'User');
+  const profile = path.join(base, 'profile');
+  await fsp.mkdir(source, { recursive: true });
+  // A directory where settings.json should be: present, unreadable (EISDIR).
+  await fsp.mkdir(path.join(source, 'settings.json'), { recursive: true });
+  await fsp.writeFile(path.join(source, 'keybindings.json'), '[]');
+
+  const res = await V.seedProfile(profile, source);
+
+  assert.deepStrictEqual(res, { copied: [], skipped: 'unreadable' });
+  assert.strictEqual(fsSync.existsSync(path.join(profile, 'User', 'keybindings.json')), false);
+});
+
 test('seedProfile creates User/ even with no source files at all', async () => {
   const base = tmp();
   const profile = path.join(base, 'profile');
@@ -238,8 +253,13 @@ async function seedProfile(profileDir, sourceUserDir, fspImpl = fsp) {
     let text;
     try {
       text = await fspImpl.readFile(path.join(sourceUserDir, name), 'utf8');
-    } catch {
-      continue;
+    } catch (e) {
+      // Not being there is not an error: a stock VS Code has no
+      // keybindings.json until you make one. Anything else means the file
+      // exists and could not be read (EACCES, EBUSY, EISDIR), so abandon the
+      // whole seed rather than leave a half-copied profile behind.
+      if (e && e.code === 'ENOENT') continue;
+      return { copied: [], skipped: 'unreadable' };
     }
     // Reading the file is enough; it is JSONC and must not be parsed.
     if (name === 'settings.json' && text.includes(OVERRIDE_KEY)) {
@@ -380,7 +400,7 @@ git commit -m "feat: launch VS Code against one account's config dir"
 
 **Interfaces:**
 - Consumes: `findVsCode`, `seedProfile`, `launch` from Tasks 1–3.
-- Produces: `service.openVsCode({ id }) -> { ok: true, settingsSkipped: boolean }`; injectable `deps.vscode = { find, seedProfile, launch }`; `deps.vscodeRoot`; `deps.vscodeUserDir`.
+- Produces: `service.openVsCode({ id }) -> { ok: true, settingsSkipped: 'override' | 'unreadable' | null }` — the reason is passed straight through from `seedProfile`, so the UI can say which one happened; injectable `deps.vscode = { find, seedProfile, launch }`; `deps.vscodeRoot`; `deps.vscodeUserDir`.
 
 **Correction to the spec:** §4.4 says `deleter.js` removes the profile. It does not — the account's `cc\<id>` is removed in `service.remove` (service.js:288–293), and the VS Code profile belongs beside it. Fix §4.4 in this task.
 
@@ -424,7 +444,7 @@ test('openVsCode launches with the account own profile and config dir', async ()
   const res = await h.svc.openVsCode({ id: a.id });
 
   assert.strictEqual(res.ok, true);
-  assert.strictEqual(res.settingsSkipped, false);
+  assert.strictEqual(res.settingsSkipped, null);
   assert.strictEqual(h.vsLaunches.length, 1);
   assert.strictEqual(h.vsLaunches[0].exe, 'C:\\vs\\Code.exe');
   assert.ok(h.vsLaunches[0].profileDir.endsWith(a.id));
@@ -441,7 +461,7 @@ test('openVsCode reports when settings were not copied', async () => {
 
   const res = await h.svc.openVsCode({ id: accounts[0].id });
 
-  assert.strictEqual(res.settingsSkipped, true);
+  assert.strictEqual(res.settingsSkipped, 'override');
   assert.strictEqual(h.vsLaunches.length, 1, 'a skipped seed must not stop the launch');
 });
 
@@ -506,7 +526,9 @@ Add the action immediately after `openClaudeCode` (service.js:485):
 
       const seed = await vscode.seedProfile(profileDir, deps.vscodeUserDir);
       vscode.launch(exe, { profileDir, ccDir });
-      return { ok: true, settingsSkipped: seed.skipped === 'override' };
+      // The reason passes straight through: a skipped seed never blocks the
+      // launch, but the UI says which of the two reasons it was.
+      return { ok: true, settingsSkipped: seed.skipped };
     },
 ```
 
@@ -633,9 +655,14 @@ In `src/renderer/App.jsx`, inside the `actions` object after the `shortcut` entr
     openVsCode: async (a) => {
       try {
         const r = await api.openVsCode(a.id);
-        say(r && r.settingsSkipped
-          ? `Opening VS Code for ${a.label}. Your own settings were not copied: they set claudeCode.environmentVariables, which would override the account.`
-          : `Opening VS Code for ${a.label}.`);
+        const why = r && r.settingsSkipped;
+        if (why === 'override') {
+          say(`Opening VS Code for ${a.label}. Your own settings were not copied: they set claudeCode.environmentVariables, which would override the account.`);
+        } else if (why === 'unreadable') {
+          say(`Opening VS Code for ${a.label}. Your own settings were not copied: settings.json could not be read.`);
+        } else {
+          say(`Opening VS Code for ${a.label}.`);
+        }
       } catch (e) { fail(e); }
     },
     openTerminal: async (a) => {
