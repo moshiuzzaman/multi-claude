@@ -148,7 +148,7 @@ the same group as **Terminal**, since it is the same idea already written.
 
 | Case | Behaviour |
 |---|---|
-| No VS Code found | `no_vscode`: "VS Code is not installed on this PC. Install it from code.visualstudio.com, then try again." — mirroring `no_claude_code`. |
+| No VS Code found | `no_vscode`: "VS Code was not found in the usual install locations. If it is installed somewhere else, that is why." — mirroring `no_claude_code`. |
 | Account not connected | Launch proceeds; the extension prompts sign-in. |
 | Guard substring present | Launch proceeds; the UI reports settings were not copied, naming the override as the reason. |
 | Source settings present but unreadable | Launch proceeds; the whole seed is abandoned and the UI says `settings.json` could not be read. |
@@ -156,7 +156,7 @@ the same group as **Terminal**, since it is the same idea already written.
 
 ## 6. Testing
 
-`node --test`, no Electron, alongside the existing 204 tests.
+`node --test`, no Electron, alongside the existing suite.
 
 - `candidateEditors` — ordering, filtering, missing env vars, with a fake fs.
 - `seedProfile` — copies both files; tolerates a missing `keybindings.json`; creates

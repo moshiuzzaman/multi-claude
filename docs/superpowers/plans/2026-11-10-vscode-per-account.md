@@ -507,7 +507,7 @@ After the `ccDirFor` line (service.js:75), add:
     const found = await vscode.find();
     if (!found) {
       throw err('no_vscode',
-        'VS Code is not installed on this PC. Install it from code.visualstudio.com, then try again.');
+        'VS Code was not found in the usual install locations. If it is installed somewhere else, that is why.');
     }
     return found;
   }
