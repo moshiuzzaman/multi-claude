@@ -1,5 +1,10 @@
 # Per-account VS Code Button Implementation Plan
 
+> **Superseded.** This plan shipped on 2026-11-10 and was replaced the same day
+> by `2026-11-10-vscode-switch-account.md`. Its per-account `--user-data-dir`
+> approach produced a second window and a second profile, so extension sign-ins
+> were per account. Kept as a record of what was built and why it changed.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Every account gets a button that opens VS Code already connected to Claude Code as that account.
