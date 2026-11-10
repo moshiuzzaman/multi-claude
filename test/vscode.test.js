@@ -78,6 +78,21 @@ test('seedProfile copies nothing when the source settings would override the acc
   assert.strictEqual(fsSync.existsSync(path.join(profile, 'User', 'keybindings.json')), false);
 });
 
+test('seedProfile copies nothing when a source file exists but cannot be read', async () => {
+  const base = tmp();
+  const source = path.join(base, 'Code', 'User');
+  const profile = path.join(base, 'profile');
+  await fsp.mkdir(source, { recursive: true });
+  // A directory where settings.json should be: present, unreadable (EISDIR).
+  await fsp.mkdir(path.join(source, 'settings.json'), { recursive: true });
+  await fsp.writeFile(path.join(source, 'keybindings.json'), '[]');
+
+  const res = await V.seedProfile(profile, source);
+
+  assert.deepStrictEqual(res, { copied: [], skipped: 'unreadable' });
+  assert.strictEqual(fsSync.existsSync(path.join(profile, 'User', 'keybindings.json')), false);
+});
+
 test('seedProfile creates User/ even with no source files at all', async () => {
   const base = tmp();
   const profile = path.join(base, 'profile');
