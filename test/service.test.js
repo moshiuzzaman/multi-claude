@@ -732,3 +732,95 @@ test('useVsCodeAccount backs the settings file up before changing it', async () 
     'the user setting survives the switch');
   cleanup(h);
 });
+
+const vscodeSettings = require('../src/main/vscode-settings.js');
+
+test('deleting the account VS Code uses takes the block out of settings', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'In Use' });
+  fs.mkdirSync(path.dirname(h.vscodeSettingsFile), { recursive: true });
+  fs.writeFileSync(h.vscodeSettingsFile, '{\n  "editor.fontSize": 13,\n}\n');
+
+  await h.svc.useVsCodeAccount({ id: a.id });
+  await h.svc.remove({ id: a.id, confirmLabel: 'In Use', unlockOutsideRoot: false });
+
+  const text = fs.readFileSync(h.vscodeSettingsFile, 'utf8');
+  assert.strictEqual(vscodeSettings.readManaged(text), null, 'VS Code is not left pointing at a deleted folder');
+  assert.strictEqual(text, '{\n  "editor.fontSize": 13,\n}\n', 'the user settings are as they were');
+  cleanup(h);
+});
+
+test('deleting a different account leaves the VS Code setting alone', async () => {
+  const h = harness();
+  await h.svc.init();
+  const keep = (await h.svc.list())[0];
+  const gone = await h.svc.add({ label: 'Other' });
+
+  await h.svc.useVsCodeAccount({ id: keep.id });
+  await h.svc.remove({ id: gone.id, confirmLabel: 'Other', unlockOutsideRoot: false });
+
+  const pointed = vscodeSettings.readManaged(fs.readFileSync(h.vscodeSettingsFile, 'utf8'));
+  assert.ok(pointed && pointed.endsWith(keep.id));
+  cleanup(h);
+});
+
+test('useVsCodeAccount keeps only the newest three backups', async () => {
+  const h = harness();
+  await h.svc.init();
+  const accounts = await h.svc.list();
+  fs.mkdirSync(path.dirname(h.vscodeSettingsFile), { recursive: true });
+  fs.writeFileSync(h.vscodeSettingsFile, '{\n  "editor.fontSize": 13,\n}\n');
+
+  for (let i = 0; i < 6; i++) {
+    await h.svc.useVsCodeAccount({ id: accounts[0].id });
+    await new Promise((r) => setTimeout(r, 5)); // distinct timestamps
+  }
+
+  const dir = path.dirname(h.vscodeSettingsFile);
+  const backups = fs.readdirSync(dir).filter((n) => n.endsWith('.bak'));
+  assert.strictEqual(backups.length, 3);
+  assert.ok(fs.readdirSync(dir).includes('settings.json'));
+  cleanup(h);
+});
+
+test('useVsCodeAccount applies clicks one at a time, last click wins', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = (await h.svc.list())[0];
+  const b = await h.svc.add({ label: 'Second' });
+
+  const ids = [a.id, b.id, a.id, b.id, a.id, b.id];
+  const results = await Promise.all(ids.map((id) => h.svc.useVsCodeAccount({ id })));
+
+  assert.ok(results.every((r) => r.switched));
+  const text = fs.readFileSync(h.vscodeSettingsFile, 'utf8');
+  assert.ok(vscodeSettings.readManaged(text).endsWith(b.id), 'the last click decides');
+  assert.strictEqual(text.split(vscodeSettings.BEGIN).length - 1, 1, 'exactly one block');
+  assert.ok(!fs.existsSync(`${h.vscodeSettingsFile}.tmp`));
+  cleanup(h);
+});
+
+test('useVsCodeAccount writes through a symlinked settings.json', async (t) => {
+  const h = harness();
+  await h.svc.init();
+  const a = (await h.svc.list())[0];
+  const real = path.join(h.base, 'dotfiles', 'settings.json');
+  fs.mkdirSync(path.dirname(real), { recursive: true });
+  fs.mkdirSync(path.dirname(h.vscodeSettingsFile), { recursive: true });
+  fs.writeFileSync(real, '{\n  "editor.fontSize": 13,\n}\n');
+  try {
+    fs.symlinkSync(real, h.vscodeSettingsFile, 'file');
+  } catch (e) {
+    cleanup(h);
+    // Windows refuses file symlinks without Developer Mode or elevation.
+    return t.skip(`cannot create a symlink here (${e.code})`);
+  }
+
+  await h.svc.useVsCodeAccount({ id: a.id });
+
+  assert.ok(fs.lstatSync(h.vscodeSettingsFile).isSymbolicLink(), 'the link is kept');
+  assert.ok(vscodeSettings.readManaged(fs.readFileSync(real, 'utf8')).endsWith(a.id),
+    'the linked file got the block');
+  cleanup(h);
+});

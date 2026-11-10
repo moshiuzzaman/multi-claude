@@ -71,3 +71,19 @@ test('hasForeignKey is true when the user set the key themselves', () => {
   assert.strictEqual(S.hasForeignKey(text), true);
   assert.strictEqual(S.hasForeignKey(S.writeManaged(text, DIR)), true);
 });
+
+test('removeManaged undoes writeManaged byte for byte', () => {
+  for (const before of ['{\n  "a": 1,\n}\n', '{\r\n  // mine\r\n  "a": 1,\r\n}\r\n']) {
+    assert.strictEqual(S.removeManaged(S.writeManaged(before, DIR)), before);
+  }
+});
+
+test('removeManaged leaves a valid file when the block was all there was', () => {
+  const out = S.removeManaged(S.writeManaged('{}', DIR));
+  assert.strictEqual(S.readManaged(out), null);
+  assert.strictEqual(out.replace(/\s/g, ''), '{}');
+});
+
+test('removeManaged returns the text unchanged when there is no block', () => {
+  assert.strictEqual(S.removeManaged('{ "a": 1 }'), '{ "a": 1 }');
+});
