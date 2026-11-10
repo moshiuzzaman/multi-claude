@@ -15,9 +15,21 @@
 
 ## Status — resume here
 
-**As of 2026-11-10, 18:20. Nothing in this plan is implemented yet: 0 of 6 tasks done.**
-Verify that before trusting this note — `git log --oneline f613a1f..HEAD` should be
-empty apart from this status commit.
+**All 6 tasks are implemented and merged into `main`** (one commit each,
+`npm test` green at 215). What remains is the whole-branch review, a
+`npm run dist` from your own terminal, and a live check in the installed app.
+
+Where the code departs from the steps below, it does so on purpose:
+
+- `writeManaged` puts a newline after the end marker when nothing follows it.
+  The step's version turned `{}` — VS Code's stock settings file — into a
+  file whose closing brace sat inside the `// <<< multi-claude` comment.
+- The block's inner lines are indented two spaces, as §3 of the spec shows.
+- `useVsCodeAccount` returns `notFound: true` when VS Code is neither running
+  nor found, and the UI says so, per §5 of the spec. The steps dropped that
+  case silently.
+
+The notes below are the state before implementation started.
 
 ### Where the work is
 

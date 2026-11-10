@@ -24,6 +24,7 @@ const ccCliMod = require('./cc-cli.js');
 const { createLoginManager } = require('./cc-login.js');
 const ccUsageMod = require('./cc-usage.js');
 const vscodeMod = require('./vscode.js');
+const vscodeSettings = require('./vscode-settings.js');
 
 const LIMITS_FILE = 'multi-claude-limits.json';
 const AUTH_TTL_MS = 2 * 60 * 1000;
@@ -77,20 +78,9 @@ function createService(deps) {
 
   const vscode = deps.vscode || {
     find: () => vscodeMod.findVsCode(),
-    seedProfile: (profileDir, userDir) => vscodeMod.seedProfile(profileDir, userDir),
-    launch: (exe, opts) => vscodeMod.launch(exe, opts)
+    isRunning: () => vscodeMod.createVsCodeProbe({ runPowerShell: deps.runPowerShell }).isRunning(),
+    launch: (exe) => vscodeMod.launch(exe)
   };
-
-  const vscodeDirFor = (a) => (deps.vscodeRoot ? path.join(deps.vscodeRoot, a.id) : null);
-
-  async function requireVsCode() {
-    const found = await vscode.find();
-    if (!found) {
-      throw err('no_vscode',
-        'VS Code was not found in the usual install locations. If it is installed somewhere else, that is why.');
-    }
-    return found;
-  }
 
   async function cli() {
     if (!cliPromise) cliPromise = Promise.resolve(ccCli.find()).catch(() => null);
@@ -309,11 +299,6 @@ function createService(deps) {
       if (cc && P.isInside(cc, deps.ccRoot)) {
         try { await fsp.rm(cc, { recursive: true, force: true }); } catch { /* best effort */ }
       }
-      // The account's VS Code profile goes with it, guarded the same way.
-      const vs = vscodeDirFor(account);
-      if (vs && P.isInside(vs, deps.vscodeRoot)) {
-        try { await fsp.rm(vs, { recursive: true, force: true }); } catch { /* best effort */ }
-      }
       authCache.delete(id);
       planCache.delete(id);
       planHalted.delete(id);
@@ -507,19 +492,51 @@ function createService(deps) {
       return { ok: true };
     },
 
-    /** Open VS Code already connected to this account's Claude Code. */
-    async openVsCode({ id }) {
+    /**
+     * Point VS Code's Claude Code at this account.
+     *
+     * The extension watches this setting and refreshes in place, so an editor
+     * that is already open switches account without a new window.
+     */
+    async useVsCodeAccount({ id }) {
       const a = find(id);
-      const exe = await requireVsCode();
+      const file = deps.vscodeSettingsFile;
+      if (!file) throw err('unsupported', 'VS Code settings are not available here.');
       const ccDir = await prepareCcDir(a);
-      const profileDir = vscodeDirFor(a);
-      if (!profileDir) throw err('unsupported', 'VS Code profiles are not available here.');
 
-      const seed = await vscode.seedProfile(profileDir, deps.vscodeUserDir);
-      vscode.launch(exe, { profileDir, ccDir });
-      // The reason passes straight through: a skipped seed never blocks the
-      // launch, but the UI says which of the two reasons it was.
-      return { ok: true, settingsSkipped: seed.skipped };
+      let text = '';
+      try {
+        text = await fsp.readFile(file, 'utf8');
+      } catch (e) {
+        // Not being there is fine — we create it. Anything else means it
+        // exists and cannot be read, and writing would destroy it.
+        if (!e || e.code !== 'ENOENT') {
+          throw err('vscode_settings', `Could not read your VS Code settings: ${e && e.message}`);
+        }
+      }
+
+      // A key outside our block is the user's own. Do not fight it: in JSONC
+      // the last key wins, so a second copy could silently pick the account.
+      if (vscodeSettings.hasForeignKey(text)) {
+        return { ok: true, switched: false, reason: 'foreign', launched: false };
+      }
+
+      await fsp.mkdir(path.dirname(file), { recursive: true });
+      if (text !== '') {
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        try { await fsp.writeFile(`${file}.multi-claude-${stamp}.bak`, text); } catch { /* best effort */ }
+      }
+      // Temp file and rename, so VS Code's own watcher never sees a half-file.
+      const tmp = `${file}.tmp`;
+      await fsp.writeFile(tmp, vscodeSettings.writeManaged(text, ccDir));
+      await fsp.rename(tmp, file);
+
+      // An open editor picks the setting up by itself; only start one if none is.
+      if (await vscode.isRunning()) return { ok: true, switched: true, launched: false };
+      const exe = await vscode.find();
+      if (!exe) return { ok: true, switched: true, launched: false, notFound: true };
+      vscode.launch(exe);
+      return { ok: true, switched: true, launched: true };
     },
 
     /** Launch history that Multi-Claude observed itself. */
