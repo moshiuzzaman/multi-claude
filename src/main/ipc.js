@@ -9,7 +9,7 @@ const CHANNELS = [
   'list', 'add', 'rename', 'launch', 'remove', 'forget',
   'openFolder', 'createShortcut', 'locateExe', 'scan', 'sizes',
   'usage', 'activity', 'storage', 'purgeCache', 'accountInfo', 'closeAccount',
-  'limits', 'connectAccount', 'openClaudeCode', 'openVsCode',
+  'limits', 'connectAccount', 'openClaudeCode', 'useVsCodeAccount',
   'loginStatus', 'loginSubmit', 'loginCancel', 'loginOpenPage'
 ];
 
@@ -31,7 +31,7 @@ function register(service) {
     limits: (p) => service.limits(p),
     connectAccount: (p) => service.connectAccount(p),
     openClaudeCode: (p) => service.openClaudeCode(p),
-    openVsCode: (p) => service.openVsCode(p),
+    useVsCodeAccount: (p) => service.useVsCodeAccount(p),
     loginStatus: (p) => service.loginStatus(p),
     loginSubmit: (p) => service.loginSubmit(p),
     loginCancel: (p) => service.loginCancel(p),

@@ -17,7 +17,7 @@ contextBridge.exposeInMainWorld('multiClaude', {
   limits: call('limits'),
   connectAccount: call('connectAccount'),
   openClaudeCode: call('openClaudeCode'),
-  openVsCode: call('openVsCode'),
+  useVsCodeAccount: call('useVsCodeAccount'),
   loginStatus: call('loginStatus'),
   loginSubmit: call('loginSubmit'),
   loginCancel: call('loginCancel'),
