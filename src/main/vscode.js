@@ -54,8 +54,13 @@ async function seedProfile(profileDir, sourceUserDir, fspImpl = fsp) {
     let text;
     try {
       text = await fspImpl.readFile(path.join(sourceUserDir, name), 'utf8');
-    } catch {
-      continue;
+    } catch (e) {
+      // Not being there is not an error: a stock VS Code has no
+      // keybindings.json until you make one. Anything else means the file
+      // exists and could not be read (EACCES, EBUSY, EISDIR), so abandon the
+      // whole seed rather than leave a half-copied profile behind.
+      if (e && e.code === 'ENOENT') continue;
+      return { copied: [], skipped: 'unreadable' };
     }
     // Reading the file is enough; it is JSONC and must not be parsed.
     if (name === 'settings.json' && text.includes(OVERRIDE_KEY)) {
