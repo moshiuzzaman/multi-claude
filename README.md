@@ -220,12 +220,17 @@ Code is single-instance: launch it while it is already running and the request
 is handed to the existing process, so the new window inherits that process's
 environment and silently belongs to the wrong account. A separate user-data-dir
 forces a separate process. Your extensions are still shared — `--extensions-dir`
-is a different flag — but each account keeps its own window layout and recent
+is a different flag — though each account signs in to them separately, because an
+extension's sign-in lives in the user-data-dir — but each account keeps its own window layout and recent
 folders, which is what lets it reopen where you left off.
 
 Your `settings.json` and `keybindings.json` are copied in on every launch, so an
 account window looks like your own VS Code. The flip side: a setting you change
 *inside* an account window is replaced on the next launch.
+
+Each profile grows to a few hundred MB, so three accounts is roughly a gigabyte
+under `%APPDATA%\multi-claude\vscode\`. The Storage view does not measure it;
+deleting an account reclaims it.
 
 **Terminal** does the same thing in a console window instead, for when you want
 Claude Code without an editor.
