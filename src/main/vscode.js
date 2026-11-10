@@ -14,6 +14,7 @@
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const path = require('node:path');
+const { spawn } = require('node:child_process');
 
 // The setting that overrides inherited environment. If the user's own
 // settings.json sets it, copying that file would silently repoint the account.
@@ -72,4 +73,22 @@ async function seedProfile(profileDir, sourceUserDir, fspImpl = fsp) {
   return { copied, skipped: null };
 }
 
-module.exports = { OVERRIDE_KEY, SEEDED_FILES, candidateEditors, findVsCode, seedProfile };
+/**
+ * Open VS Code for one account.
+ *
+ * --user-data-dir is what makes the account stick: it forces a separate
+ * process, so CLAUDE_CONFIG_DIR is read at creation instead of being lost to a
+ * handoff. No folder argument, so VS Code reopens that profile's own session.
+ */
+function launch(exePath, { profileDir, ccDir }, spawnImpl = spawn) {
+  const child = spawnImpl(exePath, ['--user-data-dir', profileDir], {
+    env: { ...process.env, CLAUDE_CONFIG_DIR: ccDir },
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: false
+  });
+  // Detach fully so Multi-Claude can quit while VS Code keeps running.
+  child.unref();
+}
+
+module.exports = { OVERRIDE_KEY, SEEDED_FILES, candidateEditors, findVsCode, seedProfile, launch };
