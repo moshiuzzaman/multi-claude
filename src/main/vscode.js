@@ -12,6 +12,7 @@
 // ~/.vscode/extensions, so the Claude Code extension stays shared.
 
 const fs = require('node:fs');
+const fsp = require('node:fs/promises');
 const path = require('node:path');
 
 // The setting that overrides inherited environment. If the user's own
@@ -34,4 +35,36 @@ function findVsCode(env = process.env, fsImpl = fs) {
   return candidateEditors(env, fsImpl)[0] || null;
 }
 
-module.exports = { OVERRIDE_KEY, candidateEditors, findVsCode };
+// settings.json first: if it carries OVERRIDE_KEY the whole seed is abandoned,
+// so nothing half-copied is left behind.
+const SEEDED_FILES = ['settings.json', 'keybindings.json'];
+
+/**
+ * Copy the user's own VS Code settings into an account's profile.
+ *
+ * A source file that is not there is not an error — a stock VS Code has no
+ * keybindings.json until you make one.
+ */
+async function seedProfile(profileDir, sourceUserDir, fspImpl = fsp) {
+  const targetUser = path.join(profileDir, 'User');
+  await fspImpl.mkdir(targetUser, { recursive: true });
+
+  const copied = [];
+  for (const name of SEEDED_FILES) {
+    let text;
+    try {
+      text = await fspImpl.readFile(path.join(sourceUserDir, name), 'utf8');
+    } catch {
+      continue;
+    }
+    // Reading the file is enough; it is JSONC and must not be parsed.
+    if (name === 'settings.json' && text.includes(OVERRIDE_KEY)) {
+      return { copied: [], skipped: 'override' };
+    }
+    await fspImpl.writeFile(path.join(targetUser, name), text);
+    copied.push(name);
+  }
+  return { copied, skipped: null };
+}
+
+module.exports = { OVERRIDE_KEY, SEEDED_FILES, candidateEditors, findVsCode, seedProfile };
