@@ -23,6 +23,7 @@ const limitsMod = require('./limits.js');
 const ccCliMod = require('./cc-cli.js');
 const { createLoginManager } = require('./cc-login.js');
 const ccUsageMod = require('./cc-usage.js');
+const vscodeMod = require('./vscode.js');
 
 const LIMITS_FILE = 'multi-claude-limits.json';
 const AUTH_TTL_MS = 2 * 60 * 1000;
@@ -73,6 +74,23 @@ function createService(deps) {
   });
 
   const ccDirFor = (a) => (deps.ccRoot ? path.join(deps.ccRoot, a.id) : null);
+
+  const vscode = deps.vscode || {
+    find: () => vscodeMod.findVsCode(),
+    seedProfile: (profileDir, userDir) => vscodeMod.seedProfile(profileDir, userDir),
+    launch: (exe, opts) => vscodeMod.launch(exe, opts)
+  };
+
+  const vscodeDirFor = (a) => (deps.vscodeRoot ? path.join(deps.vscodeRoot, a.id) : null);
+
+  async function requireVsCode() {
+    const found = await vscode.find();
+    if (!found) {
+      throw err('no_vscode',
+        'VS Code was not found in the usual install locations. If it is installed somewhere else, that is why.');
+    }
+    return found;
+  }
 
   async function cli() {
     if (!cliPromise) cliPromise = Promise.resolve(ccCli.find()).catch(() => null);
@@ -291,6 +309,11 @@ function createService(deps) {
       if (cc && P.isInside(cc, deps.ccRoot)) {
         try { await fsp.rm(cc, { recursive: true, force: true }); } catch { /* best effort */ }
       }
+      // The account's VS Code profile goes with it, guarded the same way.
+      const vs = vscodeDirFor(account);
+      if (vs && P.isInside(vs, deps.vscodeRoot)) {
+        try { await fsp.rm(vs, { recursive: true, force: true }); } catch { /* best effort */ }
+      }
       authCache.delete(id);
       planCache.delete(id);
       planHalted.delete(id);
@@ -482,6 +505,21 @@ function createService(deps) {
       const dir = await prepareCcDir(a);
       ccCli.openTerminal(found.path, dir, [], { title: `Claude Code: ${a.label}` });
       return { ok: true };
+    },
+
+    /** Open VS Code already connected to this account's Claude Code. */
+    async openVsCode({ id }) {
+      const a = find(id);
+      const exe = await requireVsCode();
+      const ccDir = await prepareCcDir(a);
+      const profileDir = vscodeDirFor(a);
+      if (!profileDir) throw err('unsupported', 'VS Code profiles are not available here.');
+
+      const seed = await vscode.seedProfile(profileDir, deps.vscodeUserDir);
+      vscode.launch(exe, { profileDir, ccDir });
+      // The reason passes straight through: a skipped seed never blocks the
+      // launch, but the UI says which of the two reasons it was.
+      return { ok: true, settingsSkipped: seed.skipped };
     },
 
     /** Launch history that Multi-Claude observed itself. */

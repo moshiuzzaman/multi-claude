@@ -25,6 +25,7 @@ export const api = {
   limits: (opts) => call('limits', opts),
   connectAccount: (id) => call('connectAccount', { id }),
   openClaudeCode: (id) => call('openClaudeCode', { id }),
+  openVsCode: (id) => call('openVsCode', { id }),
   loginStatus: (id) => call('loginStatus', { id }),
   loginSubmit: (id, code) => call('loginSubmit', { id, code }),
   loginCancel: (id) => call('loginCancel', { id }),

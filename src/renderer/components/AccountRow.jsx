@@ -53,6 +53,12 @@ export default function AccountRow({ account, running, scanOk, size, lastUsed, a
           <>
             <button className="ghost" onClick={() => actions.openFolder(account)} disabled={missing}>Folder</button>
             <button className="ghost" onClick={() => actions.shortcut(account)}>Shortcut</button>
+            <button className="ghost" onClick={() => actions.openVsCode(account)} title="Open VS Code signed in as this account">
+              VS Code
+            </button>
+            <button className="ghost" onClick={() => actions.openTerminal(account)} title="Open a Claude Code terminal for this account">
+              Terminal
+            </button>
             <button className="ghost" onClick={() => actions.startRename(account)}>Rename</button>
             {missing && !isDefault ? (
               <button className="ghost" onClick={() => actions.forget(account)} title="Remove from this list only">
