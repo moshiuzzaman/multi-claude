@@ -99,8 +99,13 @@ Mirrors `cc-cli.js`. Pure functions plus one spawn, so it is testable without El
 - `findVsCode(env, fsImpl)` — first candidate, else `null`.
 - `seedProfile(profileDir, sourceUserDir)` — creates `<profileDir>\User`, copies
   `settings.json` and `keybindings.json` when present. Returns
-  `{ copied, skipped }` where `skipped` is `'override'` or `null`. Missing source files
-  are not an error.
+  `{ copied, skipped }` where `skipped` is `'override'`, `'unreadable'` or `null`.
+  A source file that is **absent** is not an error — a stock VS Code has no
+  `keybindings.json` until you make one. A source file that is **present but
+  unreadable** (EACCES, EBUSY, EISDIR) is a different thing: the whole seed is
+  abandoned and reported as `'unreadable'`, and nothing further is copied (a file
+  already written stays). Neither case stops the launch; settings are a comfort, not a
+  requirement, and must never block the button.
 - `launch(exePath, { profileDir, ccDir })` — spawns `exePath` with argv
   `['--user-data-dir', profileDir]`, env `{ ...process.env, CLAUDE_CONFIG_DIR: ccDir }`,
   `detached: true`, `stdio: 'ignore'`, then `unref()`. No folder argument. No shell.
@@ -120,8 +125,10 @@ and `vscodeUserDir` pointing at `%APPDATA%\Code\User`. Each account's profile is
 
 ### 4.4 Deletion
 
-`deleter.js` removes `vscode\<id>` alongside `cc\<id>`. The existing deletion guards are
-unchanged; this path is app-owned and derived from the account id, never user-supplied.
+`service.remove` removes `vscode\<id>` immediately after the existing `cc\<id>`
+cleanup, guarded by the same `P.isInside` check against the app's own root. The
+deletion guards in `deleter.js` are unchanged; this path is app-owned and derived
+from the account id, never user-supplied.
 
 ### 4.5 Wiring
 
@@ -141,19 +148,20 @@ the same group as **Terminal**, since it is the same idea already written.
 
 | Case | Behaviour |
 |---|---|
-| No VS Code found | `no_vscode`: "VS Code is not installed on this PC. Install it from code.visualstudio.com, then try again." — mirroring `no_claude_code`. |
+| No VS Code found | `no_vscode`: "VS Code was not found in the usual install locations. If it is installed somewhere else, that is why." — mirroring `no_claude_code`. |
 | Account not connected | Launch proceeds; the extension prompts sign-in. |
-| Guard substring present | Launch proceeds; the UI reports that settings were not copied. |
+| Guard substring present | Launch proceeds; the UI reports settings were not copied, naming the override as the reason. |
+| Source settings present but unreadable | Launch proceeds; the whole seed is abandoned and the UI says `settings.json` could not be read. |
 | Profile dir cannot be created | Error surfaces to the UI; nothing is launched. |
 
 ## 6. Testing
 
-`node --test`, no Electron, alongside the existing 190 tests.
+`node --test`, no Electron, alongside the existing suite.
 
 - `candidateEditors` — ordering, filtering, missing env vars, with a fake fs.
 - `seedProfile` — copies both files; tolerates a missing `keybindings.json`; creates
   `User/`; returns `skipped: 'override'` and copies nothing when the guard substring is
-  present.
+  present, and `skipped: 'unreadable'` when a source file is present but unreadable.
 - `launch` — argv is exactly `['--user-data-dir', profileDir]`, env carries
   `CLAUDE_CONFIG_DIR`, no shell, detached, with an injected spawn.
 - `openVsCode` — raises `no_vscode` when nothing is found; passes the account's own
