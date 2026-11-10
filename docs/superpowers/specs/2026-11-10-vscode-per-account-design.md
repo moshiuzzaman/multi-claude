@@ -1,6 +1,14 @@
 # Per-account "VS Code" button — Design
 
-**Status:** approved 2026-11-10, not yet implemented.
+> **Superseded.** This design shipped on 2026-11-10 and was replaced the same
+> day by `2026-11-10-vscode-switch-account-design.md`. It gave every account its
+> own `--user-data-dir`, which is correct about process isolation but produced a
+> second window and a second profile — so extension sign-ins (GitHub, Copilot,
+> Settings Sync) were per account. The replacement switches the account inside
+> the VS Code you already have. Kept as a record of why the per-profile route
+> was taken and what it cost.
+
+**Status:** superseded 2026-11-10. Implemented, then replaced.
 
 **Goal:** every account in Multi-Claude gets a button that opens VS Code already
 connected to Claude Code as *that* account, with no sign-in step and no risk of
