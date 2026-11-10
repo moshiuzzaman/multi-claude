@@ -112,10 +112,10 @@ changes that. And Claude Desktop has an internal `multiAccount` feature flag, cu
 switched off; if Anthropic ships native multi-account support, retire this app rather
 than working around it.
 
-Opening several accounts in VS Code at once is allowed, because having more than
-one account you own is normal — different clients, different organisations. It
-is not there to run the same work across three accounts to triple throughput,
-which is the thing Anthropic's enforcement is actually aimed at.
+VS Code uses one account at a time. **Use in VS Code** moves the editor from one
+account you own to another — different clients, different organisations. It does
+not run the same work across several accounts at once, which is the thing
+Anthropic's enforcement is actually aimed at.
 
 ## Install
 
@@ -179,7 +179,7 @@ inside Claude Desktop** under Known limitations.
 | Storage cache | `%APPDATA%\multi-claude\storage-cache.json` |
 | Launch history | `%APPDATA%\multi-claude\activity.jsonl` |
 | Each account's Claude Code sign-in (for usage limits) | `%APPDATA%\multi-claude\cc\<account id>` |
-| Each account's VS Code profile | `%APPDATA%\multi-claude\vscode\<account id>` |
+| VS Code's active account | `%APPDATA%\Code\User\settings.json` (a managed block) |
 | Status-line recorder (limits fallback) | `%APPDATA%\multi-claude\limits-recorder.ps1` |
 
 `accounts.json` holds names, folder paths and ids. No credentials, ever. Deleting any of
@@ -218,36 +218,36 @@ When the running check itself fails, the button falls back to **Launch** rather 
 to quit something that may not be open. Launch on an already-running profile just focuses its
 existing window.
 
-## Opening VS Code as one account
+## Using one account in VS Code
 
-Each account has a **VS Code** button. It opens VS Code already connected to
-Claude Code as that account — no sign-in step, because the account signed in to
-Anthropic's own Claude Code when you connected it.
+Each account has a **Use in VS Code** button. It points Claude Code at that
+account inside the VS Code you already have open — no second window, and no
+signing in again.
 
-It works by starting VS Code with that account's `CLAUDE_CONFIG_DIR`, which is
-the only thing that decides which account Claude Code is. Multi-Claude still
-never touches a credential.
+It works by writing that account's `CLAUDE_CONFIG_DIR` into your own
+`%APPDATA%\Code\User\settings.json`, as `claudeCode.environmentVariables`. The
+Claude Code extension watches that setting and refreshes itself, so an editor
+that is already open switches account where it stands. Multi-Claude still never
+touches a credential: it writes one path, and Anthropic's own Claude Code put
+the sign-in where that path points.
 
-Each account gets its own `--user-data-dir`, and that part is not optional. VS
-Code is single-instance: launch it while it is already running and the request
-is handed to the existing process, so the new window inherits that process's
-environment and silently belongs to the wrong account. A separate user-data-dir
-forces a separate process. Your extensions are still shared — `--extensions-dir`
-is a different flag — but each account signs in to them separately, because an
-extension's sign-in lives in the user-data-dir rather than with the extension
-itself. Each account also keeps its own window layout and recent folders, which
-is what lets it reopen where you left off.
+The setting is machine-wide, so **one account is active at a time** and every
+open VS Code window follows it. In exchange, it is your real VS Code: your
+extensions, your settings, and the sign-ins you already have inside those
+extensions.
 
-Your `settings.json` and `keybindings.json` are copied in on every launch, so an
-account window looks like your own VS Code. The flip side: a setting you change
-*inside* an account window is replaced on the next launch.
+Multi-Claude writes the setting inside comment markers and replaces only what
+is between them, keeping a timestamped `.bak` beside the file each time. If you
+set `claudeCode.environmentVariables` yourself, outside those markers, yours
+wins and the button says so rather than fighting you.
 
-Each profile grows to a few hundred MB, so three accounts is roughly a gigabyte
-under `%APPDATA%\multi-claude\vscode\`. The Storage view does not measure it;
-deleting an account reclaims it.
+If VS Code is not running, the button starts it. If it is not in one of the
+usual install locations, the setting is still written and takes effect the next
+time you open VS Code yourself.
 
 **Terminal** does the same thing in a console window instead, for when you want
-Claude Code without an editor.
+Claude Code without an editor. It passes the account per process, so it never
+disturbs the setting.
 
 ## Deleting an account
 
@@ -280,7 +280,8 @@ goes stale. Clicking one launches the profile without opening the manager window
   process running inside the Store version of Claude Desktop (for example by Claude Code
   in its Code tab), Windows redirects its `%APPDATA%` writes into Claude's package folder
   (`%LOCALAPPDATA%\Packages\Claude_<id>\LocalCache\Roaming\`). Its accounts, history and
-  Claude Code sign-ins then live there instead of in your real AppData. Starting it from
+  Claude Code sign-ins then live there instead of in your real AppData, and **Use in VS
+  Code** writes a `settings.json` your real VS Code never reads. Starting it from
   `start.cmd`, Explorer or the Start Menu uses the real location.
 
 ## Development
