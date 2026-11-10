@@ -125,7 +125,7 @@ To build an installer:
 npm run dist
 ```
 
-That produces `dist/Multi-Claude Setup 1.0.0.exe` and a portable executable. The build
+That produces `dist/Multi-Claude Setup <version>.exe` and a portable executable. The build
 is **unsigned**, so Windows SmartScreen will warn the first time you run it — choose
 **More info → Run anyway**. Sign the build with a code-signing certificate if you want
 that warning gone.
@@ -149,6 +149,19 @@ node_modules/7zip-bin/win/x64/7za.exe x -y "$LOCALAPPDATA/electron-builder/Cache
 
 Enabling Windows Developer Mode fixes it permanently instead, if you would rather do
 that.
+
+### Build from your own terminal
+
+Run `npm run dist` from an ordinary PowerShell or Windows Terminal — not from a shell
+running inside the Store version of Claude Desktop, such as an agent's shell in Claude
+Code's Code tab. That shell is packaged, so Windows redirects its `%LOCALAPPDATA%` into
+`%LOCALAPPDATA%\Packages\Claude_<id>\LocalCache\Local\` and then reads that store layered
+over the real folder. electron-builder's download cache therefore exists in two places at
+once, and the unpacked `winCodeSign-2.6.0` above may sit in only one of them: the build
+succeeds in the packaged shell, which can see it, and the same build fails in your own
+terminal, which re-downloads the archive and hits the symlink error. Apply the fix above
+from the terminal you actually build in. Same cause as **Start it yourself, not from
+inside Claude Desktop** under Known limitations.
 
 ## Where things live
 
