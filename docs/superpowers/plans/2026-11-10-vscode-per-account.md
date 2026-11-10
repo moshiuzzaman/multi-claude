@@ -438,7 +438,7 @@ Then add the tests:
 test('openVsCode launches with the account own profile and config dir', async () => {
   const h = harness();
   await h.svc.init();
-  const { accounts } = await h.svc.list();
+  const accounts = await h.svc.list();
   const a = accounts[0];
 
   const res = await h.svc.openVsCode({ id: a.id });
@@ -456,7 +456,7 @@ test('openVsCode launches with the account own profile and config dir', async ()
 test('openVsCode reports when settings were not copied', async () => {
   const h = harness();
   await h.svc.init();
-  const { accounts } = await h.svc.list();
+  const accounts = await h.svc.list();
   h.seedSkip.value = 'override';
 
   const res = await h.svc.openVsCode({ id: accounts[0].id });
@@ -468,7 +468,7 @@ test('openVsCode reports when settings were not copied', async () => {
 test('openVsCode fails clearly when VS Code is not installed', async () => {
   const h = harness();
   await h.svc.init();
-  const { accounts } = await h.svc.list();
+  const accounts = await h.svc.list();
   h.vsCodeInstalled.value = false;
 
   await assert.rejects(
