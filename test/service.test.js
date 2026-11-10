@@ -17,6 +17,10 @@ function harness() {
   const launched = [];
   const shortcuts = [];
   const terminals = [];
+  const vsLaunches = [];
+  const seeds = [];
+  const vsCodeInstalled = { value: true };
+  const seedSkip = { value: null };
   const authCalls = [];
   const authReply = { value: { loggedIn: false } };
   const cliInstalled = { value: true };
@@ -28,6 +32,16 @@ function harness() {
   const svc = createService({
     configFile: path.join(base, 'cfg', 'accounts.json'),
     ccRoot: path.join(base, 'cfg', 'cc'),
+    vscodeRoot: path.join(base, 'cfg', 'vscode'),
+    vscodeUserDir: path.join(base, 'code-user'),
+    vscode: {
+      find: async () => (vsCodeInstalled.value ? 'C:\\vs\\Code.exe' : null),
+      seedProfile: async (profileDir, userDir) => {
+        seeds.push({ profileDir, userDir });
+        return { copied: ['settings.json'], skipped: seedSkip.value };
+      },
+      launch: (exe, opts) => { vsLaunches.push({ exe, ...opts }); }
+    },
     ccUsage: {
       fetch: async (cli, dir) => { usageFetches.push(dir); return JSON.parse(JSON.stringify(usageReply.value)); }
     },
@@ -64,7 +78,7 @@ function harness() {
   });
 
   return { base, userProfile, profilesRoot, defaultProfileDir, svc, launched, shortcuts,
-           terminals, authCalls, authReply, cliInstalled, logins, usageFetches, usageReply };
+           terminals, vsLaunches, seeds, vsCodeInstalled, seedSkip, authCalls, authReply, cliInstalled, logins, usageFetches, usageReply };
 }
 
 function cleanup(h) {
@@ -618,5 +632,51 @@ test('launch fails cleanly when claude.exe cannot be found', async () => {
   h.svc._setLocatorForTest({ resolve: async () => null });
   const def = (await h.svc.list())[0];
   await assert.rejects(() => h.svc.launch({ id: def.id }), (e) => e.code === 'no_exe');
+  cleanup(h);
+});
+
+test('openVsCode launches with the account own profile and config dir', async () => {
+  const h = harness();
+  await h.svc.init();
+  const accounts = await h.svc.list();
+  const a = accounts[0];
+
+  const res = await h.svc.openVsCode({ id: a.id });
+
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(res.settingsSkipped, null);
+  assert.strictEqual(h.vsLaunches.length, 1);
+  assert.strictEqual(h.vsLaunches[0].exe, 'C:\\vs\\Code.exe');
+  assert.ok(h.vsLaunches[0].profileDir.endsWith(a.id));
+  assert.ok(h.vsLaunches[0].ccDir.endsWith(a.id));
+  assert.notStrictEqual(h.vsLaunches[0].profileDir, h.vsLaunches[0].ccDir);
+  assert.strictEqual(h.seeds.length, 1);
+  cleanup(h);
+});
+
+test('openVsCode reports when settings were not copied', async () => {
+  const h = harness();
+  await h.svc.init();
+  const accounts = await h.svc.list();
+  h.seedSkip.value = 'override';
+
+  const res = await h.svc.openVsCode({ id: accounts[0].id });
+
+  assert.strictEqual(res.settingsSkipped, 'override');
+  assert.strictEqual(h.vsLaunches.length, 1, 'a skipped seed must not stop the launch');
+  cleanup(h);
+});
+
+test('openVsCode fails clearly when VS Code is not installed', async () => {
+  const h = harness();
+  await h.svc.init();
+  const accounts = await h.svc.list();
+  h.vsCodeInstalled.value = false;
+
+  await assert.rejects(
+    () => h.svc.openVsCode({ id: accounts[0].id }),
+    (e) => e.code === 'no_vscode'
+  );
+  assert.strictEqual(h.vsLaunches.length, 0);
   cleanup(h);
 });
