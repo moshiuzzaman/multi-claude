@@ -96,3 +96,12 @@ test('artifact names have no spaces, so GitHub keeps them matching latest.yml', 
   assert.ok(!/\s/.test(pkg.build.nsis.artifactName));
   assert.ok(!/\s/.test(pkg.build.portable.artifactName));
 });
+
+test('isMajorUpdate is true only when the first number goes up', () => {
+  assert.strictEqual(F.isMajorUpdate('2.0.0', '1.9.9'), true);
+  assert.strictEqual(F.isMajorUpdate('v3.1.0', '1.2.1'), true);
+  assert.strictEqual(F.isMajorUpdate('1.3.0', '1.2.1'), false);
+  assert.strictEqual(F.isMajorUpdate('1.2.2', '1.2.1'), false);
+  assert.strictEqual(F.isMajorUpdate('2.0.0-beta.1', '1.2.1'), false);
+  assert.strictEqual(F.isMajorUpdate('garbage', '1.2.1'), false);
+});
