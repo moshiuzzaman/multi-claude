@@ -42,5 +42,10 @@ export const api = {
   activity: (opts) => call('activity', opts),
   storage: (opts) => call('storage', opts),
   purgeCache: (id) => call('purgeCache', { id }),
-  accountInfo: () => call('accountInfo')
+  accountInfo: () => call('accountInfo'),
+  updateStatus: () => call('updateStatus'),
+  updateCheck: () => call('updateCheck'),
+  updateInstall: () => call('updateInstall'),
+  updateChangelog: () => call('updateChangelog'),
+  updateOpenPage: () => call('updateOpenPage')
 };
