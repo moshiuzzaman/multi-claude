@@ -42,6 +42,13 @@ export function timeLeft(resetsAt, now = Date.now()) {
   return `${duration(left)} remaining`;
 }
 
+/** A release's publish date for display, or '' when it is missing or malformed. */
+export function releaseDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+}
+
 export function usd(n) {
   if (typeof n !== 'number' || !isFinite(n)) return '$0.00';
   return '$' + n.toFixed(2);

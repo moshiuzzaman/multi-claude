@@ -27,3 +27,10 @@ test('timeLeft is empty when there is no reset time', async () => {
   const { timeLeft } = await load();
   assert.strictEqual(timeLeft(null, NOW), '');
 });
+
+test('releaseDate formats a GitHub date and hides a malformed one', async () => {
+  const { releaseDate } = await load();
+  assert.ok(/2026/.test(releaseDate('2026-11-11T10:00:00Z')));
+  assert.strictEqual(releaseDate('not a date'), '');
+  assert.strictEqual(releaseDate(null), '');
+});
