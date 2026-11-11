@@ -151,6 +151,10 @@ if (!app.requestSingleInstanceLock()) {
       backgroundColor: '#1f1e1d',
       show: false,
       title: 'Multi-Claude',
+      // A packaged build takes its window icon from the .exe, which electron-builder
+      // stamps with build/icon.ico. Run from source, the window would otherwise
+      // show Electron's own icon.
+      icon: app.isPackaged ? undefined : path.join(app.getAppPath(), 'build', 'icon.ico'),
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
