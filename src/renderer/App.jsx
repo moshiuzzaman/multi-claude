@@ -11,6 +11,7 @@ import History from './views/History.jsx';
 import Storage from './views/Storage.jsx';
 import AccountDetail from './views/AccountDetail.jsx';
 import UpdateFoot from './components/UpdateFoot.jsx';
+import logoMark from './assets/logo-mark.png';
 
 const POLL_MS = 5000;
 
@@ -290,7 +291,7 @@ export default function App() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark" />
+          <img className="brand-mark" src={logoMark} alt="" />
           <div className="brand-name">Multi-Claude</div>
         </div>
 
