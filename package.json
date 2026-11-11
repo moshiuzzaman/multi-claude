@@ -9,7 +9,8 @@
     "build:renderer": "vite build",
     "start": "npm run build:renderer && electron .",
     "test": "node --test \"test/*.test.js\"",
-    "dist": "npm run build:renderer && electron-builder"
+    "dist": "npm run build:renderer && electron-builder --publish never",
+    "release": "npm run build:renderer && electron-builder --publish always"
   },
   "engines": {
     "node": ">=22"
@@ -27,6 +28,12 @@
       "dist-renderer/**/*",
       "package.json"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "moshiuzzaman",
+      "repo": "multi-claude",
+      "releaseType": "draft"
+    },
     "win": {
       "target": [
         "nsis",
@@ -38,7 +45,11 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "Multi-Claude"
+      "shortcutName": "Multi-Claude",
+      "artifactName": "Multi-Claude-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Multi-Claude-${version}-portable.${ext}"
     }
   },
   "devDependencies": {

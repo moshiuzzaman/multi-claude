@@ -790,3 +790,28 @@ button.link.back:hover { color: var(--text); }
 /* clickable info area on Accounts rows */
 .acct .info.clickable { cursor: pointer; }
 .acct .info.clickable:hover .name span:first-child { color: var(--accent-hi); }
+
+/* ------------------------------------------------------------ updates -- */
+
+.update-foot {
+  margin-top: 8px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
+  color: var(--muted);
+}
+.update-foot button.primary { padding: 3px 10px; font-size: 11px; }
+
+button.text-btn {
+  background: none; border: 0; padding: 0;
+  color: var(--accent); font: inherit; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+button.text-btn:hover:not(:disabled) { background: none; filter: brightness(1.15); }
+
+.modal.whats-new { max-width: 560px; max-height: 80vh; overflow-y: auto; }
+.modal.whats-new .release + .release {
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--glass-border-hi);
+}
+.modal.whats-new h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+.modal.whats-new h4 { margin: 10px 0 4px; font-size: 12px; font-weight: 600; color: var(--text); }
+.modal.whats-new .release-date { color: var(--faint); font-weight: 400; }
+.modal.whats-new p.li { padding-left: 12px; text-indent: -10px; margin-bottom: 4px; }
