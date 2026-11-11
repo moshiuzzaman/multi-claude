@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
 import { notesToBlocks } from '../lib/release-notes.js';
+import { releaseDate } from '../lib/format.js';
 
 /** Every published version newer than this one, newest first, with its notes. */
 export default function WhatsNewDialog({ status, onUpdate, onClose }) {
@@ -46,7 +47,7 @@ export default function WhatsNewDialog({ status, onUpdate, onClose }) {
             <section key={r.version} className="release">
               <h3>
                 v{r.version}
-                {r.date && <span className="release-date"> · {new Date(r.date).toLocaleDateString()}</span>}
+                {releaseDate(r.date) && <span className="release-date"> · {releaseDate(r.date)}</span>}
               </h3>
               {blocks.length === 0 && <p>No notes for this version.</p>}
               {blocks.map((b, i) => {
