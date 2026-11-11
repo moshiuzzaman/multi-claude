@@ -51,7 +51,7 @@ test('isNewer never treats a prerelease or garbage as newer', () => {
 
 test('safeAssetName accepts a plain installer name only', () => {
   assert.strictEqual(F.safeAssetName('Multi-Claude-Setup-1.3.0.exe'), true);
-  for (const bad of ['../x.exe', 'a/b.exe', 'a\\b.exe', '', 'setup.msi', null]) {
+  for (const bad of ['../x.exe', 'a/b.exe', 'a\\b.exe', '', 'setup.msi', null, 'x:y.exe', 'a b.exe', 'a..b.exe']) {
     assert.strictEqual(F.safeAssetName(bad), false, String(bad));
   }
 });

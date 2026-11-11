@@ -109,19 +109,25 @@ async function downloadVerified(url, dest, { sha512, size, onProgress = () => {}
   try {
     await new Promise((resolve, reject) => {
       res.on('data', (c) => {
-        hash.update(c);
         got += c.length;
+        // Never write more than was promised.
+        if (got > size) return res.destroy(httpErr('damaged', 'The download was damaged; nothing was installed.'));
+        hash.update(c);
         onProgress(Math.min(1, got / total));
+        return undefined;
       });
       res.on('error', reject);
       out.on('error', reject);
-      out.on('finish', resolve);
+      // 'close', not 'finish': Windows will not start a file that still has an
+      // open write handle, and the handle closes after the last flush.
+      out.on('close', resolve);
       res.pipe(out);
     });
     if (got !== size || hash.digest('base64') !== sha512) {
       throw httpErr('damaged', 'The download was damaged; nothing was installed.');
     }
   } catch (e) {
+    res.destroy();
     // Close the handle before deleting: Windows refuses to delete an open file.
     await new Promise((r) => {
       if (out.closed) return r();

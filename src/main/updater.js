@@ -98,9 +98,14 @@ function createUpdater({
     return status();
   }
 
+  // One releases-API request per launch (60/h unauthenticated): keep the first
+  // success; a failure is not kept, so a retry can succeed.
+  let changelogResult = null;
   async function changelog() {
+    if (changelogResult) return changelogResult;
     try {
-      return { ok: true, releases: F.parseReleases(await fetchJson(urls.releasesApi), currentVersion) };
+      changelogResult = { ok: true, releases: F.parseReleases(await fetchJson(urls.releasesApi), currentVersion) };
+      return changelogResult;
     } catch (e) {
       return { ok: false, reason: (e && e.message) || 'The release notes could not be loaded.' };
     }
