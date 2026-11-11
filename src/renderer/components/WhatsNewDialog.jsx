@@ -10,9 +10,9 @@ import { releaseDate } from '../lib/format.js';
  * check finds a newer version (`prompt`). A major update (`status.kind` is
  * 'major') locks the dialog: it has no Close, ignores Escape and the backdrop,
  * and stays up through the download — the only ways out are to update or to
- * quit. A minor update can be put off ("Later") or skipped for good.
+ * quit. A minor update can be put off with "Later" until the next launch.
  */
-export default function WhatsNewDialog({ status, prompt = false, onUpdate, onSkip, onClose }) {
+export default function WhatsNewDialog({ status, prompt = false, onUpdate, onClose }) {
   const [log, setLog] = useState(null);
   const firstRef = useRef(null);
 
@@ -117,14 +117,9 @@ export default function WhatsNewDialog({ status, prompt = false, onUpdate, onSki
               Quit Multi-Claude
             </button>
           ) : (
-            <>
-              {prompt && onSkip && status.state === 'available' && (
-                <button className="text-btn skip" onClick={onSkip}>Skip this version</button>
-              )}
-              <button ref={canUpdate ? undefined : firstRef} className="ghost" onClick={close}>
-                {prompt ? 'Later' : 'Close'}
-              </button>
-            </>
+            <button ref={canUpdate ? undefined : firstRef} className="ghost" onClick={close}>
+              {prompt ? 'Later' : 'Close'}
+            </button>
           )}
           {canUpdate && (
             <button ref={firstRef} className="primary" onClick={onUpdate} disabled={busy}>
