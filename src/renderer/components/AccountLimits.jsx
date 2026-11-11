@@ -1,5 +1,5 @@
 import React from 'react';
-import { relativeTime } from '../lib/format.js';
+import { relativeTime, timeLeft } from '../lib/format.js';
 
 export function resetText(ms) {
   if (!ms) return '';
@@ -12,10 +12,21 @@ export function resetText(ms) {
 }
 
 /**
+ * The line under a bar. A weekly window is days away, so it reads as time
+ * left; the exact reset moment stays on hover. A session window resets within
+ * hours, where the clock time is the more useful answer.
+ */
+function ResetFoot({ resetsAt, weekly }) {
+  if (!resetsAt) return <div className="limit-foot" />;
+  if (!weekly) return <div className="limit-foot">{resetText(resetsAt)}</div>;
+  return <div className="limit-foot" title={resetText(resetsAt)}>{timeLeft(resetsAt)}</div>;
+}
+
+/**
  * One plan-limit bar. Colour carries state only alongside a text label, never
  * on its own, and the status colours are the reserved ones.
  */
-function LimitBar({ title, win }) {
+function LimitBar({ title, win, weekly = false }) {
   if (!win) return null;
 
   if (win.expired) {
@@ -46,7 +57,7 @@ function LimitBar({ title, win }) {
       <div className="limit-track">
         <div className={`limit-fill ${state}`} style={{ width: `${Math.max(pct, 1)}%` }} />
       </div>
-      <div className="limit-foot">{resetText(win.resetsAt)}</div>
+      <ResetFoot resetsAt={win.resetsAt} weekly={weekly} />
     </div>
   );
 }
@@ -67,7 +78,7 @@ export function Meter({ m }) {
       <div className="limit-track">
         <div className={`limit-fill ${state}`} style={{ width: `${Math.max(m.percent, 1)}%` }} />
       </div>
-      <div className="limit-foot">{m.resetsAt ? resetText(m.resetsAt) : ''}</div>
+      <ResetFoot resetsAt={m.resetsAt} weekly={m.group === 'weekly' || String(m.kind).startsWith('weekly')} />
     </div>
   );
 }
@@ -148,7 +159,7 @@ export function LimitsBlock({ row, actions, busy, cliMissing }) {
           {limits && (
             <div className="limit-bars">
               <LimitBar title="Session (5hr)" win={limits.fiveHour} />
-              <LimitBar title="Weekly (7 day)" win={limits.sevenDay} />
+              <LimitBar title="Weekly (7 day)" win={limits.sevenDay} weekly />
             </div>
           )}
           <div className="note" style={{ marginTop: 12 }}>
