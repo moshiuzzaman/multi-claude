@@ -34,6 +34,14 @@ export function duration(ms) {
   return `${d}d ${h % 24}h`;
 }
 
+/** How long until a limit window resets, e.g. "1d 3h remaining". */
+export function timeLeft(resetsAt, now = Date.now()) {
+  if (!resetsAt) return '';
+  const left = resetsAt - now;
+  if (left <= 0) return 'Resetting now';
+  return `${duration(left)} remaining`;
+}
+
 export function usd(n) {
   if (typeof n !== 'number' || !isFinite(n)) return '$0.00';
   return '$' + n.toFixed(2);
