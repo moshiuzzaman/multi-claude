@@ -10,10 +10,11 @@ const CHANNELS = [
   'openFolder', 'createShortcut', 'locateExe', 'scan', 'sizes',
   'usage', 'activity', 'storage', 'purgeCache', 'accountInfo', 'closeAccount',
   'limits', 'connectAccount', 'openClaudeCode', 'useVsCodeAccount',
-  'loginStatus', 'loginSubmit', 'loginCancel', 'loginOpenPage'
+  'loginStatus', 'loginSubmit', 'loginCancel', 'loginOpenPage',
+  'updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'updateOpenPage'
 ];
 
-function register(service) {
+function register(service, updater) {
   const wrap = (fn) => async (_event, payload) => {
     try {
       return { ok: true, value: await fn(payload || {}) };
@@ -36,6 +37,16 @@ function register(service) {
     loginSubmit: (p) => service.loginSubmit(p),
     loginCancel: (p) => service.loginCancel(p),
     loginOpenPage: (p) => service.loginOpenPage(p),
+    updateStatus: () => updater.status(),
+    updateCheck: () => updater.check(),
+    // Not awaited: the download takes a while and the footer polls
+    // updateStatus for progress. install() sets 'downloading' before it awaits.
+    updateInstall: () => {
+      updater.install().catch(() => {});
+      return updater.status();
+    },
+    updateChangelog: () => updater.changelog(),
+    updateOpenPage: () => updater.openReleasesPage(),
     remove: (p) => service.remove(p),
     forget: (p) => service.forget(p),
     openFolder: (p) => service.openFolder(p),
