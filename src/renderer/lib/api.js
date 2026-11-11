@@ -47,5 +47,6 @@ export const api = {
   updateCheck: () => call('updateCheck'),
   updateInstall: () => call('updateInstall'),
   updateChangelog: () => call('updateChangelog'),
-  updateOpenPage: () => call('updateOpenPage')
+  updateOpenPage: () => call('updateOpenPage'),
+  updateQuit: () => call('updateQuit')
 };

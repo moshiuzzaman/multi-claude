@@ -24,7 +24,11 @@ function createUpdater({
   let latest = null; // the parsed latest.yml, once a newer version is known
 
   const set = (patch) => { state = { current: currentVersion, mode, ...patch }; };
-  const status = () => ({ ...state });
+  // `kind` rides along with every state that names a newer version, so the
+  // renderer can tell a required (major) update from a skippable (minor) one.
+  const status = () => (state.latest
+    ? { ...state, kind: F.isMajorUpdate(state.latest, currentVersion) ? 'major' : 'minor' }
+    : { ...state });
 
   async function check() {
     if (BUSY.includes(state.state)) return status();
@@ -116,7 +120,13 @@ function createUpdater({
     return { ok: true };
   }
 
-  return { check, install, status, changelog, openReleasesPage };
+  // A required update leaves the user two ways out: update, or quit.
+  function quitApp() {
+    quit();
+    return { ok: true };
+  }
+
+  return { check, install, status, changelog, openReleasesPage, quitApp };
 }
 
 module.exports = { createUpdater, INSTALL_ARGS };

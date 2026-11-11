@@ -11,7 +11,7 @@ const CHANNELS = [
   'usage', 'activity', 'storage', 'purgeCache', 'accountInfo', 'closeAccount',
   'limits', 'connectAccount', 'openClaudeCode', 'useVsCodeAccount',
   'loginStatus', 'loginSubmit', 'loginCancel', 'loginOpenPage',
-  'updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'updateOpenPage'
+  'updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'updateOpenPage', 'updateQuit'
 ];
 
 function register(service, updater) {
@@ -47,6 +47,7 @@ function register(service, updater) {
     },
     updateChangelog: () => updater.changelog(),
     updateOpenPage: () => updater.openReleasesPage(),
+    updateQuit: () => updater.quitApp(),
     remove: (p) => service.remove(p),
     forget: (p) => service.forget(p),
     openFolder: (p) => service.openFolder(p),

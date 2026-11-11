@@ -236,3 +236,28 @@ test('openReleasesPage opens the releases list', () => {
   u.openReleasesPage();
   assert.deepStrictEqual(calls.opened, ['https://github.com/o/r/releases']);
 });
+
+test('a newer minor version is reported as a minor update', async () => {
+  const { u } = harness();
+  assert.strictEqual((await u.check()).kind, 'minor');
+});
+
+test('a newer major version is reported as a major update, through the download', async () => {
+  const { u } = harness({ fetchText: async () => yml('2.0.0') });
+  assert.strictEqual((await u.check()).kind, 'major');
+  const p = u.install();
+  assert.strictEqual(u.status().state, 'downloading');
+  assert.strictEqual(u.status().kind, 'major');
+  await p;
+});
+
+test('no kind is reported while nothing newer is known', async () => {
+  const { u } = harness({ fetchText: async () => yml('1.2.0') });
+  assert.strictEqual((await u.check()).kind, undefined);
+});
+
+test('quitApp quits', () => {
+  const { u, calls } = harness();
+  assert.deepStrictEqual(u.quitApp(), { ok: true });
+  assert.strictEqual(calls.quit, 1);
+});

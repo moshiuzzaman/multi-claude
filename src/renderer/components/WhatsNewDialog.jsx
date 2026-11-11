@@ -3,12 +3,24 @@ import { api } from '../lib/api.js';
 import { notesToBlocks } from '../lib/release-notes.js';
 import { releaseDate } from '../lib/format.js';
 
-/** Every published version newer than this one, newest first, with its notes. */
-export default function WhatsNewDialog({ status, onUpdate, onClose }) {
+/**
+ * Every published version newer than this one, newest first, with its notes.
+ *
+ * Opened two ways: from the footer's "What's new" link, or on its own when a
+ * check finds a newer version (`prompt`). A major update (`status.kind` is
+ * 'major') locks the dialog: it has no Close, ignores Escape and the backdrop,
+ * and stays up through the download — the only ways out are to update or to
+ * quit. A minor update can be put off ("Later") or skipped for good.
+ */
+export default function WhatsNewDialog({ status, prompt = false, onUpdate, onSkip, onClose }) {
   const [log, setLog] = useState(null);
-  const closeRef = useRef(null);
+  const firstRef = useRef(null);
 
-  useEffect(() => { closeRef.current?.focus(); }, []);
+  // A copy run from source cannot install itself, so it is never locked in.
+  const locked = status.kind === 'major' && status.mode !== 'source';
+  const close = () => { if (!locked) onClose(); };
+
+  useEffect(() => { firstRef.current?.focus(); }, []);
   useEffect(() => {
     let live = true;
     api.updateChangelog().then(
@@ -18,17 +30,52 @@ export default function WhatsNewDialog({ status, onUpdate, onClose }) {
     return () => { live = false; };
   }, []);
 
-  const canUpdate = status.state === 'available' && status.mode !== 'source';
+  const busy = status.state === 'downloading' || status.state === 'installing';
+  const canUpdate = (status.state === 'available' || status.state === 'failed') && status.mode !== 'source';
+  const updateLabel = status.state === 'failed'
+    ? 'Try again'
+    : status.mode === 'portable' ? `Download v${status.latest}` : `Update to v${status.latest}`;
+
+  let title = "What's new";
+  if (locked) title = 'Update required';
+  else if (prompt) title = 'Update available';
 
   return (
-    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div
         className="modal whats-new"
-        role="dialog"
+        role={locked ? 'alertdialog' : 'dialog'}
         aria-modal="true"
-        onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+        onKeyDown={(e) => { if (e.key === 'Escape') close(); }}
       >
-        <h2>What&apos;s new</h2>
+        <h2>{title}</h2>
+
+        {locked && (
+          <p className="update-banner major">
+            v{status.latest} is a major update. You have v{status.current}, which can no longer
+            be used — install the new version to keep using Multi-Claude.
+            {status.mode === 'portable' && ' Download it, then close this copy and open the new one.'}
+          </p>
+        )}
+        {!locked && prompt && (
+          <p className="update-banner">
+            Multi-Claude v{status.latest} is available. You have v{status.current}.
+            {status.mode === 'source' && ' Update with git pull.'}
+          </p>
+        )}
+
+        {status.state === 'downloading' && (
+          <div className="update-progress" aria-live="polite">
+            <span>Downloading v{status.latest}… {Math.round((status.progress || 0) * 100)}%</span>
+            <div className="bar"><div style={{ width: `${Math.round((status.progress || 0) * 100)}%` }} /></div>
+          </div>
+        )}
+        {status.state === 'installing' && (
+          <p className="update-progress" aria-live="polite">Installing — Multi-Claude will restart.</p>
+        )}
+        {status.state === 'failed' && (
+          <p className="error">The update failed{status.reason ? `: ${status.reason}` : '.'}</p>
+        )}
 
         {!log && <p>Loading release notes…</p>}
 
@@ -60,8 +107,30 @@ export default function WhatsNewDialog({ status, onUpdate, onClose }) {
         })}
 
         <div className="buttons">
-          <button ref={closeRef} className="ghost" onClick={onClose}>Close</button>
-          {canUpdate && <button className="primary" onClick={onUpdate}>Update to v{status.latest}</button>}
+          {locked ? (
+            <button
+              ref={canUpdate ? undefined : firstRef}
+              className="ghost"
+              disabled={status.state === 'installing'}
+              onClick={() => { Promise.resolve(api.updateQuit()).catch(() => {}); }}
+            >
+              Quit Multi-Claude
+            </button>
+          ) : (
+            <>
+              {prompt && onSkip && status.state === 'available' && (
+                <button className="text-btn skip" onClick={onSkip}>Skip this version</button>
+              )}
+              <button ref={canUpdate ? undefined : firstRef} className="ghost" onClick={close}>
+                {prompt ? 'Later' : 'Close'}
+              </button>
+            </>
+          )}
+          {canUpdate && (
+            <button ref={firstRef} className="primary" onClick={onUpdate} disabled={busy}>
+              {updateLabel}
+            </button>
+          )}
         </div>
       </div>
     </div>
