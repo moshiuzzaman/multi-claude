@@ -53,6 +53,17 @@ function isNewer(a, b) {
 }
 
 /**
+ * Is going from `current` to `latest` a major update — the first number
+ * (1.x.x → 2.x.x) goes up? A major update must be installed; anything else
+ * is a minor update the user may skip.
+ */
+function isMajorUpdate(latest, current) {
+  const x = parseVersion(latest);
+  const y = parseVersion(current);
+  return !!x && !!y && !x.pre && x.nums[0] > y.nums[0];
+}
+
+/**
  * The installer's file name is the one part of a download URL that comes from
  * the network, so it must be a plain .exe name: no path, no traversal.
  */
@@ -85,4 +96,4 @@ function feedUrls({ owner, repo }) {
   };
 }
 
-module.exports = { parseLatestYml, isNewer, safeAssetName, parseReleases, feedUrls };
+module.exports = { parseLatestYml, isNewer, isMajorUpdate, safeAssetName, parseReleases, feedUrls };

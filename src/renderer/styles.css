@@ -813,3 +813,19 @@ button.text-btn:hover:not(:disabled) { background: none; filter: brightness(1.15
 .modal.whats-new h4 { margin: 10px 0 4px; font-size: 12px; font-weight: 600; color: var(--text); }
 .modal.whats-new .release-date { color: var(--faint); font-weight: 400; }
 .modal.whats-new p.li { padding-left: 12px; text-indent: -10px; margin-bottom: 4px; }
+
+/* The auto-opened update prompt. */
+.modal.whats-new .update-banner {
+  color: var(--text);
+  padding: 10px 12px; border-radius: 10px; margin-bottom: 14px;
+  border: 1px solid var(--glass-border-hi); background: rgba(255, 255, 255, 0.04);
+}
+.modal.whats-new .update-banner.major {
+  border-color: rgba(250, 178, 25, 0.35); background: rgba(250, 178, 25, 0.1); color: #f6dca6;
+}
+.modal .update-progress { margin: 0 0 14px; font-size: 12px; color: var(--muted); }
+.modal .update-progress .bar {
+  margin-top: 6px; height: 4px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, 0.08);
+}
+.modal .update-progress .bar > div { height: 100%; background: var(--accent); transition: width 0.3s var(--ease); }
+.modal .buttons .text-btn.skip { margin-right: auto; color: var(--muted); font-size: 12px; }
