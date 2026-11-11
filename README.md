@@ -179,8 +179,8 @@ nothing to click.
 The dialog depends on which number in the version went up:
 
 - **Minor update** (`1.2.x` → `1.3.0` or `1.2.2`): **Later** closes it until the
-  next launch; **Skip this version** stops it opening for that version. The
-  footer still offers the update, and a newer version opens the dialog again.
+  next launch, when it opens again. The footer keeps offering the update in
+  the meantime.
 - **Major update** (`1.x.x` → `2.0.0`): the dialog cannot be closed — no Close
   button, Escape or clicking outside. It stays up through the download, and the
   only ways out are **Update** or **Quit Multi-Claude**. Run from source, it can

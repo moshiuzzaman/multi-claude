@@ -6,23 +6,13 @@ import WhatsNewDialog from './WhatsNewDialog.jsx';
 // States that change on their own; the line polls only while in one.
 const MOVING = ['idle', 'checking', 'downloading', 'installing'];
 
-// The minor version the user chose to skip. Per-viewer convenience only: if
-// storage is unavailable the prompt simply shows again next launch.
-const SKIP_KEY = 'multiClaude.skippedUpdate';
-function skippedVersion() {
-  try { return localStorage.getItem(SKIP_KEY); } catch { return null; }
-}
-function rememberSkip(version) {
-  try { localStorage.setItem(SKIP_KEY, version); } catch { /* not remembered */ }
-}
-
 /**
  * The update line in the sidebar footer. Multi-Claude checks once when it
  * opens; this shows the result and is the only place an update is started.
  *
  * When the check finds a newer version, the update dialog opens on its own —
- * once per launch, and not at all for a minor version the user skipped. A
- * major version always opens it, locked, until the user updates or quits.
+ * once per launch. A major version opens it locked, until the user updates
+ * or quits.
  */
 export default function UpdateFoot() {
   const [st, setSt] = useState(null);
@@ -50,7 +40,6 @@ export default function UpdateFoot() {
   useEffect(() => {
     if (!st || st.state !== 'available' || promptedFor.current === st.latest) return;
     promptedFor.current = st.latest;
-    if (st.kind !== 'major' && skippedVersion() === st.latest) return;
     setPrompted(true);
     setShowNotes(true);
   }, [st]);
@@ -63,10 +52,6 @@ export default function UpdateFoot() {
 
   const openNotes = () => { setPrompted(false); setShowNotes(true); };
   const closeNotes = () => { if (!locked) setShowNotes(false); };
-  const skip = () => {
-    if (st && st.latest) rememberSkip(st.latest);
-    setShowNotes(false);
-  };
 
   const retry = async () => {
     if (st.state === 'failed') return install();
@@ -142,7 +127,6 @@ export default function UpdateFoot() {
           status={st}
           prompt={prompted || locked}
           onUpdate={install}
-          onSkip={skip}
           onClose={closeNotes}
         />,
         document.body
