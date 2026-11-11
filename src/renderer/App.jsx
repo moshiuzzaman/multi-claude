@@ -10,6 +10,7 @@ import Accounts from './views/Accounts.jsx';
 import History from './views/History.jsx';
 import Storage from './views/Storage.jsx';
 import AccountDetail from './views/AccountDetail.jsx';
+import UpdateFoot from './components/UpdateFoot.jsx';
 
 const POLL_MS = 5000;
 
@@ -305,7 +306,8 @@ export default function App() {
         ))}
 
         <div className="sidebar-foot">
-          Not affiliated with, or endorsed by, Anthropic.
+          <div>Not affiliated with, or endorsed by, Anthropic.</div>
+          <UpdateFoot />
         </div>
       </aside>
 
