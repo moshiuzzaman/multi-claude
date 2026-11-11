@@ -130,7 +130,7 @@ To build an installer:
 npm run dist
 ```
 
-That produces `dist/Multi-Claude Setup <version>.exe` and a portable executable. The build
+That produces `dist/Multi-Claude-Setup-<version>.exe` and `dist/Multi-Claude-<version>-portable.exe`. The build
 is **unsigned**, so Windows SmartScreen will warn the first time you run it — choose
 **More info → Run anyway**. Sign the build with a code-signing certificate if you want
 that warning gone.
@@ -168,6 +168,42 @@ terminal, which re-downloads the archive and hits the symlink error. Apply the f
 from the terminal you actually build in. Same cause as **Start it yourself, not from
 inside Claude Desktop** under Known limitations.
 
+## Updates
+
+Multi-Claude checks GitHub Releases each time it opens. If a newer version has
+been published, the sidebar footer shows it with **What's new** — the release
+notes of every version since yours — and **Update**. Otherwise it says
+everything is up to date, and there is nothing to click.
+
+**Update** downloads the installer, checks its size and SHA-512 against the
+release's `latest.yml`, runs it silently and closes Multi-Claude; the installer
+starts the new version when it finishes. A download that does not match is
+deleted and never run. Your accounts and settings are kept, and any Claude
+window you launched keeps running.
+
+Nothing is downloaded without a click. Run from source, the footer tells you to
+`git pull` instead; the portable build's **Update** opens the download page,
+since a running portable file cannot replace itself.
+
+### Publishing a release
+
+From an ordinary terminal — not from inside Claude Desktop, see *Build from your
+own terminal*:
+
+1. `npm version minor` — bumps the version, commits, and tags it.
+2. `git push origin main --follow-tags`
+3. With a GitHub token that can create releases, in that terminal only:
+   `$env:GH_TOKEN = "<token>"`, then `npm run release`. It builds and uploads
+   to a draft release.
+4. On GitHub, write the release notes (or use **Generate release notes**) and
+   **Publish** the draft. Installed copies see it the next time they open.
+
+Without a token, `npm run dist` and upload `Multi-Claude-Setup-<version>.exe`,
+`latest.yml` and the portable `.exe` to a new release by hand.
+
+The version that first adds updates has to be installed by hand once; every
+version after it arrives through the button.
+
 ## Where things live
 
 | What | Where |
@@ -181,6 +217,7 @@ inside Claude Desktop** under Known limitations.
 | Each account's Claude Code sign-in (for usage limits) | `%APPDATA%\multi-claude\cc\<account id>` |
 | VS Code's active account | `%APPDATA%\Code\User\settings.json` (a managed block) |
 | Status-line recorder (limits fallback) | `%APPDATA%\multi-claude\limits-recorder.ps1` |
+| A downloaded update, until the next launch | `%TEMP%\multi-claude-update` |
 
 `accounts.json` holds names, folder paths and ids. No credentials, ever. Deleting any of
 the cache files is safe — they are rebuilt on next launch.

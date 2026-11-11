@@ -24,6 +24,9 @@ const { createCloser } = require('./closer.js');
 const { runPowerShell } = require('./run-powershell.js');
 const { parseLaunchArg } = require('./argv.js');
 const ipc = require('./ipc.js');
+const { createUpdater } = require('./updater.js');
+const updateHttp = require('./update-http.js');
+const updateConfig = require('./update-config.js');
 
 if (process.platform !== 'win32') {
   console.error('Multi-Claude is Windows-only.');
@@ -42,6 +45,7 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   let win = null;
   let service = null;
+  let updater = null;
 
   async function buildService() {
     const userProfile = os.homedir();
@@ -78,6 +82,29 @@ if (!app.requestSingleInstanceLock()) {
       appExePath: process.execPath,
       // In a dev run the target is electron.exe, which needs the project path first.
       shortcutArgsPrefix: app.isPackaged ? '' : `"${app.getAppPath()}" `
+    });
+  }
+
+  function buildUpdater() {
+    const mode = !app.isPackaged
+      ? 'source'
+      : process.env.PORTABLE_EXECUTABLE_FILE ? 'portable' : 'installed';
+    const tmpDir = path.join(os.tmpdir(), 'multi-claude-update');
+    // An installer from an earlier update is finished with by now. Best effort:
+    // right after an update it may still be exiting, and goes next launch.
+    fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+
+    return createUpdater({
+      fetchText: (url) => updateHttp.fetchText(url),
+      fetchJson: (url) => updateHttp.fetchJson(url),
+      download: (url, dest, opts) => updateHttp.downloadVerified(url, dest, opts),
+      spawn,
+      quit: () => app.quit(),
+      openExternal: (url) => { shell.openExternal(url).catch(() => {}); },
+      currentVersion: app.getVersion(),
+      mode,
+      repo: updateConfig,
+      tmpDir
     });
   }
 
@@ -312,8 +339,11 @@ if (!app.requestSingleInstanceLock()) {
     }
 
     registerAppProtocol();
-    ipc.register(service);
+    updater = buildUpdater();
+    ipc.register(service, updater);
     createWindow();
+    // Once per launch. Never downloads; the footer shows what it found.
+    updater.check();
   });
 
   // Close any open activity session and flush the usage cache before exiting.
