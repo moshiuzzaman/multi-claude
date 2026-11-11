@@ -828,4 +828,3 @@ button.text-btn:hover:not(:disabled) { background: none; filter: brightness(1.15
   margin-top: 6px; height: 4px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, 0.08);
 }
 .modal .update-progress .bar > div { height: 100%; background: var(--accent); transition: width 0.3s var(--ease); }
-.modal .buttons .text-btn.skip { margin-right: auto; color: var(--muted); font-size: 12px; }
