@@ -171,9 +171,20 @@ inside Claude Desktop** under Known limitations.
 ## Updates
 
 Multi-Claude checks GitHub Releases each time it opens. If a newer version has
-been published, the sidebar footer shows it with **What's new** — the release
-notes of every version since yours — and **Update**. Otherwise it says
-everything is up to date, and there is nothing to click.
+been published, an update dialog opens on its own with the release notes of
+every version since yours, and the sidebar footer shows it with **What's new**
+and **Update**. Otherwise it says everything is up to date, and there is
+nothing to click.
+
+The dialog depends on which number in the version went up:
+
+- **Minor update** (`1.2.x` → `1.3.0` or `1.2.2`): **Later** closes it until the
+  next launch; **Skip this version** stops it opening for that version. The
+  footer still offers the update, and a newer version opens the dialog again.
+- **Major update** (`1.x.x` → `2.0.0`): the dialog cannot be closed — no Close
+  button, Escape or clicking outside. It stays up through the download, and the
+  only ways out are **Update** or **Quit Multi-Claude**. Run from source, it can
+  still be closed.
 
 **Update** downloads the installer, checks its size and SHA-512 against the
 release's `latest.yml`, runs it silently and closes Multi-Claude; the installer
@@ -190,7 +201,9 @@ since a running portable file cannot replace itself.
 From an ordinary terminal — not from inside Claude Desktop, see *Build from your
 own terminal*:
 
-1. `npm version minor` — bumps the version, commits, and tags it.
+1. `npm version minor` (or `patch`) — bumps the version, commits, and tags it.
+   Use `npm version major` only for a release every user must install: it
+   locks the update dialog open until they do.
 2. `git push origin main --follow-tags`
 3. With a GitHub token that can create releases, in that terminal only:
    `$env:GH_TOKEN = "<token>"`, then `npm run release`. It builds and uploads
