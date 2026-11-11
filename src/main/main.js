@@ -100,7 +100,7 @@ if (!app.requestSingleInstanceLock()) {
       download: (url, dest, opts) => updateHttp.downloadVerified(url, dest, opts),
       spawn,
       quit: () => app.quit(),
-      openExternal: (url) => shell.openExternal(url),
+      openExternal: (url) => { shell.openExternal(url).catch(() => {}); },
       currentVersion: app.getVersion(),
       mode,
       repo: updateConfig,

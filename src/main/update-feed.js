@@ -57,7 +57,7 @@ function isNewer(a, b) {
  * the network, so it must be a plain .exe name: no path, no traversal.
  */
 function safeAssetName(name) {
-  return typeof name === 'string' && /\.exe$/i.test(name) && !/[\\/]/.test(name) && !name.includes('..');
+  return typeof name === 'string' && /^[A-Za-z0-9._-]+\.exe$/i.test(name) && !name.includes('..');
 }
 
 /** Published releases newer than the running version, newest first. */

@@ -34,7 +34,7 @@ export default function WhatsNewDialog({ status, onUpdate, onClose }) {
         {log && !log.ok && (
           <>
             <p>The release notes could not be loaded{log.reason ? ` (${log.reason})` : ''}.</p>
-            <p><button className="text-btn" onClick={() => api.updateOpenPage()}>Open the releases page</button></p>
+            <p><button className="text-btn" onClick={() => { Promise.resolve(api.updateOpenPage()).catch(() => {}); }}>Open the releases page</button></p>
           </>
         )}
 

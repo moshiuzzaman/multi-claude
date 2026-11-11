@@ -176,6 +176,15 @@ test('an installer that will not start leaves Multi-Claude open', async () => {
   assert.strictEqual(calls.quit, 0);
 });
 
+test('an installer whose spawn throws synchronously (EBUSY) leaves Multi-Claude open', async () => {
+  const { u, calls } = harness({ spawn: () => { throw Object.assign(new Error('spawn EBUSY'), { code: 'EBUSY' }); } });
+  await u.check();
+  const st = await u.install();
+  assert.strictEqual(st.state, 'failed');
+  assert.match(st.reason, /would not start/);
+  assert.strictEqual(calls.quit, 0);
+});
+
 test('running from source never installs', async () => {
   const { u, calls } = harness({ mode: 'source' });
   await u.check();
@@ -203,6 +212,23 @@ test('changelog lists newer releases', async () => {
 test('a changelog that cannot load says why', async () => {
   const { u } = harness({ fetchJson: async () => { throw new Error('rate limited'); } });
   assert.deepStrictEqual(await u.changelog(), { ok: false, reason: 'rate limited' });
+});
+
+test('the changelog is fetched once per launch once it has loaded', async () => {
+  let n = 0;
+  const { u } = harness({ fetchJson: async () => { n += 1; return []; } });
+  const a = await u.changelog();
+  const b = await u.changelog();
+  assert.strictEqual(n, 1);
+  assert.deepStrictEqual(b, a);
+});
+
+test('a failed changelog fetch is not cached', async () => {
+  let n = 0;
+  const { u } = harness({ fetchJson: async () => { n += 1; if (n === 1) throw new Error('rate limited'); return []; } });
+  assert.strictEqual((await u.changelog()).ok, false);
+  assert.strictEqual((await u.changelog()).ok, true);
+  assert.strictEqual(n, 2);
 });
 
 test('openReleasesPage opens the releases list', () => {
