@@ -19,6 +19,7 @@ const { buildDashboard } = require('./usage-aggregate.js');
 const { createActivityLog, buildSessions, summariseActivity } = require('./activity-log.js');
 const { breakdown, purgeCaches } = require('./storage.js');
 const { readAccountInfo } = require('./account-info.js');
+const { readDesktopSignIn } = require('./desktop-signin.js');
 const limitsMod = require('./limits.js');
 const ccCliMod = require('./cc-cli.js');
 const { createLoginManager } = require('./cc-login.js');
@@ -261,7 +262,13 @@ function createService(deps) {
     },
 
     async list() {
-      return data.accounts.map((a) => ({ ...a, exists: fs.existsSync(a.dir) }));
+      return data.accounts.map((a) => {
+        const exists = fs.existsSync(a.dir);
+        // Whether the account's own Claude window is signed in: true, false,
+        // or null when it can't be told. See desktop-signin.js.
+        const signedIn = exists ? (deps.desktopSignIn || readDesktopSignIn)(a.dir) : null;
+        return { ...a, exists, signedIn };
+      });
     },
 
     async add({ label }) {

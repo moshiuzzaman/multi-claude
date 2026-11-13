@@ -35,6 +35,11 @@ function AccountCard({ account, running, scanOk, limitRow, size, lastUsed, cliMi
           <div className="name">
             {account.label}
             {isDefault && <span className="pill">Default</span>}
+            {account.signedIn === false && (
+              <span className="pill warn" title="This account's Claude window isn't signed in yet. Launch shows the one-time steps.">
+                Not signed in
+              </span>
+            )}
           </div>
           <div className="acct-card-sub">
             {free ? 'Free plan · no usage limits'

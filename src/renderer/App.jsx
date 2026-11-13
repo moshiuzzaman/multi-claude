@@ -150,13 +150,15 @@ export default function App() {
   // Poll only while focused: each scan spawns a PowerShell process.
   useEffect(() => {
     let timer = null;
-    const start = () => { if (!timer) { loadScan(); timer = setInterval(loadScan, POLL_MS); } };
+    // Coming back to the window also re-reads the accounts, so a Claude
+    // window that was just signed in shows as signed in.
+    const start = () => { if (!timer) { loadScan(); loadAccounts(); timer = setInterval(loadScan, POLL_MS); } };
     const stop = () => { clearInterval(timer); timer = null; };
     if (document.hasFocus()) start();
     window.addEventListener('focus', start);
     window.addEventListener('blur', stop);
     return () => { stop(); window.removeEventListener('focus', start); window.removeEventListener('blur', stop); };
-  }, [loadScan]);
+  }, [loadScan, loadAccounts]);
 
   // ---- actions -------------------------------------------------------------
 
@@ -164,7 +166,10 @@ export default function App() {
     launch: async (a) => {
       try {
         await api.launch(a.id);
-        say(`Opening ${a.label}…`);
+        // A window that isn't signed in would only show Get started, so the
+        // one-time sign-in steps come up with it. Signed in: it just opens.
+        if (a.signedIn === false) setGuiding({ id: a.id, label: a.label });
+        else say(`Opening ${a.label}…`);
         setTimeout(loadScan, 1500);
       } catch (e) { fail(e); }
     },
@@ -198,23 +203,26 @@ export default function App() {
       await loadAccounts();
       setActivity(null);
 
-      // Claude isn't opened here; it opens on Launch. Next comes the Claude
-      // Code sign-in if asked for, otherwise a pointer to Launch and Sign-in
-      // help. The account exists either way.
-      if (connectClaudeCode) {
-        setSigningIn({ id: a.id, label: a.label });
-      } else {
-        say(`${a.label} added. Click Launch to open it and sign in with the email code. The steps are under Sign-in help on its page.`);
-      }
+      // Every sign-in happens now, once: first the account's own Claude
+      // window (email code), then Claude Code for usage limits if asked for.
+      // After this, Launch opens it already signed in.
+      setGuiding({ id: a.id, label: a.label, then: connectClaudeCode, first: true });
     },
     signInHelp: (a) => setGuiding({ id: a.id, label: a.label }),
-    finishGuide: (signedIn) => {
+    finishGuide: async (signedIn) => {
       const g = guiding;
       setGuiding(null);
-      if (signedIn) {
-        say(`${g.label} is signed in.`);
+      const list = await api.list().catch(() => null);
+      if (list) setAccounts(list);
+      const now = list && list.find((x) => x.id === g.id);
+      if (g.then) {
+        setSigningIn({ id: g.id, label: g.label });
+      } else if (signedIn && now && now.signedIn === false) {
+        say(`${g.label}'s Claude window doesn't look signed in yet. Finish the email code there, then it stays signed in.`, true);
+      } else if (signedIn) {
+        say(`${g.label} is signed in. Launch opens it signed in from now on.`);
       } else {
-        say(`Sign in to ${g.label} with the email code whenever you're ready. The steps are under Sign-in help on its page.`);
+        say(`Sign in to ${g.label} whenever you're ready: Launch shows the steps again.`);
       }
     },
     rename: async (label) => {
@@ -351,7 +359,7 @@ export default function App() {
       {adding && (
         <TextPromptDialog
           title="Add an account"
-          description="A new, empty Claude profile is created. Click Launch when you want to open it, then sign in there with an email code."
+          description="A new Claude profile is created and you sign in to it once, right now. After that, Launch opens it already signed in."
           label="Account name"
           placeholder="Personal"
           confirmText="Create account"
@@ -380,7 +388,9 @@ export default function App() {
       {guiding && (
         <ClaudeSignInGuide
           account={guiding}
-          onOpenClaude={() => actions.launch(accounts.find((x) => x.id === guiding.id) || guiding)}
+          onOpenClaude={() => {
+            api.launch(guiding.id).then(() => setTimeout(loadScan, 1500)).catch(fail);
+          }}
           onOpenGmail={() => api.openGmail().catch(fail)}
           onDone={() => actions.finishGuide(true)}
           onLater={() => actions.finishGuide(false)}

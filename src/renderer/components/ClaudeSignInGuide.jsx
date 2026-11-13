@@ -1,7 +1,11 @@
 import React from 'react';
 
 /**
- * Step-by-step sign-in for an added account's Claude window, by email code.
+ * The one-time sign-in for an account's own Claude window, by email code.
+ *
+ * Shown right after an account is created, and on Launch while its window is
+ * still signed out. Once signed in, Claude Desktop keeps the sign-in in the
+ * account's profile, so Launch opens it signed in from then on.
  *
  * Continue with Google can't be used for an added account: it finishes in the
  * browser, and Windows hands Claude's return link to the default Claude, which
@@ -14,16 +18,18 @@ export default function ClaudeSignInGuide({ account, onOpenClaude, onOpenGmail, 
     <div className="overlay">
       <div className="modal signin-guide" role="dialog" aria-modal="true"
            onKeyDown={(e) => { if (e.key === 'Escape') onLater(); }}>
-        <h2>Sign in to {account.label}</h2>
+        <h2>Sign in to {account.label} once</h2>
         <p>
-          Sign in to this account's own Claude window with an email code. It takes a minute,
-          and the account stays signed in.
+          Sign in to this account's own Claude window one time. Claude keeps the sign-in, so
+          after this <strong>Launch</strong> opens it already signed in.
         </p>
 
         <ol className="guide-steps">
           <li>
-            Open the account's Claude window (<strong>Open Claude</strong> below, or Launch),
-            then click <strong>Get started</strong>.
+            Open the account's Claude window and click <strong>Get started</strong>.
+            <span className="guide-actions">
+              <button className="primary" onClick={onOpenClaude}>Open Claude window</button>
+            </span>
           </li>
           <li>
             Type the account's email address in <strong>Enter your email</strong>, then
@@ -43,7 +49,7 @@ export default function ClaudeSignInGuide({ account, onOpenClaude, onOpenGmail, 
             </span>
           </li>
           <li>
-            Paste the code into the Claude window. Done.
+            Paste the code into the Claude window. Done, for good.
           </li>
         </ol>
 
@@ -53,7 +59,6 @@ export default function ClaudeSignInGuide({ account, onOpenClaude, onOpenGmail, 
         </div>
 
         <div className="buttons">
-          <button className="link guide-reopen" onClick={onOpenClaude}>Open Claude</button>
           <span className="spacer" />
           <button onClick={onLater}>Later</button>
           <button className="primary" onClick={onDone}>I'm signed in</button>
