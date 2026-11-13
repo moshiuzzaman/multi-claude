@@ -22,6 +22,8 @@ export default function SignInDialog({ account, onDone, onClose, onFreePlan }) {
     setState(st.state);
     setMessage(st.message || null);
     setHasPage(!!st.hasPage);
+    // Claude Code asked for the code again: keep the paste box open.
+    if (st.state === 'waiting' && st.message) setShowPaste(true);
   };
 
   const start = useCallback(async () => {
@@ -80,8 +82,6 @@ export default function SignInDialog({ account, onDone, onClose, onFreePlan }) {
     try { await api.loginOpenPage(account.id); } catch (e) { setError(e.message); }
   };
 
-  const busy = state === 'starting' || state === 'checking';
-
   return (
     <div className="overlay">
       <div className="modal signin" role="dialog" aria-modal="true"
@@ -134,6 +134,7 @@ export default function SignInDialog({ account, onDone, onClose, onFreePlan }) {
                   <button className="ghost" onClick={openPage}>Open the sign-in page again</button>
                 )}
                 <label htmlFor="signin-code">Paste the code from the browser</label>
+                {message && <div className="error" style={{ marginTop: 0 }}>{message}</div>}
                 <div className="signin-row">
                   <input
                     id="signin-code"
@@ -174,7 +175,7 @@ export default function SignInDialog({ account, onDone, onClose, onFreePlan }) {
           {(state === 'failed' || state === 'cancelled') && (
             <button className="primary" onClick={start}>Try again</button>
           )}
-          <button onClick={cancel} disabled={busy && state === 'checking'}>
+          <button onClick={cancel}>
             {state === 'done' ? 'Close' : 'Cancel'}
           </button>
         </div>

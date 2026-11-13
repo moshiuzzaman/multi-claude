@@ -14,6 +14,14 @@ const { spawn } = require('node:child_process');
 
 const OUTPUT_CAP = 16 * 1024;
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
+// How long a pasted code may stay unanswered before the paste box comes back.
+// Claude Code answers in about a second; this only catches a reply it can't read.
+const DEFAULT_CHECK_MS = 30 * 1000;
+
+// Claude Code's answer to a paste that isn't a whole code. It then waits for
+// another paste instead of exiting, so it must be read, not waited out.
+const RETRY_PROMPT = /invalid code|full code was copied|paste code here/i;
+const RETRY_MESSAGE = "That isn't the whole code. Copy the full code from the browser page (it has a # in the middle) and paste it again.";
 
 // Only ever open sign-in pages on Anthropic's own hosts.
 const ALLOWED_HOSTS = ['claude.com', 'claude.ai', 'anthropic.com'];
@@ -58,7 +66,7 @@ function validCode(code) {
   return c.length > 0 && c.length <= 2048 && !/[\r\n]/.test(c);
 }
 
-function createLoginManager({ spawnImpl = spawn, openExternal, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+function createLoginManager({ spawnImpl = spawn, openExternal, timeoutMs = DEFAULT_TIMEOUT_MS, checkMs = DEFAULT_CHECK_MS } = {}) {
   const sessions = new Map(); // account id -> session
 
   function publicStatus(s) {
@@ -66,9 +74,22 @@ function createLoginManager({ spawnImpl = spawn, openExternal, timeoutMs = DEFAU
     return { state: s.state, message: s.message || null, hasPage: !!s.url };
   }
 
+  function stopCheck(s) {
+    if (s.checkTimer) clearTimeout(s.checkTimer);
+    s.checkTimer = null;
+  }
+
   function end(s) {
     if (s.timer) clearTimeout(s.timer);
     s.timer = null;
+    stopCheck(s);
+  }
+
+  /** Back to the paste box, still signed in to nothing, with a reason. */
+  function askAgain(s, message) {
+    stopCheck(s);
+    s.state = 'waiting';
+    s.message = message;
   }
 
   function cancel(id) {
@@ -95,12 +116,17 @@ function createLoginManager({ spawnImpl = spawn, openExternal, timeoutMs = DEFAU
         windowsHide: true
       });
 
-      const s = { child, state: 'waiting', url: null, message: null, out: '', timer: null };
+      const s = { child, state: 'waiting', url: null, message: null, out: '', reply: '', timer: null, checkTimer: null };
       sessions.set(id, s);
 
       const onData = (d) => {
         if (s.out.length < OUTPUT_CAP) s.out += String(d);
         if (!s.url) s.url = extractUrl(s.out);
+        // What Claude Code said about the code just pasted.
+        if (s.state === 'checking') {
+          if (s.reply.length < OUTPUT_CAP) s.reply += String(d);
+          if (RETRY_PROMPT.test(s.reply)) askAgain(s, RETRY_MESSAGE);
+        }
       };
       if (child.stdout) child.stdout.on('data', onData);
       if (child.stderr) child.stderr.on('data', onData);
@@ -153,6 +179,15 @@ function createLoginManager({ spawnImpl = spawn, openExternal, timeoutMs = DEFAU
         throw e;
       }
       s.state = 'checking';
+      s.message = null;
+      s.reply = '';
+      stopCheck(s);
+      s.checkTimer = setTimeout(() => {
+        if (s.state === 'checking') {
+          askAgain(s, "Claude Code didn't answer that code. Paste the full code again, or Cancel and start over.");
+        }
+      }, checkMs);
+      if (s.checkTimer.unref) s.checkTimer.unref();
       s.child.stdin.write(code.trim() + '\n');
       return publicStatus(s);
     },

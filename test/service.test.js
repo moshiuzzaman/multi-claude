@@ -25,6 +25,7 @@ function harness(extra = {}) {
   const authReply = { value: { loggedIn: false } };
   const cliInstalled = { value: true };
   const logins = [];
+  const cancelled = [];
   const usageFetches = [];
   const usageReply = { value: { ok: true, reachedModel: false, meters: [
     { kind: 'session', group: 'session', percent: 52, resetsAt: 1, severity: 'normal', isActive: true, title: 'Session (5hr)' }
@@ -46,7 +47,7 @@ function harness(extra = {}) {
       start: (id, opts) => { logins.push({ id, ...opts }); return { state: 'waiting' }; },
       status: () => ({ state: 'waiting' }),
       submit: () => ({ state: 'checking' }),
-      cancel: () => ({ state: 'cancelled' }),
+      cancel: (id) => { cancelled.push(id); return { state: 'cancelled' }; },
       openPage: () => ({ ok: true }),
       cancelAll: () => {}
     },
@@ -77,7 +78,7 @@ function harness(extra = {}) {
 
   return { base, userProfile, profilesRoot, defaultProfileDir, svc, launched, opened, shortcuts,
            terminals, vsLaunches, vsCodeInstalled, vsCodeRunning,
-           vscodeSettingsFile: path.join(base, 'code-user', 'settings.json'), authCalls, authReply, cliInstalled, logins, usageFetches, usageReply };
+           vscodeSettingsFile: path.join(base, 'code-user', 'settings.json'), authCalls, authReply, cliInstalled, logins, cancelled, usageFetches, usageReply };
 }
 
 function cleanup(h) {
@@ -895,5 +896,15 @@ test('setFreePlan rejects an unknown account', async () => {
   const h = harness();
   await h.svc.init();
   await assert.rejects(() => h.svc.setFreePlan({ id: 'deadbeef', free: true }));
+  cleanup(h);
+});
+
+test('deleting an account stops a sign-in still running for it', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Gone Soon' });
+  await h.svc.connectAccount({ id: a.id });
+  await h.svc.remove({ id: a.id, confirmLabel: 'Gone Soon', unlockOutsideRoot: false });
+  assert.ok(h.cancelled.includes(a.id), 'no hidden Claude Code is left running');
   cleanup(h);
 });
