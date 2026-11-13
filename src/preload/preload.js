@@ -9,6 +9,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 const call = (channel) => (payload) => ipcRenderer.invoke(`mc:${channel}`, payload);
 
 contextBridge.exposeInMainWorld('multiClaude', {
+  // 'win32' or 'darwin', for the few words that differ (claude.exe, Task Manager).
+  os: process.platform,
   list: call('list'),
   add: call('add'),
   rename: call('rename'),

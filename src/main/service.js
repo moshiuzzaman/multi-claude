@@ -66,10 +66,12 @@ function createService(deps) {
     find: () => ccCliMod.findClaudeCli({
       // deps.appDir holds the copy Multi-Claude downloads itself (cc-install.js),
       // laid out the same way: <dir>/claude-code/<version>/claude.exe.
-      profileDirs: [deps.appDir, deps.defaultProfileDir, ...((data && data.accounts) || []).map((a) => a.dir)]
+      profileDirs: [deps.appDir, deps.defaultProfileDir, ...((data && data.accounts) || []).map((a) => a.dir)],
+      // A Mac has its own install places (see mac.js).
+      ...(deps.ccCandidates ? { candidates: deps.ccCandidates } : {})
     }),
     authStatus: (cli, dir) => ccCliMod.authStatus(cli, dir),
-    openTerminal: (cli, dir, args, opts) => ccCliMod.openTerminal(cli, dir, args, opts)
+    openTerminal: (cli, dir, args, opts) => (deps.ccOpenTerminal || ccCliMod.openTerminal)(cli, dir, args, opts)
   };
   let cliPromise = null;
   const authCache = new Map(); // account id -> { at, auth }
@@ -153,8 +155,14 @@ function createService(deps) {
   async function prepareCcDir(a) {
     const dir = ccDirFor(a);
     if (!dir) throw err('unsupported', 'Plan limits are not available here.');
-    const recorder = await limitsMod.ensureRecorder(deps.recorderFile);
-    await limitsMod.ensureStatusLine(dir, limitsMod.statusLineCommand(recorder, path.join(dir, LIMITS_FILE)));
+    // The status-line recorder is a PowerShell script, so a Mac goes without
+    // it: it is only a fallback for when /usage can't be fetched.
+    if (deps.recordStatusLine !== false) {
+      const recorder = await limitsMod.ensureRecorder(deps.recorderFile);
+      await limitsMod.ensureStatusLine(dir, limitsMod.statusLineCommand(recorder, path.join(dir, LIMITS_FILE)));
+    } else {
+      await fsp.mkdir(dir, { recursive: true });
+    }
     return dir;
   }
 
@@ -434,7 +442,8 @@ function createService(deps) {
       const a = find(id);
       await fsp.mkdir(deps.desktopDir, { recursive: true });
       return {
-        path: createShortcut({
+        // A .lnk on Windows; a tiny .app on a Mac (see mac.js).
+        path: (deps.makeShortcut || createShortcut)({
           shell: deps.shellImpl,
           desktopDir: deps.desktopDir,
           exePath: deps.appExePath,

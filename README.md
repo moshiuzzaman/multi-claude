@@ -1,6 +1,6 @@
 # Multi-Claude
 
-A Windows app for keeping several Claude Desktop accounts side by side — add a profile,
+A Windows and macOS app for keeping several Claude Desktop accounts side by side — add a profile,
 launch or close it, give it a desktop shortcut, delete it when you are done — and see each
 account's own real Session and Weekly usage limits, launch history and disk usage.
 
@@ -163,6 +163,34 @@ That produces `dist/Multi-Claude-Setup-<version>.exe` and `dist/Multi-Claude-<ve
 is **unsigned**, so Windows SmartScreen will warn the first time you run it — choose
 **More info → Run anyway**. Sign the build with a code-signing certificate if you want
 that warning gone.
+
+### macOS
+
+The Mac app is built on a Mac by GitHub Actions (`.github/workflows/mac.yml`) for every
+pushed version tag, and attached to that release as `Multi-Claude-<version>-arm64.dmg`
+(Apple Silicon) and `Multi-Claude-<version>-x64.dmg` (Intel), plus `.zip` copies. On a Mac
+you can also build it yourself with `npm run dist:mac`.
+
+It is ad-hoc signed, not signed with an Apple Developer ID, so macOS stops it the first
+time: **right-click the app → Open → Open**. (On recent macOS: System Settings → Privacy &
+Security → **Open Anyway**.)
+
+What differs on a Mac (see `src/main/mac.js`; `platform.js` picks the Windows or Mac parts):
+
+| | Windows | Mac |
+|---|---|---|
+| Claude | `claude.exe` (Store or classic install) | `Claude.app` in Applications, or found by Spotlight |
+| Open an account | `claude.exe --user-data-dir=…` | `open -n -a Claude.app --args --user-data-dir=…` |
+| Which are open | PowerShell process list | `ps` |
+| Close | ends that profile's process tree | asks it to quit (SIGTERM), then ends what is left |
+| Default profile | `%LOCALAPPDATA%\Claude-Data\…` | `~/Library/Application Support/Claude` |
+| Desktop shortcut | `.lnk` | a tiny `.app` on the Desktop |
+| Updating | in-app installer | **Update** opens the release page to download the new `.dmg` |
+
+The status-line recorder (a fallback for live limits) is a PowerShell script and isn't used
+on a Mac. **The Mac version has not been tried on a real Mac yet**: the parts are covered by
+tests, but whether Claude for Mac keeps a separate profile per `--user-data-dir` the way the
+Windows build does is the first thing to check.
 
 ### If the build fails on symbolic links
 
@@ -362,7 +390,7 @@ goes stale. Clicking one launches the profile without opening the manager window
 
 ## Known limitations
 
-- Windows only.
+- Windows and macOS. The Mac version is new and untested on a real Mac (see **macOS** above).
 - Launching the Store build's executable directly means the second instance runs without
   package identity, so `claude://` deep links and some notification routing still go to
   the default instance. This applies equally to the `.bat` approach.
