@@ -173,6 +173,13 @@ export default function App() {
         setTimeout(loadScan, 1500);
       } catch (e) { fail(e); }
     },
+    // Show brings a running account's window forward, from the tray or
+    // minimised. Claude does the showing itself, so there is nothing to wait for.
+    show: async (a) => {
+      try {
+        await api.show(a.id);
+      } catch (e) { fail(e); }
+    },
     // Close asks first: quitting ends the whole process, which also stops
     // anything running inside that profile.
     close: (a) => setQuitting(a),

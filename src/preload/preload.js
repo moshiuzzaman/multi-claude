@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('multiClaude', {
   add: call('add'),
   rename: call('rename'),
   launch: call('launch'),
+  show: call('show'),
   closeAccount: call('closeAccount'),
   limits: call('limits'),
   connectAccount: call('connectAccount'),

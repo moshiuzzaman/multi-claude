@@ -6,7 +6,7 @@
 const { ipcMain, dialog } = require('electron');
 
 const CHANNELS = [
-  'list', 'add', 'rename', 'launch', 'remove', 'forget',
+  'list', 'add', 'rename', 'launch', 'show', 'remove', 'forget',
   'openFolder', 'createShortcut', 'locateExe', 'scan', 'sizes',
   'usage', 'activity', 'storage', 'purgeCache', 'accountInfo', 'closeAccount',
   'limits', 'connectAccount', 'openClaudeCode', 'useVsCodeAccount',
@@ -29,6 +29,7 @@ function register(service, updater, { exeLabel = 'claude.exe', exeFilter = { nam
     add: (p) => service.add(p),
     rename: (p) => service.rename(p),
     launch: (p) => service.launch(p),
+    show: (p) => service.show(p),
     closeAccount: (p) => service.closeAccount(p),
     limits: (p) => service.limits(p),
     connectAccount: (p) => service.connectAccount(p),

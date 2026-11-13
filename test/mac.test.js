@@ -70,6 +70,14 @@ test('launch goes through `open`, detached', () => {
   assert.strictEqual(calls[0].opts.detached, true);
 });
 
+test('Mac show opens the account again, which hands off to the running copy', () => {
+  const calls = [];
+  const l = mac.createMacLauncher({ spawnImpl: (cmd, args, opts) => { calls.push({ cmd, args, opts }); return { unref() {} }; } });
+  l.show('/Applications/Claude.app', { kind: 'managed', dir: '/p/x' });
+  assert.strictEqual(calls[0].cmd, 'open');
+  assert.deepStrictEqual(calls[0].args, mac.buildOpenArgs('/Applications/Claude.app', { kind: 'managed', dir: '/p/x' }));
+});
+
 // ------------------------------------------------------------- scanner ----
 
 const PS = [

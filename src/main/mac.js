@@ -66,12 +66,13 @@ function buildOpenArgs(appPath, account) {
 }
 
 function createMacLauncher({ spawnImpl }) {
-  return {
-    launch(appPath, account) {
-      const child = spawnImpl('open', buildOpenArgs(appPath, account), { detached: true, stdio: 'ignore' });
-      child.unref();
-    }
-  };
+  function launch(appPath, account) {
+    const child = spawnImpl('open', buildOpenArgs(appPath, account), { detached: true, stdio: 'ignore' });
+    child.unref();
+  }
+  // `open -n` starts a new process; Claude's single-instance lock (per data
+  // folder) hands it to the running copy, which brings its window forward.
+  return { launch, show: launch };
 }
 
 // ---------------------------------------------------------------- scanner --

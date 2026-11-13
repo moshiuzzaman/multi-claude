@@ -333,6 +333,17 @@ function createService(deps) {
     },
 
     /**
+     * Bring a running account's window to the front, from the tray or
+     * minimised. Not a new session, so nothing is added to the history.
+     */
+    async show({ id }) {
+      const account = find(id);
+      const launcher = deps.launcher;
+      (launcher.show || launcher.launch)(await exe(), account);
+      return { ok: true };
+    },
+
+    /**
      * Quit a running profile — a force-kill of that one instance's process tree
      * (see closer.js for why a graceful close cannot work). The caller must have
      * confirmed with the user first: anything running inside it stops.
