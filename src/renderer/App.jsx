@@ -198,7 +198,7 @@ export default function App() {
       setTimeout(loadScan, 1500);
 
       if (!connectClaudeCode) {
-        say(`Created ${a.label}. Sign in to that account in the Claude window.`);
+        say(`Created ${a.label}. Sign in with your email and its code in the Claude window, not with Google.`);
         return;
       }
 
@@ -331,7 +331,7 @@ export default function App() {
       {adding && (
         <TextPromptDialog
           title="Add an account"
-          description="A new, empty Claude profile is created and opened. Sign in to the account you want to use there."
+          description="A new, empty Claude profile is created and opened. Sign in there with your email address and the code Claude emails you, typed into that window. Don't use Continue with Google: it finishes in the browser and signs in your default Claude, so this account would ask you to sign in again every time."
           label="Account name"
           placeholder="Personal"
           confirmText="Create and open"
