@@ -1,5 +1,7 @@
 import React from 'react';
 import StatTile from '../components/StatTile.jsx';
+import { Avatar, ColorPicker } from '../components/Avatar.jsx';
+import { colorOf, colorName } from '../lib/colors.js';
 import StackedBar from '../charts/StackedBar.jsx';
 import { LimitsBlock } from '../components/AccountLimits.jsx';
 import { STORAGE_CATEGORIES } from '../lib/storageCategories.js';
@@ -38,7 +40,7 @@ export default function AccountDetail({
       <button className="link back" onClick={() => setView('dashboard')}>← All accounts</button>
 
       <div className="page-head detail-head">
-        <span className={!scanOk ? 'dot unknown' : isRunning ? 'dot running' : 'dot'} />
+        <Avatar account={account} size={46} status={!scanOk ? 'unknown' : isRunning ? 'running' : 'stopped'} />
         <div style={{ minWidth: 0 }}>
           <h1>
             {account.label}
@@ -90,6 +92,12 @@ export default function AccountDetail({
             Delete
           </button>
         </div>
+      </div>
+
+      <div className="color-row">
+        <span className="color-row-label">Colour</span>
+        <ColorPicker value={colorOf(account)} onChange={(hex) => actions.setColor(account, hex)} />
+        <span className="color-row-name">{colorName(colorOf(account))}</span>
       </div>
 
       <div className="stack">

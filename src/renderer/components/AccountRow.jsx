@@ -1,5 +1,6 @@
 import React from 'react';
 import { bytes, relativeTime } from '../lib/format.js';
+import { Avatar } from './Avatar.jsx';
 
 export default function AccountRow({ account, running, scanOk, size, lastUsed, actions, compactView, onOpen }) {
   const isDefault = account.kind === 'default';
@@ -7,8 +8,7 @@ export default function AccountRow({ account, running, scanOk, size, lastUsed, a
 
   // A failed scan reads as "unknown", never as "not running" — the latter would
   // imply it is safe to delete.
-  const dotClass = !scanOk ? 'dot unknown' : running ? 'dot running' : 'dot';
-  const dotTitle = !scanOk ? 'Could not check' : running ? 'Running' : 'Not running';
+  const status = !scanOk ? 'unknown' : running ? 'running' : 'stopped';
 
   const meta = [];
   if (missing) meta.push('folder missing');
@@ -18,7 +18,7 @@ export default function AccountRow({ account, running, scanOk, size, lastUsed, a
 
   return (
     <div className={missing ? 'acct missing' : 'acct'}>
-      <span className={dotClass} title={dotTitle} />
+      <Avatar account={account} status={status} size={32} />
 
       <div
         className={onOpen ? 'info clickable' : 'info'}

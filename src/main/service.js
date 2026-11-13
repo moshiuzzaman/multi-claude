@@ -12,7 +12,9 @@ const path = require('node:path');
 const store = require('./store.js');
 const profiles = require('./profiles.js');
 const deleter = require('./deleter.js');
-const { createShortcut } = require('./shortcuts.js');
+const { createShortcut, shortcutName } = require('./shortcuts.js');
+const colors = require('./colors.js');
+const icons = require('./icons.js');
 const P = require('./paths.js');
 const { scanUsage, SUMMARY_VERSION } = require('./usage-reader.js');
 const { buildDashboard } = require('./usage-aggregate.js');
@@ -227,6 +229,44 @@ function createService(deps) {
     return a;
   };
 
+  // Where the account's desktop shortcut is (or would be).
+  function shortcutPathFor(a) {
+    return path.join(deps.desktopDir, (deps.shortcutFileName || shortcutName)(a.label));
+  }
+
+  async function makeShortcutFor(a, iconFile) {
+    await fsp.mkdir(deps.desktopDir, { recursive: true });
+    // A .lnk on Windows; a tiny .app on a Mac (see mac.js).
+    return (deps.makeShortcut || createShortcut)({
+      shell: deps.shellImpl,
+      desktopDir: deps.desktopDir,
+      exePath: deps.appExePath,
+      account: a,
+      argsPrefix: deps.shortcutArgsPrefix || '',
+      iconFile
+    });
+  }
+
+  /**
+   * Save the account's icon as .ico (Windows) or .icns (Mac) in Multi-Claude's
+   * own data folder and return its path. Each write gets a new file name, so
+   * Windows' icon cache can't keep showing the old colour; older ones go.
+   */
+  async function writeIcon(a, iconPng) {
+    const png = icons.pngFromDataUrl(iconPng);
+    const format = deps.iconFormat === 'icns' ? 'icns' : 'ico';
+    const bytes = format === 'icns' ? icons.pngToIcns(png) : icons.pngToIco(png);
+    const dir = deps.iconsDir;
+    if (!dir) throw err('no_icons_dir', 'Icons cannot be saved here.');
+    await fsp.mkdir(dir, { recursive: true });
+    let old = [];
+    try { old = (await fsp.readdir(dir)).filter((n) => n.startsWith(`${a.id}-`)); } catch { /* none yet */ }
+    const file = path.join(dir, `${a.id}-${Date.now().toString(36)}.${format}`);
+    await fsp.writeFile(file, bytes);
+    for (const n of old) await fsp.rm(path.join(dir, n), { force: true });
+    return file;
+  }
+
   // Re-resolves claude.exe whenever the remembered path has gone stale, which
   // is what happens every time the Store build updates itself.
   async function exe() {
@@ -264,6 +304,9 @@ function createService(deps) {
         await persist();
       }
 
+      // Every account has a colour; ones made before colours existed get one now.
+      if (colors.assignMissingColors(data.accounts)) await persist();
+
       await fsp.mkdir(deps.profilesRoot, { recursive: true });
       await loadUsageCache();
       await loadStorageCache();
@@ -291,7 +334,8 @@ function createService(deps) {
 
       const account = {
         id: profiles.newId(), label: clean, kind: 'managed',
-        dir, createdAt: new Date().toISOString()
+        dir, createdAt: new Date().toISOString(),
+        color: colors.pickColor(data.accounts)
       };
       data.accounts.push(account);
       await persist();
@@ -449,19 +493,33 @@ function createService(deps) {
       return { ok: true };
     },
 
-    async createShortcut({ id }) {
+    /**
+     * iconPng: the account's icon as a PNG data URL, drawn by the renderer in
+     * the account's colour. Optional: without it the shortcut uses
+     * Multi-Claude's own icon.
+     */
+    async createShortcut({ id, iconPng }) {
       const a = find(id);
-      await fsp.mkdir(deps.desktopDir, { recursive: true });
-      return {
-        // A .lnk on Windows; a tiny .app on a Mac (see mac.js).
-        path: (deps.makeShortcut || createShortcut)({
-          shell: deps.shellImpl,
-          desktopDir: deps.desktopDir,
-          exePath: deps.appExePath,
-          account: a,
-          argsPrefix: deps.shortcutArgsPrefix || ''
-        })
-      };
+      const iconFile = iconPng ? await writeIcon(a, iconPng) : null;
+      return { path: await makeShortcutFor(a, iconFile) };
+    },
+
+    /**
+     * Change an account's colour. If its desktop shortcut exists, it is
+     * written again with the new icon so the colour follows it there too.
+     */
+    async setColor({ id, color, iconPng }) {
+      const a = find(id);
+      if (!colors.isPaletteColor(color)) throw err('bad_color', 'Pick one of the colours shown.');
+      a.color = color.toLowerCase();
+      await persist();
+
+      let shortcutUpdated = false;
+      if (iconPng && fs.existsSync(shortcutPathFor(a))) {
+        await makeShortcutFor(a, await writeIcon(a, iconPng));
+        shortcutUpdated = true;
+      }
+      return { ok: true, color: a.color, shortcutUpdated };
     },
 
     async setExePath(p) {

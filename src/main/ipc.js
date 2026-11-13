@@ -11,7 +11,7 @@ const CHANNELS = [
   'usage', 'activity', 'storage', 'purgeCache', 'accountInfo', 'closeAccount',
   'limits', 'connectAccount', 'openClaudeCode', 'useVsCodeAccount',
   'loginStatus', 'loginSubmit', 'loginCancel', 'loginOpenPage',
-  'ccInstallStart', 'ccInstallStatus', 'openGmail', 'setFreePlan',
+  'ccInstallStart', 'ccInstallStatus', 'openGmail', 'setFreePlan', 'setColor',
   'updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'updateOpenPage', 'updateQuit'
 ];
 
@@ -39,6 +39,7 @@ function register(service, updater, { exeLabel = 'claude.exe', exeFilter = { nam
     ccInstallStatus: () => service.ccInstallStatus(),
     openGmail: () => service.openGmail(),
     setFreePlan: (p) => service.setFreePlan(p),
+    setColor: (p) => service.setColor(p),
     loginStatus: (p) => service.loginStatus(p),
     loginSubmit: (p) => service.loginSubmit(p),
     loginCancel: (p) => service.loginCancel(p),

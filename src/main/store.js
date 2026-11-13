@@ -32,6 +32,10 @@ function validate(raw) {
       if (typeof a[k] !== 'string' || a[k] === '') fail(`bad account.${k}`);
     }
     if (!KINDS.has(a.kind)) fail('bad account.kind');
+    // account.color is optional and not checked here: the schema version stays
+    // at 1 so an older Multi-Claude can still read the file, and a bad colour
+    // must never set the whole account list aside. The service replaces any
+    // colour that isn't in the palette (see colors.js).
     if (seen.has(a.id)) fail('duplicate account id');
     seen.add(a.id);
   }

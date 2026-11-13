@@ -66,7 +66,7 @@ Rejected: <ideas not taken, and why>
 | # | Feature | Priority | Effort | Status |
 |---|---|---|---|---|
 | 1 | Bring a running account to the front | Core | S | Done (Mac untested) |
-| 2 | Per-account colour | Core | M | To do |
+| 2 | Per-account colour | Core | M | Done (Mac untested) |
 | 3 | Own taskbar group per account (Windows) | Core | L | Needs prototype |
 | 4 | Same-account and wrong-account warning | Core | S | Needs decision |
 | 5 | Folder-to-account link for VS Code | Core | M | To do |
@@ -207,15 +207,96 @@ badge (first letter) on its desktop shortcut icon, so shortcuts are told apart.
 - How can Multi-Claude make a `.ico` / `.icns` at runtime without adding a heavy
   dependency (Electron `nativeImage`, an offscreen canvas)?
 
-**Analysis notes:** _Not analysed yet._
+**Analysis notes**
 
-**Where in Multi-Claude:** add `color` to the account record in `src/main/store.js`
-(bump `SCHEMA_VERSION`, migrate old stores); colour picker in the rename dialog;
-generate a per-account `.ico` (Windows) / `.icns` (Mac) for `src/main/shortcuts.js`
-and `createMacShortcut` in `src/main/mac.js`.
+```
+Analysed on: 2026-11-13
+References read: KeyboardCowboy/multi-claude — renderer/app.js (SWATCHES, renderSwatches,
+  openEdit), renderer/styles.css (.plate, .badge, .swatch), main.js (COLOR_RE, profile
+  validation); issue #5 "Tell instances apart in the Dock and app switcher" (open).
+  Licence: none stated, so ideas only, no code.
+  Claude Sessions Pro: closed source; its listing only (coloured letter on each Dock icon).
+  Ferdium: per-service icons (its own service logos, no colour picker), nothing to borrow.
+```
+
+Answers to the questions:
+- **KeyboardCowboy:** 8 named swatches (Indigo, Teal, Berry, Violet, Green, Rust, Gold,
+  Graphite). The colour is chosen in the add/edit dialog as accessible radio buttons; a
+  new profile gets the first colour no other profile uses. Saved as a hex string and
+  checked with `/^#[0-9a-fA-F]{6}$/`, falling back to the first swatch. Shown as a CSS
+  variable on the tile: an outline round the icon and a small coloured badge. Colours
+  exist only inside the app (its issue #5 is still open about the Dock).
+- **Claude Sessions Pro:** a coloured letter on each account's Dock icon, so accounts are
+  told apart outside the app. It can do this because each account is a separate app copy.
+- **Making icons without a heavy dependency:** both formats can hold a PNG directly. An
+  `.ico` is a 6-byte header, one 16-byte entry and the PNG (Windows Vista and later);
+  an `.icns` is an 8-byte header and one `ic08` (256×256 PNG) entry. The PNG is drawn on
+  a `<canvas>` in the renderer, which can already draw text; the main process checks it
+  and wraps it. No new package.
+
+| Reference | How they do it | Pros | Cons | Fits rules? |
+|---|---|---|---|---|
+| KeyboardCowboy | 8 swatches, auto-pick first unused, outline + badge on tile | Simple, accessible, never two of the same by default | Only inside the app | ✅ |
+| Claude Sessions Pro | Coloured letter on a separate app's Dock icon | Visible outside the app | Needs a copy of Claude per account (re-signing, breaks on updates) | ⚠️ copy approach no; letter icon yes |
+| Ferdium | Service logo icons | Recognisable | No per-account colour | ✅ |
+
+**Chosen approach**
+- **Palette:** 8 named colours tuned for the dark glass UI (Terracotta, Blue, Teal,
+  Violet, Rose, Green, Amber, Slate). A free hex picker is not offered: a fixed palette
+  stays readable and distinct.
+- **Auto colour:** a new account gets the first colour no other account uses (as
+  KeyboardCowboy); existing accounts get one the first time this version starts.
+- **Where it shows:** a round letter avatar in the account's colour on its card, its row
+  and its page header, with the running dot on the avatar's corner. Change it on the
+  account page under **Colour**.
+- **Shortcut icon:** a rounded tile in the account's colour with its first letter
+  (Claude Sessions Pro's idea, without copying Claude), drawn on a canvas and saved as
+  `.ico` / `.icns` in Multi-Claude's own data folder. Changing the colour rewrites an
+  existing desktop shortcut so its icon follows.
+- **Store format:** `color` is an optional field, so the schema version stays at 1.
+  Bumping it (as first planned) would make an older Multi-Claude set the account list
+  aside as unreadable after a downgrade.
+
+**Why it's better:** it combines KeyboardCowboy's simple in-app colours with Claude
+Sessions Pro's letter icons outside the app, without copying or re-signing Claude, and
+with no new dependency.
+
+**Rejected:** a free colour picker (clashing, unreadable colours); colour only as an
+outline (too subtle on the dark UI); copying Claude per account for its own Dock icon.
+
+**Where in Multi-Claude**
+- `src/main/colors.js` (new): palette, `isPaletteColor`, `pickColor(accounts)`.
+- `src/main/icons.js` (new): `readPngSize`, `pngToIco`, `pngToIcns`.
+- `src/main/store.js`: accept an optional `color` (palette hex) on accounts.
+- `src/main/service.js`: colour on init/add, `setColor({ id, color, iconPng })`,
+  `createShortcut({ id, iconPng })` writing the icon file; `src/main/shortcuts.js` and
+  `createMacShortcut` take the icon file.
+- Renderer: `lib/colors.js` (palette, letter, text colour), `lib/accountIcon.js` (canvas
+  drawing), an `Avatar` component, the Colour picker on the account page.
 
 **Done when:** the colour shows everywhere the account appears; new shortcuts get a
-coloured icon; old stores load without a colour (default colour).
+coloured icon; changing the colour updates an existing shortcut; old stores load and
+get a colour; an older version can still read the store.
+
+**Verification** (2026-11-13, branch `feat/account-colour`, test copy of Multi-Claude on
+this PC, buttons clicked in the app)
+
+| Check | Result |
+|---|---|
+| Unit tests (17 new: palette, picking, icon formats, store, service, shortcut icon) | ✅ 355 pass, 1 skipped |
+| Existing accounts get a colour on first start | ✅ Default Terracotta, Anika Blue, m Teal |
+| Colour shows on cards, rows and the account page, with the running dot on the avatar | ✅ Dashboard, Accounts and m's page |
+| Picker changes the colour and saves it | ✅ m → Violet → Blue → Teal, saved in `accounts.json` |
+| Shortcut gets a coloured letter icon | ✅ `Claude - m.lnk` points at `icons\<id>-….ico` (Teal "M" tile) |
+| Changing the colour updates an existing shortcut, old icon removed | ✅ new `.ico` each time, one file left, toast "colour and desktop shortcut updated" |
+| Released 2.6.0 can still read the saved account list | ✅ 2.6.0's `validate()` accepts it; schema version still 1 |
+| New account gets an unused colour | ✅ unit test only (not added in the app, to avoid creating a profile folder) |
+| Swatch under the mouse | ❌ → ✅ turned black (global button hover style); fixed and re-checked |
+| Mac `.icns` shortcut icon | ⬜ not tested (no Mac available) |
+
+One colour change during testing (m set to Terracotta at 23:51:56) didn't come from a
+scripted click and didn't happen again in three repeats of the same steps; most likely
+a click on the visible test window.
 
 ---
 

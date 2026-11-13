@@ -94,6 +94,10 @@ if (!app.requestSingleInstanceLock()) {
       ...(os_.vscode ? { vscode: os_.vscode } : {}),
       ...(os_.ccCandidates ? { ccCandidates: os_.ccCandidates, ccOpenTerminal: os_.ccOpenTerminal } : {}),
       ...(os_.makeShortcut ? { makeShortcut: os_.makeShortcut } : {}),
+      ...(os_.shortcutFileName ? { shortcutFileName: os_.shortcutFileName } : {}),
+      // Each account's shortcut icon, drawn in its colour.
+      iconsDir: path.join(appDir, 'icons'),
+      iconFormat: os_.iconFormat,
       shellImpl: shell,
       desktopDir: app.getPath('desktop'),
       appExePath: process.execPath,

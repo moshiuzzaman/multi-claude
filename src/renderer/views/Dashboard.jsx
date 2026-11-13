@@ -1,6 +1,7 @@
 import React from 'react';
 import { Meter, desktopMeters, DesktopAsOf } from '../components/AccountLimits.jsx';
 import { bytes, relativeTime } from '../lib/format.js';
+import { Avatar } from '../components/Avatar.jsx';
 
 /**
  * One card per account. Each card shows only that account's own figures —
@@ -37,7 +38,7 @@ function AccountCard({ account, running, scanOk, limitRow, size, lastUsed, cliMi
     <div className={missing ? 'acct-card missing' : 'acct-card'} onClick={open} role="button" tabIndex={0}
          onKeyDown={(e) => { if (e.key === 'Enter') open(); }}>
       <div className="acct-card-head">
-        <span className={!scanOk ? 'dot unknown' : isRunning ? 'dot running' : 'dot'} />
+        <Avatar account={account} size={36} status={!scanOk ? 'unknown' : isRunning ? 'running' : 'stopped'} />
         <div className="acct-card-title">
           <div className="name">
             {account.label}

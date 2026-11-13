@@ -18,13 +18,14 @@ function shortcutName(label) {
  * the project directory has to precede the flag. It is empty in a packaged
  * build, where the target is Multi-Claude.exe itself.
  */
-function createShortcut({ shell, desktopDir, exePath, account, argsPrefix = '' }) {
+function createShortcut({ shell, desktopDir, exePath, account, argsPrefix = '', iconFile = null }) {
   const target = path.join(desktopDir, shortcutName(account.label));
 
   const ok = shell.writeShortcutLink(target, 'create', {
     target: exePath,
     args: `${argsPrefix}--launch ${account.id}`,
-    icon: exePath,
+    // The account's own icon in its colour, or Multi-Claude's.
+    icon: iconFile || exePath,
     iconIndex: 0,
     description: `Open Claude with the ${account.label} profile`
   });
