@@ -84,6 +84,7 @@ export default function History({ activity, accounts, days, setDays }) {
                   {entries.map(([id, ms]) => (
                     <div
                       key={id}
+                      className="day-seg"
                       style={{
                         height: `${(ms / Math.max(dayTotal, 1)) * h}%`,
                         background: colorFor[id] || 'var(--faint)',

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
 import { notesToBlocks } from '../lib/release-notes.js';
 import { releaseDate } from '../lib/format.js';
+import logoMark from '../assets/logo-mark.png';
 
 /**
  * Every published version newer than this one, newest first, with its notes.
@@ -137,6 +138,18 @@ export default function WhatsNewDialog({ status, prompt = false, blocking = fals
 }
 
 /**
+ * The liquid's top edge: two wave periods side by side, slid left by one
+ * period on a loop, so it moves without a seam.
+ */
+function Wave({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 120 12" preserveAspectRatio="none">
+      <path d="M0 6 Q15 0 30 6 T60 6 T90 6 T120 6 V12 H0 Z" />
+    </svg>
+  );
+}
+
+/**
  * The blocking screen shown while an update downloads and installs. There is
  * nothing to click: Multi-Claude closes and reopens on its own when it's done.
  */
@@ -151,36 +164,75 @@ function UpdateProgress({ status }) {
 
   return (
     <div className="overlay update-overlay">
-      <div className="modal update-progress-modal" role="alertdialog" aria-modal="true"
-           aria-labelledby="update-progress-title" aria-describedby="update-progress-note">
-        <div className="upm-head">
-          <span className="upm-spinner" aria-hidden="true" />
-          <div>
-            <h2 id="update-progress-title">Updating Multi-Claude</h2>
-            <div className="upm-versions">v{status.current} → v{status.latest}</div>
+      <div className="modal upm" role="alertdialog" aria-modal="true"
+           aria-labelledby="upm-title" aria-describedby="upm-note">
+        <div className="upm-hero">
+          <div className="upm-logo">
+            <svg className="upm-ring" viewBox="0 0 76 76" aria-hidden="true">
+              <circle className="upm-ring-track" cx="38" cy="38" r="35" />
+              <circle className="upm-ring-arc" cx="38" cy="38" r="35" />
+            </svg>
+            {/* A glass ball that fills with liquid as the update downloads. */}
+            <div className="upm-orb" aria-hidden="true">
+              <div className="upm-liquid" style={{ height: `${Math.max(pct, 6)}%` }}>
+                <Wave className="upm-wave back" />
+                <Wave className="upm-wave front" />
+              </div>
+              <span className="upm-gloss" />
+            </div>
+            <img src={logoMark} alt="" />
+          </div>
+          <h2 id="upm-title">Updating Multi-Claude</h2>
+          <div className="upm-versions">
+            <span className="upm-ver">v{status.current}</span>
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path d="M3 8h9.5M9 4.5 12.5 8 9 11.5" fill="none" stroke="currentColor"
+                    strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="upm-ver new">v{status.latest}</span>
           </div>
         </div>
 
-        <ol className="upm-steps">
-          {steps.map((s) => (
-            <li key={s.label} className={`upm-step ${s.state}`}>
-              <span className="upm-step-dot" aria-hidden="true">{s.state === 'done' ? '✓' : ''}</span>
-              {s.label}
+        <ol className="upm-steps" aria-label="Update steps">
+          {steps.map((s, i) => (
+            <li key={s.label} className={`upm-step ${s.state}`}
+                aria-current={s.state === 'active' ? 'step' : undefined}>
+              <span className="upm-step-dot" aria-hidden="true">
+                {s.state === 'done' ? (
+                  <svg viewBox="0 0 16 16" width="11" height="11">
+                    <path d="M3.5 8.5 6.5 11.5 12.5 5" fill="none" stroke="currentColor"
+                          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : i + 1}
+              </span>
+              <span className="upm-step-label">{s.label}</span>
             </li>
           ))}
         </ol>
 
-        <div className="upm-status" aria-live="polite">
-          <span>{installing ? 'Installing the update…' : `Downloading v${status.latest}…`}</span>
-          <span className="upm-pct">{installing ? '' : `${pct}%`}</span>
-        </div>
-        <div className={`upm-bar${installing ? ' indeterminate' : ''}`}>
-          <div style={installing ? undefined : { width: `${pct}%` }} />
+        <div className="upm-panel" aria-live="polite">
+          <div className="upm-status">
+            <span>{installing ? 'Installing the update' : 'Downloading the update'}</span>
+            <span className="upm-pct">{installing ? 'Almost done' : `${pct}%`}</span>
+          </div>
+          <div className={`upm-bar${installing ? ' indeterminate' : ''}`}
+               role="progressbar" aria-valuemin={0} aria-valuemax={100}
+               aria-valuenow={installing ? undefined : pct}>
+            <div style={installing ? undefined : { width: `${pct}%` }} />
+          </div>
+          <div className="upm-caption">
+            {installing
+              ? 'Multi-Claude will close and open again by itself.'
+              : 'The download is checked against the release before it is installed.'}
+          </div>
         </div>
 
-        <p id="update-progress-note" className="upm-note">
-          Please wait. Multi-Claude will close and reopen by itself when the update is done.
-          Claude windows you have open keep running.
+        <p id="upm-note" className="upm-note">
+          <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+            <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
+            <path d="M8 7.2v3.6M8 5.1v.1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          <span>Please keep Multi-Claude open. Your accounts are kept, and Claude windows you have open keep running.</span>
         </p>
       </div>
     </div>

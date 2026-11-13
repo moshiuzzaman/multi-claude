@@ -354,7 +354,7 @@ export default function App() {
           description="A new, empty Claude profile is created. Click Launch when you want to open it, then sign in there with an email code."
           label="Account name"
           placeholder="Personal"
-          confirmText="Create and open"
+          confirmText="Create account"
           onConfirm={actions.add}
           onCancel={() => setAdding(false)}
           option={{

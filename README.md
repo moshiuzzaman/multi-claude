@@ -396,6 +396,16 @@ MULTI_CLAUDE_SHOT_SIGNIN=1                # also drive the sign-in dialog with a
 to. `MULTI_CLAUDE_SHOT` fronts the window before capturing — an occluded Electron window
 is not recomposited, so a naive `capturePage()` returns a stale frame.
 
+To try the update screens without publishing anything, run from source with a pretend
+update (`src/main/update-demo.js`; ignored by the installed app). Nothing is downloaded
+or installed: the download and install are timed stand-ins, then Multi-Claude restarts.
+
+```bash
+MULTI_CLAUDE_UPDATE_DEMO=1        # a minor update: download, install, restart
+MULTI_CLAUDE_UPDATE_DEMO=major    # the same, as a required (major) update
+MULTI_CLAUDE_UPDATE_DEMO=fail     # the download fails at 60%
+```
+
 The main process (`src/main/`) owns every path, the `claude.exe` lookup, process
 scanning and deletion. The renderer (`src/renderer/`, React + Vite) is sandboxed with
 `contextIsolation` on and talks to the main process through a preload bridge that only
