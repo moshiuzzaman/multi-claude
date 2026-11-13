@@ -6,7 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { createService } = require('../src/main/service.js');
 
-function harness() {
+function harness(extra = {}) {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-svc-'));
   const userProfile = path.join(base, 'user');
   const profilesRoot = path.join(userProfile, 'ClaudeProfiles');
@@ -29,6 +29,7 @@ function harness() {
     { kind: 'session', group: 'session', percent: 52, resetsAt: 1, severity: 'normal', isActive: true, title: 'Session (5hr)' }
   ], extraUsage: null } };
   const svc = createService({
+    ...extra,
     configFile: path.join(base, 'cfg', 'accounts.json'),
     ccRoot: path.join(base, 'cfg', 'cc'),
     vscodeSettingsFile: path.join(base, 'code-user', 'settings.json'),
@@ -822,5 +823,32 @@ test('useVsCodeAccount writes through a symlinked settings.json', async (t) => {
   assert.ok(fs.lstatSync(h.vscodeSettingsFile).isSymbolicLink(), 'the link is kept');
   assert.ok(vscodeSettings.readManaged(fs.readFileSync(real, 'utf8')).endsWith(a.id),
     'the linked file got the block');
+  cleanup(h);
+});
+
+test('ccInstallStart starts the download without waiting and reports its status', async () => {
+  let started = 0;
+  let state = { state: 'idle' };
+  const h = harness({
+    ccInstaller: {
+      start: async () => { started += 1; state = { state: 'done', version: '2.1.323' }; return state; },
+      status: () => state
+    }
+  });
+  const svc = h.svc;
+  await svc.init();
+  assert.deepStrictEqual(svc.ccInstallStatus(), { state: 'idle' });
+  svc.ccInstallStart();
+  assert.strictEqual(started, 1);
+  await new Promise((r) => setImmediate(r));
+  assert.deepStrictEqual(svc.ccInstallStatus(), { state: 'done', version: '2.1.323' });
+  cleanup(h);
+});
+
+test('ccInstallStart says so when downloading is not available', async () => {
+  const h = harness();
+  await h.svc.init();
+  assert.deepStrictEqual(h.svc.ccInstallStatus(), { state: 'idle' });
+  assert.throws(() => h.svc.ccInstallStart(), (e) => e.code === 'unsupported');
   cleanup(h);
 });

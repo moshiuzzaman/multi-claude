@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('multiClaude', {
   connectAccount: call('connectAccount'),
   openClaudeCode: call('openClaudeCode'),
   useVsCodeAccount: call('useVsCodeAccount'),
+  ccInstallStart: call('ccInstallStart'),
+  ccInstallStatus: call('ccInstallStatus'),
   loginStatus: call('loginStatus'),
   loginSubmit: call('loginSubmit'),
   loginCancel: call('loginCancel'),

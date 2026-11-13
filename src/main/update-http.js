@@ -98,12 +98,17 @@ async function fetchJson(url, opts = {}) {
  * the SHA-512 match; anything else deletes the file, so a damaged or swapped
  * installer can never be run.
  */
-async function downloadVerified(url, dest, { sha512, size, onProgress = () => {}, stallMs = 60000 }) {
+async function downloadVerified(url, dest, { sha512, sha256, size, onProgress = () => {}, stallMs = 60000 }) {
+  // Either checksum works: base64 SHA-512 (electron-builder's latest.yml) or
+  // hex SHA-256 (Anthropic's Claude Code manifest). With neither, nothing is kept.
+  const expected = sha256 ? String(sha256).toLowerCase() : sha512;
+  const algorithm = sha256 ? 'sha256' : 'sha512';
+  const encoding = sha256 ? 'hex' : 'base64';
   await fsp.mkdir(path.dirname(dest), { recursive: true });
   const res = await open(url, { timeoutMs: stallMs });
   stallGuard(res, stallMs);
   const total = Number(res.headers['content-length']) || size;
-  const hash = crypto.createHash('sha512');
+  const hash = crypto.createHash(algorithm);
   const out = fs.createWriteStream(dest);
   let got = 0;
   try {
@@ -123,7 +128,7 @@ async function downloadVerified(url, dest, { sha512, size, onProgress = () => {}
       out.on('close', resolve);
       res.pipe(out);
     });
-    if (got !== size || hash.digest('base64') !== sha512) {
+    if (!expected || got !== size || hash.digest(encoding) !== expected) {
       throw httpErr('damaged', 'The download was damaged; nothing was installed.');
     }
   } catch (e) {

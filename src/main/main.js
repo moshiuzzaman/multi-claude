@@ -27,6 +27,7 @@ const ipc = require('./ipc.js');
 const { createUpdater } = require('./updater.js');
 const updateHttp = require('./update-http.js');
 const updateConfig = require('./update-config.js');
+const { createCcInstaller } = require('./cc-install.js');
 
 if (process.platform !== 'win32') {
   console.error('Multi-Claude is Windows-only.');
@@ -57,6 +58,17 @@ if (!app.requestSingleInstanceLock()) {
 
     return createService({
       configFile: path.join(appDir, 'accounts.json'),
+      // Where a downloaded Claude Code lives: <appDir>/claude-code/<version>.
+      appDir,
+      ccInstaller: createCcInstaller({
+        fetchText: (url) => updateHttp.fetchText(url),
+        fetchJson: (url) => updateHttp.fetchJson(url, { accept: 'application/json' }),
+        download: (url, dest, opts) => updateHttp.downloadVerified(url, dest, opts),
+        rename: (from, to) => fsp.rename(from, to),
+        remove: (p) => fsp.rm(p, { force: true }),
+        rootDir: path.join(appDir, 'claude-code'),
+        arch: process.env.PROCESSOR_ARCHITEW6432 === 'ARM64' || process.env.PROCESSOR_ARCHITECTURE === 'ARM64' ? 'arm64' : 'x64'
+      }),
       usageCacheFile: path.join(appDir, 'usage-cache.json'),
       storageCacheFile: path.join(appDir, 'storage-cache.json'),
       // One Claude Code config dir per account, each with its own official sign-in.
