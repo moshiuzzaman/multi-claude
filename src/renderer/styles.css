@@ -930,48 +930,549 @@ button.link.inline-link {
 button.link.inline-link:hover { color: var(--text); }
 
 /* ------------------------------------------- blocking update progress --- */
-.update-overlay { z-index: 1000; }
-.modal.update-progress-modal { max-width: 400px; padding: 22px 22px 18px; }
+.update-overlay { z-index: 1000; background: rgba(0, 0, 0, 0.66); backdrop-filter: blur(8px); }
+.modal.upm { max-width: 420px; padding: 28px 26px 20px; }
 
-.upm-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-.upm-head h2 { margin: 0; }
-.upm-versions { margin-top: 2px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.upm-spinner {
-  width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%;
-  border: 2.5px solid var(--accent-dim); border-top-color: var(--accent);
-  animation: spin 0.9s linear infinite;
+.upm-hero { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 24px; }
+/* A round badge with the logo centred, and a circular arc spinning on a faint
+   track around it. The logo is wider than tall, so it keeps its own shape. */
+.upm-logo {
+  position: relative; width: 76px; height: 76px; margin-bottom: 14px;
+  display: grid; place-items: center;
+}
+.upm-logo img {
+  position: relative; width: 36px; height: auto; display: block;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.6));
 }
 
-.upm-steps {
-  list-style: none; margin: 0 0 18px; padding: 0;
-  display: flex; align-items: center; gap: 6px;
+/* The glass ball: dark glass, liquid rising inside, a shine on top. */
+.upm-orb {
+  position: absolute; inset: 8px; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.35) 75%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 -6px 14px rgba(0, 0, 0, 0.45), 0 6px 18px -6px rgba(217, 119, 87, 0.5);
+  isolation: isolate;
+}
+.upm-liquid {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(180deg, #ff9f78 0%, #e0714b 40%, #9c3d20 100%);
+  transition: height 0.6s var(--ease);
+}
+.upm-wave {
+  position: absolute; left: 0; bottom: calc(100% - 1px);
+  width: 200%; height: 9px; display: block;
+  animation: upm-wave 2.4s linear infinite;
+}
+.upm-wave.front path { fill: #ff9f78; }
+.upm-wave.back { animation-duration: 3.6s; animation-direction: reverse; bottom: calc(100% + 1px); opacity: 0.55; }
+.upm-wave.back path { fill: #e8906f; }
+@keyframes upm-wave { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+/* Glass shine: a bright curved highlight top-left and a soft rim light below. */
+.upm-gloss {
+  position: absolute; inset: 0; border-radius: 50%; pointer-events: none; z-index: 1;
+  background:
+    radial-gradient(ellipse 55% 35% at 34% 20%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 70%),
+    radial-gradient(ellipse 70% 25% at 50% 96%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 70%),
+    radial-gradient(circle at 50% 42%, rgba(0, 0, 0, 0) 52%, rgba(0, 0, 0, 0.42) 100%);
+}
+.upm-ring { position: absolute; inset: 0; width: 100%; height: 100%; animation: spin 1.2s linear infinite; }
+.upm-ring circle { fill: none; stroke-width: 2.5; }
+.upm-ring-track { stroke: rgba(255, 255, 255, 0.07); }
+.upm-ring-arc {
+  stroke: var(--accent); stroke-linecap: round;
+  /* about a quarter of the circle (2π·35 ≈ 220) */
+  stroke-dasharray: 58 220;
+}
+.upm-hero h2 { margin: 0 0 8px; font-size: 17px; letter-spacing: -0.01em; }
+.upm-versions { display: flex; align-items: center; gap: 8px; color: var(--faint); }
+.upm-ver {
+  padding: 2px 8px; border-radius: 999px; font-size: 11px; font-variant-numeric: tabular-nums;
+  color: var(--muted); background: rgba(255, 255, 255, 0.06); border: 1px solid var(--glass-border);
+}
+.upm-ver.new { color: var(--accent-hi); background: var(--accent-dim); border-color: rgba(217, 119, 87, 0.35); }
+
+/* Stepper: numbered dots joined by a line that fills as steps finish. */
+.upm-steps { list-style: none; margin: 0 0 20px; padding: 0; display: flex; }
+.upm-step {
+  position: relative; flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
   font-size: 11.5px; color: var(--faint);
 }
-.upm-step { display: flex; align-items: center; gap: 6px; flex: 1; }
 .upm-step + .upm-step::before {
-  content: ''; flex: 0 0 14px; height: 1px; background: var(--glass-border-hi); margin-right: 2px;
+  content: ''; position: absolute; top: 11px; right: calc(50% + 17px); left: calc(-50% + 17px);
+  height: 2px; border-radius: 1px; background: var(--glass-border-hi);
 }
+.upm-step.done + .upm-step::before { background: var(--accent); }
 .upm-step-dot {
-  width: 16px; height: 16px; flex-shrink: 0; border-radius: 50%;
-  display: grid; place-items: center; font-size: 9.5px; font-weight: 700;
-  border: 1.5px solid var(--glass-border-hi);
+  width: 24px; height: 24px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+  border: 1.5px solid var(--glass-border-hi); background: var(--bg-2); color: var(--faint);
+  transition: all 0.25s var(--ease);
 }
-.upm-step.active { color: var(--text); }
-.upm-step.active .upm-step-dot { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.upm-step.active { color: var(--text); font-weight: 500; }
+.upm-step.active .upm-step-dot {
+  border-color: var(--accent); color: var(--accent-hi); background: var(--accent-dim);
+  box-shadow: 0 0 0 4px rgba(217, 119, 87, 0.12);
+}
 .upm-step.done { color: var(--muted); }
-.upm-step.done .upm-step-dot { border-color: var(--good); background: var(--good); color: #fff; }
+.upm-step.done .upm-step-dot { border-color: var(--accent); background: var(--accent); color: #fff; }
 
+.upm-panel {
+  padding: 14px 14px 12px; border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22); border: 1px solid var(--glass-border);
+}
 .upm-status {
   display: flex; justify-content: space-between; align-items: baseline;
-  font-size: 12.5px; color: var(--text); margin-bottom: 7px;
+  font-size: 12.5px; font-weight: 500; color: var(--text); margin-bottom: 9px;
 }
-.upm-pct { color: var(--muted); font-variant-numeric: tabular-nums; }
-.upm-bar { height: 6px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, 0.08); }
+.upm-pct { color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+/* Glossy liquid bar: a sunken glass tube, a rounded liquid fill with a top
+   highlight, and a sheen that flows along it. */
+.upm-bar {
+  height: 12px; padding: 2px; border-radius: 999px; overflow: hidden;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.06);
+}
 .upm-bar > div {
-  height: 100%; border-radius: 3px; background: var(--accent);
-  transition: width 0.3s var(--ease);
+  position: relative; height: 100%; min-width: 8px; border-radius: 999px; overflow: hidden;
+  background: linear-gradient(180deg, #f6ae90 0%, var(--accent) 50%, #b5532f 100%);
+  box-shadow: 0 0 10px rgba(217, 119, 87, 0.55), inset 0 -1px 1px rgba(0, 0, 0, 0.25);
+  transition: width 0.35s var(--ease);
 }
-.upm-bar.indeterminate > div { width: 35%; animation: upm-slide 1.2s var(--ease) infinite; }
+.upm-bar > div::before {
+  content: ''; position: absolute; left: 3px; right: 3px; top: 1px; height: 40%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.05));
+}
+.upm-bar > div::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.45) 45%, transparent 60%);
+  background-size: 200% 100%;
+  animation: upm-sheen 1.8s linear infinite;
+}
+@keyframes upm-sheen { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+.upm-bar.indeterminate > div { width: 35%; animation: upm-slide 1.3s var(--ease) infinite; }
 @keyframes upm-slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+.upm-caption { margin-top: 9px; font-size: 11px; color: var(--faint); line-height: 1.45; }
 
-.upm-note { margin: 14px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+.modal .upm-note {
+  display: flex; gap: 8px; align-items: flex-start;
+  margin: 14px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--faint);
+}
+.upm-note svg { flex-shrink: 0; margin-top: 2px; }
+
+/* ============================================================================
+   Glossy 3D layer
+   Comes after the base styles and refines them: every control is a raised,
+   glossy object lit from above (bright top edge, gloss band, darker base),
+   every track is sunken glass, and every fill is liquid with a highlight.
+   One button size everywhere.
+   ========================================================================= */
+
+:root {
+  --btn-h: 32px;
+  --btn-r: 10px;
+
+  /* Raised neutral glass: gloss band across the upper half. */
+  --gloss-neutral: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.17) 0%, rgba(255, 255, 255, 0.075) 47%,
+    rgba(255, 255, 255, 0.035) 53%, rgba(255, 255, 255, 0.07) 100%);
+  --gloss-neutral-hover: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.11) 47%,
+    rgba(255, 255, 255, 0.06) 53%, rgba(255, 255, 255, 0.1) 100%);
+  --lift:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 5px 12px -5px rgba(0, 0, 0, 0.7);
+  --lift-hover:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 2px 3px rgba(0, 0, 0, 0.5),
+    0 9px 18px -7px rgba(0, 0, 0, 0.8);
+  --pressed:
+    inset 0 2px 5px rgba(0, 0, 0, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(255, 255, 255, 0.05);
+
+  /* Liquid highlight laid over any coloured fill. */
+  --fill-gloss: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.14) 42%,
+    rgba(255, 255, 255, 0) 52%, rgba(0, 0, 0, 0.18) 100%);
+  /* Sunken glass for tracks and inputs. */
+  --sunken:
+    inset 0 2px 4px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* ------------------------------------------------------------- buttons --- */
+
+button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: var(--btn-h); padding: 0 14px;
+  font-size: 12.5px; font-weight: 560; letter-spacing: 0.005em; line-height: 1;
+  white-space: nowrap;
+  border-radius: var(--btn-r);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: var(--gloss-neutral);
+  color: var(--text);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--lift);
+  transition: background 0.15s var(--ease), box-shadow 0.15s var(--ease),
+              transform 0.12s var(--ease), border-color 0.15s var(--ease), filter 0.15s var(--ease);
+}
+button:hover:not(:disabled) {
+  background: var(--gloss-neutral-hover);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: var(--lift-hover);
+  transform: translateY(-1px);
+}
+button:active:not(:disabled) { transform: translateY(1px); box-shadow: var(--pressed); }
+button:focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 2px; }
+button:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+/* Secondary actions share the exact size and shape of every other button. */
+button.ghost { height: var(--btn-h); padding: 0 14px; font-size: 12.5px; background: var(--gloss-neutral); }
+button.ghost:hover:not(:disabled) { background: var(--gloss-neutral-hover); }
+
+/* Primary: glossy terracotta, like a lit candy button. */
+button.primary {
+  color: #fff;
+  border-color: rgba(125, 45, 18, 0.85);
+  background: linear-gradient(180deg, #f7b294 0%, #ea8f6c 46%, #db7049 54%, #cf6540 100%);
+  text-shadow: 0 1px 1px rgba(110, 35, 10, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -2px 3px rgba(120, 40, 15, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.45),
+    0 6px 16px -6px rgba(217, 119, 87, 0.9);
+}
+button.primary:hover:not(:disabled) {
+  filter: brightness(1.06) saturate(1.05);
+  background: linear-gradient(180deg, #f9bea3 0%, #ee9776 46%, #df7650 54%, #d36a44 100%);
+  border-color: rgba(125, 45, 18, 0.85);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -2px 3px rgba(120, 40, 15, 0.35),
+    0 2px 3px rgba(0, 0, 0, 0.45),
+    0 10px 22px -8px rgba(217, 119, 87, 1);
+}
+button.primary:active:not(:disabled) {
+  background: linear-gradient(180deg, #d76c46 0%, #e07b55 100%);
+  box-shadow: inset 0 2px 5px rgba(110, 35, 10, 0.55), 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+button.danger {
+  color: #fff;
+  border-color: rgba(120, 25, 25, 0.85);
+  background: linear-gradient(180deg, #f6a3a3 0%, #e97878 46%, #da5b5b 54%, #cf5050 100%);
+  text-shadow: 0 1px 1px rgba(100, 20, 20, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -2px 3px rgba(110, 20, 20, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.45),
+    0 6px 16px -6px rgba(230, 103, 103, 0.85);
+}
+button.danger:hover:not(:disabled) { filter: brightness(1.07); }
+
+/* Close: polished silver, the row's main action while Claude is open. */
+button.subtle {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.17) 47%,
+    rgba(255, 255, 255, 0.1) 53%, rgba(255, 255, 255, 0.15) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 6px 14px -6px rgba(0, 0, 0, 0.8);
+}
+button.subtle:hover:not(:disabled) {
+  background: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.22) 47%,
+    rgba(255, 255, 255, 0.13) 53%, rgba(255, 255, 255, 0.19) 100%);
+}
+
+/* Text-style buttons stay text: no gloss, no fixed height. */
+button.text-btn, button.uf-link, button.link {
+  height: auto; padding: 0; box-shadow: none; border: 0; background: none;
+  text-shadow: none; font-weight: 500; transform: none;
+}
+button.text-btn:hover:not(:disabled), button.uf-link:hover:not(:disabled),
+button.link:hover:not(:disabled) {
+  background: none; box-shadow: none; transform: none;
+}
+button.link { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; font-size: 12px; }
+button.link:hover:not(:disabled) { color: var(--text); }
+button.link.back {
+  text-decoration: none; color: var(--muted);
+  height: 30px; padding: 0 12px; margin-bottom: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 999px;
+  background: var(--gloss-neutral); box-shadow: var(--lift);
+}
+button.link.back:hover:not(:disabled) { background: var(--gloss-neutral-hover); box-shadow: var(--lift-hover); }
+
+/* Icon button in the update card. */
+button.uf-icon { height: 26px; border-radius: 8px; box-shadow: none; text-shadow: none; }
+button.uf-icon:hover:not(:disabled) { background: var(--gloss-neutral-hover); box-shadow: var(--lift); transform: none; }
+
+/* Segmented control: a sunken track with a raised glossy thumb. */
+.seg {
+  padding: 3px; border-radius: 11px; border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.35); box-shadow: var(--sunken);
+}
+.seg button {
+  height: 26px; padding: 0 12px; border: 1px solid transparent; border-radius: 8px;
+  background: none; box-shadow: none; text-shadow: none; color: var(--muted);
+}
+.seg button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.05); box-shadow: none; transform: none; color: var(--text); }
+.seg button.on {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.14);
+  background: var(--gloss-neutral-hover);
+  box-shadow: var(--lift);
+}
+
+/* ------------------------------------------------------------- sidebar --- */
+
+.sidebar {
+  background: linear-gradient(180deg, rgba(30, 29, 28, 0.72), rgba(16, 16, 15, 0.72));
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05), 6px 0 24px -12px rgba(0, 0, 0, 0.8);
+}
+.brand-mark { filter: drop-shadow(0 3px 8px rgba(217, 119, 87, 0.45)); }
+.brand-name { text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5), 0 0 16px rgba(217, 119, 87, 0.25); }
+
+.nav-item { justify-content: flex-start; height: 38px; padding: 0 12px; font-weight: 500; text-shadow: none; transform: none; box-shadow: none; }
+.nav-item:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+  border-color: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.nav-item.active {
+  color: #fff;
+  border-color: rgba(217, 119, 87, 0.5);
+  background: linear-gradient(180deg,
+    rgba(240, 150, 115, 0.36) 0%, rgba(217, 119, 87, 0.2) 47%,
+    rgba(217, 119, 87, 0.13) 53%, rgba(217, 119, 87, 0.2) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    0 6px 16px -8px rgba(217, 119, 87, 0.75);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+  font-weight: 600;
+}
+.nav-item.active .nav-icon { color: #ffd2c0; filter: drop-shadow(0 0 4px rgba(232, 144, 111, 0.7)); opacity: 1; }
+
+/* -------------------------------------------------------- page headings --- */
+
+/* Solid ink with a soft lift: gradient-clipped text renders thin on Windows. */
+.page-head h1 { text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5), 0 0 22px rgba(255, 255, 255, 0.08); }
+
+/* ---------------------------------------------------------- glass cards --- */
+
+.panel, .acct, .acct-card {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 2px 4px rgba(0, 0, 0, 0.35),
+    0 28px 56px -30px rgba(0, 0, 0, 1);
+}
+.panel::after, .acct::after, .acct-card::after {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.015) 60%, transparent);
+}
+
+/* Account cards get the same specular rim and sheen as panels. */
+.acct-card { border-color: transparent; }
+.acct-card::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(148deg,
+    rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.07) 30%,
+    rgba(255, 255, 255, 0.02) 58%, rgba(255, 255, 255, 0.18));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  pointer-events: none; z-index: 0;
+  transition: background 0.2s var(--ease);
+}
+.acct-card::after {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 46%;
+  border-radius: var(--radius) var(--radius) 40% 40% / var(--radius) var(--radius) 100% 100%;
+  pointer-events: none;
+}
+.acct-card > * { position: relative; z-index: 1; }
+
+.acct-card:hover, .acct:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 4px 8px rgba(0, 0, 0, 0.35),
+    0 34px 60px -28px rgba(0, 0, 0, 1),
+    0 0 0 1px rgba(217, 119, 87, 0.18);
+}
+.acct-card:hover::before {
+  background: linear-gradient(148deg,
+    rgba(240, 150, 115, 0.6), rgba(255, 255, 255, 0.08) 32%,
+    rgba(255, 255, 255, 0.02) 58%, rgba(240, 150, 115, 0.3));
+}
+
+/* Inner cards (mini tiles, limit cards): a raised glass chip. */
+.limit-card, .mini-tiles .panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.12));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 2px 6px -2px rgba(0, 0, 0, 0.5);
+}
+
+/* Stat values: crisp, slightly lifted off the glass. */
+.tile .value { text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55), 0 0 20px rgba(255, 255, 255, 0.07); }
+
+/* --------------------------------------------------- dots, pills, swatches */
+
+.dot {
+  background: radial-gradient(circle at 35% 30%, #8a8781, #4a4845 55%, #2c2b29);
+  box-shadow: inset 0 -1px 1px rgba(0, 0, 0, 0.4), 0 1px 1px rgba(0, 0, 0, 0.4);
+}
+.dot.running {
+  background: radial-gradient(circle at 35% 30%, #b9ffb0, #2fd12f 45%, #0a8a0a 100%);
+  box-shadow: 0 0 0 3px rgba(12, 163, 12, 0.18), 0 0 10px rgba(47, 209, 47, 0.6);
+  animation: dot-pulse 2.4s var(--ease) infinite;
+}
+@keyframes dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(12, 163, 12, 0.18), 0 0 10px rgba(47, 209, 47, 0.55); }
+  50% { box-shadow: 0 0 0 5px rgba(12, 163, 12, 0.08), 0 0 14px rgba(47, 209, 47, 0.75); }
+}
+.dot.unknown { background: radial-gradient(circle at 35% 30%, #ffe9a8, #fab219 50%, #b07a06); }
+
+.uf-dot {
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.85), var(--tone) 55%);
+}
+
+.pill {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 1px 2px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+}
+.pill.accent {
+  background: linear-gradient(180deg, rgba(240, 150, 115, 0.35), rgba(217, 119, 87, 0.15));
+  border-color: rgba(217, 119, 87, 0.45);
+  color: #ffc7b2;
+}
+
+.swatch, .tile-dot {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 -1px 1px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* ------------------------------------------------------ bars and tracks --- */
+
+.bar-track, .limit-track, .gauge-track, .uf-bar,
+.cc-install-line .bar, .modal .update-progress .bar {
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.38);
+  box-shadow: var(--sunken);
+  overflow: hidden;
+}
+.bar-track, .limit-track { height: 10px; }
+.gauge-track { height: 12px; }
+.cc-install-line .bar, .modal .update-progress .bar { height: 8px; }
+
+.bar-fill, .limit-fill, .gauge-fill, .stacked-seg,
+.uf-bar > span, .cc-install-line .bar > div, .modal .update-progress .bar > div {
+  position: relative;
+  border-radius: 999px;
+}
+.bar-fill::after, .limit-fill::after, .gauge-fill::after, .stacked-seg::after,
+.uf-bar > span::after, .cc-install-line .bar > div::after, .modal .update-progress .bar > div::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background: var(--fill-gloss);
+  pointer-events: none;
+}
+.bar-fill { box-shadow: 0 0 10px -2px currentColor; }
+
+/* Daily activity columns: the liquid highlight runs down the left side. */
+.day-seg { position: relative; border-radius: 4px !important; box-shadow: 0 0 8px -3px rgba(0, 0, 0, 0.6); }
+.day-seg::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.12) 38%,
+    rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.2) 100%);
+}
+
+/* Usage limits: brand liquid, amber and red as they fill up. */
+.limit-fill {
+  opacity: 1;
+  background: linear-gradient(180deg, var(--accent-hi), var(--accent));
+  box-shadow: 0 0 10px -1px rgba(217, 119, 87, 0.75);
+}
+.limit-fill.warn { background: linear-gradient(180deg, #ffd166, var(--warn)); box-shadow: 0 0 10px -1px rgba(250, 178, 25, 0.75); }
+.limit-fill.critical { background: linear-gradient(180deg, #f39090, var(--danger)); box-shadow: 0 0 10px -1px rgba(230, 103, 103, 0.8); }
+
+.uf-bar > span, .cc-install-line .bar > div, .modal .update-progress .bar > div {
+  background: linear-gradient(180deg, var(--accent-hi), var(--accent));
+}
+
+.stacked {
+  height: 16px; border-radius: 999px; padding: 2px;
+  background: rgba(0, 0, 0, 0.38); box-shadow: var(--sunken);
+}
+.stacked-seg { border-radius: 3px; }
+.stacked-seg:first-child { border-top-left-radius: 999px; border-bottom-left-radius: 999px; }
+.stacked-seg:last-child { border-top-right-radius: 999px; border-bottom-right-radius: 999px; }
+
+/* --------------------------------------------------------------- inputs --- */
+
+.modal input[type="text"] {
+  height: 38px; padding: 0 12px; border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.42);
+  box-shadow: var(--sunken);
+}
+.modal input[type="text"]:focus {
+  border-color: rgba(232, 144, 111, 0.8);
+  box-shadow: var(--sunken), 0 0 0 3px rgba(217, 119, 87, 0.22), 0 0 16px -4px rgba(217, 119, 87, 0.6);
+}
+
+.option-row {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* --------------------------------------------------------------- modals --- */
+
+.overlay { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px) saturate(120%); }
+.modal {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, rgba(52, 51, 48, 0.97), rgba(30, 30, 28, 0.97) 60%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 2px 6px rgba(0, 0, 0, 0.4),
+    0 40px 90px -24px rgba(0, 0, 0, 0.95);
+}
+.modal h2 { letter-spacing: -0.01em; }
+
+.toast {
+  background: linear-gradient(180deg, rgba(56, 55, 52, 0.97), rgba(32, 32, 30, 0.97));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 6px rgba(0, 0, 0, 0.4), 0 22px 50px -18px rgba(0, 0, 0, 0.95);
+}
+
+.note, .banner, .signin-status, .signin-free, .guide-warn, .check {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* -------------------------------------------------------- update card --- */
+
+.update-foot {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.02));
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 4px 12px -6px rgba(0, 0, 0, 0.7);
+}
+.update-foot.tone-new {
+  background: linear-gradient(180deg, rgba(240, 150, 115, 0.26), rgba(217, 119, 87, 0.1));
+}
+
+/* ------------------------------------------------------------ scrollbar --- */
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.08));
+  background-clip: content-box;
+}

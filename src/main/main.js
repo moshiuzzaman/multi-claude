@@ -106,6 +106,23 @@ if (!app.requestSingleInstanceLock()) {
     // right after an update it may still be exiting, and goes next launch.
     fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
 
+    // A pretend update for trying the update screens; dev runs only.
+    const demo = !app.isPackaged && process.env.MULTI_CLAUDE_UPDATE_DEMO;
+    if (demo) {
+      const { createDemoDeps } = require('./update-demo.js');
+      return createUpdater({
+        ...createDemoDeps({
+          flavor: demo,
+          currentVersion: app.getVersion(),
+          restart: () => { app.relaunch(); app.exit(0); }
+        }),
+        openExternal: (url) => { shell.openExternal(url).catch(() => {}); },
+        currentVersion: app.getVersion(),
+        repo: updateConfig,
+        tmpDir
+      });
+    }
+
     return createUpdater({
       fetchText: (url) => updateHttp.fetchText(url),
       fetchJson: (url) => updateHttp.fetchJson(url),
