@@ -44,6 +44,12 @@ export default function AccountDetail({
             {account.label}
             {isDefault && <span className="pill" style={{ marginLeft: 10 }}>Default</span>}
             {account.kind === 'imported' && <span className="pill" style={{ marginLeft: 10 }}>Imported</span>}
+            {account.signedIn === false && (
+              <span className="pill warn" style={{ marginLeft: 10 }}
+                    title="This account's Claude window isn't signed in yet. Launch shows the one-time steps.">
+                Not signed in
+              </span>
+            )}
           </h1>
           <div className="sub detail-path" title={account.dir}>
             {missing ? 'Folder missing' : account.dir}

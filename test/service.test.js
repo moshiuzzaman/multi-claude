@@ -908,3 +908,16 @@ test('deleting an account stops a sign-in still running for it', async () => {
   assert.ok(h.cancelled.includes(a.id), 'no hidden Claude Code is left running');
   cleanup(h);
 });
+
+test("list says whether each account's Claude window is signed in", async () => {
+  const seen = [];
+  const h = harness({ desktopSignIn: (dir) => { seen.push(dir); return dir.endsWith('work'); } });
+  await h.svc.init();
+  const work = await h.svc.add({ label: 'Work' });
+  const home = await h.svc.add({ label: 'Home' });
+  const list = await h.svc.list();
+  assert.strictEqual(list.find((a) => a.id === work.id).signedIn, true);
+  assert.strictEqual(list.find((a) => a.id === home.id).signedIn, false);
+  assert.ok(seen.includes(work.dir));
+  cleanup(h);
+});

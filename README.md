@@ -361,9 +361,14 @@ goes stale. Clicking one launches the profile without opening the manager window
   browser (Continue with Google) is handed to the default Claude. The added account never
   receives it and shows "Get started" on every launch. Entering your email and typing the
   emailed code into the account's own window never leaves that window, so it sticks.
-  **Sign-in help** on each added account's page walks you through this step by step,
-  with an **Open Gmail** button for the code; an account made with Google signs in the
-  same way with that Google email.
+  **Create account** walks you through this once, with an **Open Gmail** button for the
+  code; an account made with Google signs in the same way with that Google email. Claude
+  keeps the sign-in in the profile, so from then on **Launch** opens it signed in. An
+  account whose window isn't signed in shows **Not signed in**, and Launch brings the
+  steps up with the window (also under **Sign-in help** on its page). Multi-Claude tells
+  only from the names of the settings in the profile's `config.json`; it never reads a
+  token. The Claude window and Claude Code (usage limits) are separate sign-ins and are
+  never copied from one to the other, so Create account does both, one after the other.
   Multi-Claude does not reroute the link: it carries the sign-in code, and Multi-Claude
   never handles a credential.
 - Shortcut icons use the Multi-Claude icon, not Claude's.

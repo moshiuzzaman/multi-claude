@@ -30,6 +30,11 @@ export default function AccountRow({ account, running, scanOk, size, lastUsed, a
           <span>{account.label}</span>
           {isDefault && <span className="pill">Default</span>}
           {account.kind === 'imported' && <span className="pill">Imported</span>}
+          {account.signedIn === false && (
+            <span className="pill warn" title="This account's Claude window isn't signed in yet. Launch shows the one-time steps.">
+              Not signed in
+            </span>
+          )}
           {/* No "Running" pill: the dot and the Close button already say so. */}
         </div>
         <div className="meta" title={account.dir}>{meta.join('  ·  ')}</div>
