@@ -66,7 +66,7 @@ Rejected: <ideas not taken, and why>
 | # | Feature | Priority | Effort | Status |
 |---|---|---|---|---|
 | 1 | Bring a running account to the front | Core | S | Done (Mac untested) |
-| 2 | Per-account colour | Core | M | Done (Mac untested) |
+| 2 | Per-account colour | Core | M | Done (Mac and installed build untested) |
 | 3 | Own taskbar group per account (Windows) | Core | L | Needs prototype |
 | 4 | Same-account and wrong-account warning | Core | S | Needs decision |
 | 5 | Folder-to-account link for VS Code | Core | M | To do |
@@ -292,6 +292,8 @@ this PC, buttons clicked in the app)
 | Released 2.6.0 can still read the saved account list | ✅ 2.6.0's `validate()` accepts it; schema version still 1 |
 | New account gets an unused colour | ✅ unit test only (not added in the app, to avoid creating a profile folder) |
 | Swatch under the mouse | ❌ → ✅ turned black (global button hover style); fixed and re-checked |
+| Multi-Claude's own taskbar button keeps its real logo | ❌ → ✅ found by the user: with an account shortcut on the desktop, Windows showed that shortcut's coloured "M" on Multi-Claude's taskbar button (no app id set, so Windows borrowed the icon of a shortcut to the same .exe). Fixed: Multi-Claude sets its app id (`dev.multiclaude.app`, the build's appId) and each account shortcut gets its own (`dev.multiclaude.app.shortcut.<id>`). Re-checked with m's shortcut on the desktop: the taskbar shows the Multi-Claude logo |
+| Same check in the installed build (installer's Start menu shortcut and app id) | ⬜ not yet: needs an installer build |
 | Mac `.icns` shortcut icon | ⬜ not tested (no Mac available) |
 
 One colour change during testing (m set to Terracotta at 23:51:56) didn't come from a
@@ -304,6 +306,14 @@ a click on the visible test window.
 
 **What:** Today every account's window groups under one Claude taskbar icon. Give each
 account's window its own taskbar group, name and icon.
+
+**Must keep:** Multi-Claude's own taskbar button always shows its real app icon (the
+Multi-Claude logo). This feature changes only the Claude windows of each account, never
+Multi-Claude's own window or its installed app icon.
+
+**Open question for the analysis:** what each account's Claude window shows in the
+taskbar: Claude's icon with a small badge in the account's colour, or the account's
+coloured letter tile (as on its desktop shortcut).
 
 **References**
 - Parall — separate Dock icon and name per copy (Mac):
