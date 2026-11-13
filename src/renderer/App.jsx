@@ -199,18 +199,20 @@ export default function App() {
       setActivity(null);
       setTimeout(loadScan, 1500);
 
-      // First the Claude window's own sign-in (email code), then, if asked
-      // for, the Claude Code sign-in for usage limits. The account exists
-      // either way; both can be done later from the account's page.
-      setGuiding({ id: a.id, label: a.label, then: connectClaudeCode });
+      // Straight on, as the sign-in guide's Later did: the Claude Code
+      // sign-in if asked for, otherwise a pointer to Sign-in help on the
+      // account's page. The account exists either way.
+      if (connectClaudeCode) {
+        setSigningIn({ id: a.id, label: a.label });
+      } else {
+        say(`Sign in to ${a.label} with the email code whenever you're ready. The steps are under Sign-in help on its page.`);
+      }
     },
-    signInHelp: (a) => setGuiding({ id: a.id, label: a.label, then: false }),
+    signInHelp: (a) => setGuiding({ id: a.id, label: a.label }),
     finishGuide: (signedIn) => {
       const g = guiding;
       setGuiding(null);
-      if (g.then) {
-        setSigningIn({ id: g.id, label: g.label });
-      } else if (signedIn) {
+      if (signedIn) {
         say(`${g.label} is signed in.`);
       } else {
         say(`Sign in to ${g.label} with the email code whenever you're ready. The steps are under Sign-in help on its page.`);
