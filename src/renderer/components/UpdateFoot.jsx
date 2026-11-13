@@ -18,6 +18,7 @@ export default function UpdateFoot() {
   const [st, setSt] = useState(null);
   const [showNotes, setShowNotes] = useState(false);
   const [prompted, setPrompted] = useState(false);
+  const [rechecking, setRechecking] = useState(false);
   const promptedFor = useRef(null);
 
   const refresh = useCallback(async () => {
@@ -53,24 +54,43 @@ export default function UpdateFoot() {
   const openNotes = () => { setPrompted(false); setShowNotes(true); };
   const closeNotes = () => { if (!locked) setShowNotes(false); };
 
-  const retry = async () => {
-    if (st.state === 'failed') return install();
-    setSt({ ...st, state: 'checking' });
-    try { setSt(await api.updateCheck()); } catch { refresh(); }
-    return undefined;
+  // Ask GitHub again. The answer usually comes back in well under a second,
+  // so "Checking…" is held briefly to show that a check really happened.
+  const checkNow = async () => {
+    setRechecking(true);
+    const held = new Promise((r) => setTimeout(r, 700));
+    let next = null;
+    try { next = await api.updateCheck(); } catch { /* fall back to the status below */ }
+    await held;
+    if (next) setSt(next); else await refresh();
+    setRechecking(false);
   };
+
+  const retry = () => (st.state === 'failed' ? install() : checkNow());
 
   if (!st) return null;
   const v = `v${st.current}`;
   let line = null;
 
-  switch (st.state) {
+  switch (rechecking ? 'checking' : st.state) {
     case 'idle':
     case 'checking':
       line = <span>Checking for updates…</span>;
       break;
     case 'current':
-      line = <span title={st.note || undefined}>{v} · Everything is up to date</span>;
+      line = (
+        <>
+          <span title={st.note || undefined}>{v} · Everything is up to date</span>
+          <button
+            className="text-btn update-recheck"
+            onClick={checkNow}
+            title="Check for updates again"
+            aria-label="Check for updates again"
+          >
+            ↻
+          </button>
+        </>
+      );
       break;
     case 'available':
       line = (
