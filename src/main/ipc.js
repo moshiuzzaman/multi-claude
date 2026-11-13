@@ -7,11 +7,11 @@ const { ipcMain, dialog } = require('electron');
 
 const CHANNELS = [
   'list', 'add', 'rename', 'launch', 'show', 'remove', 'forget',
-  'openFolder', 'createShortcut', 'locateExe', 'scan', 'sizes',
+  'createShortcut', 'locateExe', 'scan', 'sizes',
   'usage', 'activity', 'storage', 'purgeCache', 'accountInfo', 'closeAccount',
   'limits', 'connectAccount', 'openClaudeCode', 'useVsCodeAccount',
   'loginStatus', 'loginSubmit', 'loginCancel', 'loginOpenPage',
-  'ccInstallStart', 'ccInstallStatus', 'openGmail', 'setFreePlan', 'setColor',
+  'ccInstallStart', 'ccInstallStatus', 'openGmail', 'setFreePlan', 'setColor', 'saveIcon', 'settings', 'setTaskbarGroups',
   'updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'updateOpenPage', 'updateQuit'
 ];
 
@@ -40,6 +40,9 @@ function register(service, updater, { exeLabel = 'claude.exe', exeFilter = { nam
     openGmail: () => service.openGmail(),
     setFreePlan: (p) => service.setFreePlan(p),
     setColor: (p) => service.setColor(p),
+    saveIcon: (p) => service.saveIcon(p),
+    settings: () => service.settings(),
+    setTaskbarGroups: (p) => service.setTaskbarGroups(p),
     loginStatus: (p) => service.loginStatus(p),
     loginSubmit: (p) => service.loginSubmit(p),
     loginCancel: (p) => service.loginCancel(p),
@@ -57,7 +60,6 @@ function register(service, updater, { exeLabel = 'claude.exe', exeFilter = { nam
     updateQuit: () => updater.quitApp(),
     remove: (p) => service.remove(p),
     forget: (p) => service.forget(p),
-    openFolder: (p) => service.openFolder(p),
     createShortcut: (p) => service.createShortcut(p),
     scan: () => service.scan(),
     sizes: () => service.sizes(),

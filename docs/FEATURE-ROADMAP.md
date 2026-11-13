@@ -67,9 +67,9 @@ Rejected: <ideas not taken, and why>
 |---|---|---|---|---|
 | 1 | Bring a running account to the front | Core | S | Done (Mac untested) |
 | 2 | Per-account colour | Core | M | Done (Mac and installed build untested) |
-| 3 | Own taskbar group per account (Windows) | Core | L | Needs prototype |
+| 3 | Own taskbar group per account (Windows) | Core | L | Done (installed build and pinning untested) |
 | 4 | Same-account and wrong-account warning | Core | S | Needs decision |
-| 5 | Folder-to-account link for VS Code | Core | M | To do |
+| 5 | Folder-to-account link for VS Code | Core | M | Analysed (needs your decision: planned approach doesn't work) |
 | 6 | Guided Google sign-in (Mac) | Core | M | To do |
 | 7 | Tray / menu-bar icon | High | M | To do |
 | 8 | Limit alerts | High | S | To do |
@@ -331,17 +331,123 @@ coloured letter tile (as on its desktop shortcut).
   another app's window; how reliable are they?
 - Does Claude reset the property, or open new windows that lose it?
 
-**Analysis notes:** _Not analysed yet._
+**Analysis notes**
 
-**Where in Multi-Claude:** prototype first in a scratch script: after launch, find the
-account's top-level windows and set `PKEY_AppUserModel_ID` (plus relaunch icon/name) on
-them from outside. If that works reliably, add it to `src/main/launcher.js`.
+```
+Analysed on: 2026-11-14
+References read: tksh164/aumid-stopgap-tools (MIT) — src/runwaumid/main.cpp, docs/usage-v0.2.0.md,
+  issues #20 (icon only changes when the shortcut is pinned), #22 (timeout for slow windows),
+  #6 (skip when the window already has the id). Microsoft docs: AppUserModelIDs,
+  SHGetPropertyStoreForWindow, System.AppUserModel.Relaunch* properties.
+  Parall / Claude Sessions Pro: closed source; they make a separate app copy per account.
+Prototype on this PC: account "m" (Claude Store build), scratch PowerShell + C#, then undone.
+```
 
-**Decision first:** this is the riskiest item. Claude may reset the property, and on a
-Mac it would need copying and re-signing Claude.app, which the README avoids. Build
-only if the Windows prototype holds up across a Claude update.
+Answers to the questions:
+- **Parall and Claude Sessions Pro** give each account its own *app* (a copy with its
+  own bundle id), which is why the Dock tells them apart. That needs copying and
+  re-signing Claude.app and redoing it on every Claude update, so it stays rejected
+  (Mac). On Windows no copy is needed: the taskbar groups by a per-window id.
+- **Open-source tools:** aumid-stopgap-tools sets `System.AppUserModel.ID` on another
+  app's window from outside (built for Electron apps like Obsidian and VS Code). Its
+  issues show the icon only changes with a matching pinned shortcut, which is why the
+  prototype also tried the window's relaunch properties.
+- **Prototype results** on m's window, step by step:
 
-**Done when:** two running accounts show as two taskbar icons with their own names.
+| Step | Result |
+|---|---|
+| Set the window's id to m's shortcut id (`dev.multiclaude.app.shortcut.<id>`) | ✅ m left Claude's group and got its own taskbar button (Claude's icon) |
+| Set the window icon with an icon handle (`WM_SETICON`) | ⚠️ showed m's coloured tile, but reverted to Claude's icon after close-to-tray + Show (the handle dies with the process that made it) |
+| Set relaunch icon (file path), name and command, then the id | ✅ m's coloured tile on its own button, no handle needed |
+| Close to tray → Show, minimise → restore | ✅ own button and coloured tile kept every time |
+| Multi-Claude's own taskbar button | ✅ still the real Multi-Claude logo throughout |
+| Undo (clear all four properties, hide + show) | ✅ m back in Claude's group, as before |
+
+- **Does Claude reset it?** Not in any of these steps. It lives on the window, so a new
+  window (Claude restarted, or a second Claude window) starts without it and needs it
+  applied again.
+
+| Approach | How | Pros | Cons | Fits rules? |
+|---|---|---|---|---|
+| A. Window id + relaunch icon/name/command (file paths) | Shell property store on the account's Claude windows | Own button, own coloured icon and name; survives tray/minimise; pinning it pins a Multi-Claude `--launch` shortcut | New windows need it applied again; Claude's jump list isn't on that button | ⚠️ needs a decision (see below) |
+| B. Window id + `WM_SETICON` | Icon handle | Own button | Icon lost after tray/Show unless Multi-Claude keeps native icon handles alive | ⚠️ |
+| C. Separate app copy per account (Parall, Claude Sessions Pro) | Copy + re-sign Claude | Native everywhere | Breaks on updates, weakens Claude's signature | ❌ |
+| D. Only pinned shortcuts with the id (aumid-stopgap-tools) | User pins each account shortcut | No window changes | Only works once pinned; still needs the window id | ⚠️ |
+
+**Answer to the open question:** the account's letter icon (from feature 2), since the
+taskbar button and its pinned shortcut then look the same. **Changed 2026-11-14 at the
+user's request:** the icon is drawn on Multi-Claude's own dark rounded tile (the
+background of `build/icon`), with the account's letter in the account's colour, so every
+account button still reads as Multi-Claude. The Multi-Claude badge was dropped; the tile
+is the brand. The desktop shortcut uses the same icon.
+**Changed again (user's choice from three previews):** Multi-Claude's real Windows icon
+(the M logo from `build/icon.ico`, copied to `src/renderer/assets/app-icon-*.png`) with a
+round badge at the bottom right in the account's own colour, glossy like the in-app
+avatar, carrying its letter. The badge is bigger in the small sizes (54% of the icon at
+256 px, 66% at 32 px and below) so the letter stays readable on the taskbar.
+At the user's request the in-app avatar (cards, rows, account page) uses the same design:
+the Multi-Claude logo with the colour badge at the bottom right, and the running dot on
+the logo's top right. Avatars grew a little (cards 46 px, rows 42 px, page 58 px) so the
+logo stays readable. The small-size
+badge problem is fixed as part of this: the `.ico` gets 16/24/32/48 px images with the
+letter only, and the Multi-Claude badge stays on the large 256 px image.
+
+**Chosen approach:** A, for added accounts only (the default account stays in Claude's
+own group), Windows only. Multi-Claude applies the four properties to each top-level
+Claude window of the account's process: after Launch and Show, and on each running scan
+for windows that don't have them yet. The window's id is the same as the account's
+shortcut id, so a pinned account shortcut and its running window share one button.
+
+**Why it's better:** the only tested way to get a separate, coloured, named taskbar
+button per account that survives the tray and minimise, with no copy of Claude and no
+native code to keep alive.
+
+**Rejected:** B (icon lost after tray/Show), C (copying Claude), D alone (needs pinning
+and still the window id).
+
+**Decision first (yours):** this means Multi-Claude sets taskbar properties on Claude's
+windows from outside. It doesn't modify, patch or repack Claude or read anything from
+it, but the README and feature 1's notes say no window is touched from outside, so
+they'd be updated. Proposed safeguard: a setting **Separate taskbar button per account**
+(on by default) to turn it off.
+
+**Where in Multi-Claude**
+- `src/main/taskbar.js` (new, Windows): the PowerShell + C# that applies or clears the
+  four properties on a process's top-level windows; pure helpers for the values.
+- `src/main/service.js`: apply after `launch` / `show` and from `scan` for running added
+  accounts; needs each account's icon file to exist (drawn by the renderer on start).
+- `src/renderer/lib/accountIcon.js` + `src/main/icons.js`: multi-size `.ico`.
+- Setting in the UI; README "How it works" updated.
+
+**Done when:** two running added accounts show as two taskbar buttons with their own
+coloured icons and names, next to Claude's own button for the default account; they
+survive tray, Show and minimise; Multi-Claude's own button keeps its logo; turning the
+setting off puts them back in Claude's group.
+
+**Verification** (2026-11-14, branch `feat/taskbar-groups`, test copy of Multi-Claude on
+this PC, buttons clicked in the app, taskbar captured after each step)
+
+| Check | Result |
+|---|---|
+| Unit tests (19 new: taskbar values and script, multi-size icons, service apply/scan/setting) | ✅ 376 pass, 1 skipped |
+| Module's PowerShell on a real window: apply, apply again, clear | ✅ ~1 s each; a second apply changes nothing |
+| On start, every account's icon is saved and a running added account gets its button | ✅ m got its own button with its teal M |
+| Launch a second added account from the app | ✅ Anika got its own blue A button within the retries |
+| Default account | ✅ stays on Claude's own button |
+| Multi-Claude's own button | ✅ real logo in every capture |
+| Close to tray → Show in the app | ✅ m keeps its own button and icon |
+| Setting off → windows hidden and shown again | ✅ both back on Claude's button; Show doesn't re-apply |
+| Setting on | ✅ both get their own buttons again at once; `taskbarGroups` saved |
+| Small icon without the badge dot | ❌ → ✅ the taskbar asked for a size larger than 48 px and shrank the 256 px badge image; added 64/96/128 px letter-only images |
+| A changed icon on a running button | ⚠️ shows after the window is next shown (the taskbar keeps the button's picture until then) |
+| Icon on Multi-Claude's dark tile (user's request) | ❌ user: didn't look like their icon. Replaced, see next row |
+| Real Multi-Claude logo + letter badge in the account's colour, bottom right (user's choice A) | ✅ A, M and D rendered at 256/48/32/24 px; m's taskbar button shows the logo with its teal M badge next to Multi-Claude's own button |
+| Same design on cards, rows, account page and desktop shortcut (user's request) | ✅ Dashboard, Accounts and m's page show the logo with the colour badge; a new `Claude - m` shortcut loads the same icon at 48 and 32 px (shortcut removed after) |
+| Pinning an account's button | ⬜ not tested (would change your taskbar pins) |
+| Installed build | ⬜ not yet: needs an installer build |
+| Mac | ➖ not applicable (Windows only) |
+
+Anika was started only for this test and quit again afterwards.
 
 ---
 
@@ -394,13 +500,118 @@ different accounts you own.
 - Which VS Code setting wins when both user and workspace settings set the account?
 - Should the workspace file be committed by the user's team, or kept out of git?
 
-**Analysis notes:** _Not analysed yet._
+**Analysis notes**
 
-**Where in Multi-Claude:** reuse the managed-block writer in
-`src/main/vscode-settings.js` with a workspace path; UI on the account page.
+```
+Analysed on: 2026-11-14
+References read: claude-swap (MIT) README "map / unmap"; cux (GPL-3.0, ideas only) README
+  "Projects". The installed Claude Code extension's package.json
+  (anthropic.claude-code 2.1.323). VS Code docs: command line (environment of new
+  instances), setting scopes.
+```
 
-**Done when:** two projects open in VS Code with two different accounts; removing the
-link restores the file.
+Answers to the questions:
+- **claude-swap** maps a folder to an account (`cswap map 2 ~/work/client-app`);
+  subfolders inherit the nearest mapped ancestor; mappings are per machine, not
+  exported, and removed with their account. It applies only when Claude Code is started
+  through `cswap run`, as an environment variable for that process.
+- **cux** binds a folder to a set of accounts (a pool); the longest path-boundary-aware
+  match wins, so nested projects work; a choice the user makes explicitly overrides the
+  project. The pool part breaks this project's rules; the matching rule is the useful idea.
+- **Which setting wins?** Neither: the Claude Code extension declares
+  `claudeCode.environmentVariables` with **scope `machine`** (checked in the installed
+  extension, 2.1.323). VS Code reads machine-scoped settings only from **user** settings
+  and ignores them in a project's `.vscode/settings.json`. So the planned approach
+  (write the account into the project's workspace settings) **does not work**, and the
+  git question doesn't arise.
+- **Per-window environment instead?** VS Code's docs: "If this is not the first VS Code
+  instance, environment variables are inherited from the already running VS Code
+  instance." Opening a project in a new window with the account's `CLAUDE_CONFIG_DIR`
+  therefore doesn't work while VS Code is open either. The docs' only isolation is a
+  separate `--user-data-dir` per instance, which also means separate extensions and
+  settings.
+
+| Approach | How | Pros | Cons | Fits rules? |
+|---|---|---|---|---|
+| A. Project's `.vscode/settings.json` (the plan) | Workspace setting | Per project, travels with the folder | **Ignored by VS Code** (machine scope) | — |
+| B. New window with the account's environment | `code -n <folder>` with `CLAUDE_CONFIG_DIR` | No settings edit | **Inherits the running VS Code's environment** (VS Code docs) | — |
+| C. Separate VS Code per account | `--user-data-dir` per account | Truly separate | A second VS Code with no extensions, settings or sign-ins; heavy | ✅ |
+| D. VS Code profile per account | Profiles | VS Code remembers the profile per folder | Profiles start empty (Claude Code not installed, settings not copied); Multi-Claude would have to edit VS Code's internal profile list | ⚠️ fragile |
+| E. Project list on the account page | Link folders to an account (nearest ancestor wins, as claude-swap); **Open project** switches VS Code to that account (the existing Use in VS Code) and opens the folder | Works today with one click per project; no new VS Code mechanism | Still one account at a time: opening a project switches every open VS Code window | ✅ |
+
+**Deeper look at the two references' code (2026-11-14, at the user's request)**
+
+| | claude-swap (MIT) | cux (GPL-3.0, ideas only) |
+|---|---|---|
+| Where the link is stored | `mappings.py`: `mappings.json`, key = resolved path + `os.path.normcase` (case-folded on Windows), value = account identity (email + organization id, not the slot number, since slots get reused) | `store/projects.go`: named projects `{ name, dir, slots[] }` in its state file; the folder is stored cleaned and absolute |
+| How a folder finds its account | `resolve()`: the longest mapped folder that equals the folder or is one of its parents | `ProjectFor()`: longest match, path-boundary aware (`/a/b` claims `/a/b/c`, never `/a/bc`) |
+| How the account is applied | Only through `cswap run` in a terminal: starts `claude` with `CLAUDE_CONFIG_DIR` = that account's own profile folder (`session.py`) | Only inside its own wrapper around `claude` in a terminal; the project limits which accounts the wrapper may switch to |
+| VS Code | Not per folder. The extension follows the default login, which `cswap switch` changes by **swapping the stored sign-in** in `~/.claude` for everything at once | Not supported; it also switches by writing sign-ins (`switcher.go`) |
+| Cleanup | Links are removed with their account | Removing an account removes it from every project |
+| Explicit choice | — | A user naming an account always overrides the project |
+
+Neither does per-project accounts in VS Code. Their terminal-only approach is the same as
+Multi-Claude's existing **Terminal** button, and their way of switching VS Code (swapping
+sign-ins) breaks this project's rules.
+
+**What VS Code itself allows (read from the installed VS Code 1.146 and extension 2.1.323)**
+- `claudeCode.environmentVariables`: scope `machine`, ignored in a project (as above).
+- `claudeCode.useTerminal` ("Launch Claude in the terminal instead of the native UI"):
+  scope `window`, **allowed in a project's settings**.
+- `terminal.integrated.env.windows`: no scope given, so `window`, **allowed in a
+  project's settings**; marked `restricted`, so it only applies once the folder is trusted.
+
+That opens one more approach:
+
+| Approach | How | Pros | Cons | Fits rules? |
+|---|---|---|---|---|
+| F. Project's terminal carries the account | The project's `.vscode/settings.json` gets `terminal.integrated.env.windows.CLAUDE_CONFIG_DIR` = the account's folder and `claudeCode.useTerminal: true` | A real per-project account inside VS Code; each window keeps its own account; travels with the folder | Claude Code runs in the terminal panel rather than the sidebar UI for that project; only in trusted folders; the machine-wide **Use in VS Code** setting would override it, so the two can't be on at once; **untested** | ✅ one account per project, never rotated |
+| T. Terminal opens in the project | The existing **Terminal** button can open in a linked project's folder | Works today; the same as `cswap run` + `map` | Outside VS Code | ✅ |
+
+**Updated recommendation:** first prototype F on one project (does the extension's
+terminal pick up the project's environment, and is the machine setting really the only
+thing that overrides it?). If it works, F is the best answer: true per-project accounts
+in VS Code. If it doesn't, build E + T. Matching follows both references: the deepest
+linked folder wins, path-boundary aware, case-insensitive on Windows; links go with
+their account.
+
+**Prototype F (2026-11-14): doesn't work.** Two test projects (linked to Anika and m)
+with the two settings, opened in the user's own VS Code, trusted, Claude Code opened in
+each; the environment of each Claude Code process was read directly:
+
+| Test | proj-anika | proj-m | Meaning |
+|---|---|---|---|
+| Global **Use in VS Code** block on | Default's folder | Default's folder | The machine setting is passed in by the extension and wins |
+| Global block removed (backed up, restored after) | not set | not set | The project's terminal setting never reaches Claude Code |
+
+The process tree explains it: the extension starts `claude.exe` (its bundled
+`resources/native-binary/claude.exe`, with `--output-format stream-json`) **directly
+from VS Code's extension host**, not through a VS Code terminal, so
+`terminal.integrated.env.*` doesn't apply. The user's VS Code settings were restored
+byte-for-byte.
+
+**New option W, found in the extension's own code (`extension.js`, 2.1.323):**
+`claudeCode.claudeProcessWrapper` (machine scope, so set once in user settings) names a
+program the extension runs **instead of** `claude.exe`, as
+`<wrapper> <path to claude.exe> <claude's arguments>`, with the same environment it
+would give Claude (`process.env` + `claudeCode.environmentVariables`).
+
+| Approach | How | Pros | Cons | Fits rules? |
+|---|---|---|---|---|
+| W. Multi-Claude wrapper picks the account by folder | One user setting points `claudeProcessWrapper` at a tiny Multi-Claude wrapper. It looks up the project folder in Multi-Claude's links (deepest linked folder wins, as claude-swap/cux), sets `CLAUDE_CONFIG_DIR` to that account's folder, then starts the real `claude.exe` with the same arguments and passes input/output through. Unlinked folders keep today's account | **Same VS Code, same extensions, same settings; only the Claude account changes per project**, several windows at once; no project files written; nothing to trust | Known extension bug [anthropics/claude-code#98209](https://github.com/anthropics/claude-code/issues/98209): the sidebar's past-sessions list keeps reading `~/.claude` (sessions aren't lost, just not listed); with a wrapper set the extension doesn't track the process itself (`onProcessSpawned` is skipped) and starts sessions in the default permission mode; needs a small .exe (a `.cmd` can't be spawned directly); **untested** | ✅ one account per project, only an environment variable, never a sign-in |
+
+The issue's own reporter uses exactly this (a wrapper that sets `CLAUDE_CONFIG_DIR`) to
+run two accounts in VS Code, which confirms the account part works.
+
+**Updated recommendation:** prototype W on the same two test projects: a throwaway
+wrapper, set in the user's settings for the test only, then checked by reading each
+Claude Code process's `CLAUDE_CONFIG_DIR` again.
+
+**Decision (yours):** prototype W, build E + T, or skip feature 5 for now.
+
+**Done when (E):** linking a folder shows it under the account; **Open project** opens
+it in VS Code with that account's Claude Code; a subfolder of a linked folder opens with
+the same account; unlinking removes it; deleting the account removes its links.
 
 ---
 

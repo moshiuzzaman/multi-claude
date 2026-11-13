@@ -31,7 +31,6 @@ function harness(extra = {}) {
     { kind: 'session', group: 'session', percent: 52, resetsAt: 1, severity: 'normal', isActive: true, title: 'Session (5hr)' }
   ], extraUsage: null } };
   const svc = createService({
-    ...extra,
     configFile: path.join(base, 'cfg', 'accounts.json'),
     ccRoot: path.join(base, 'cfg', 'cc'),
     vscodeSettingsFile: path.join(base, 'code-user', 'settings.json'),
@@ -73,7 +72,9 @@ function harness(extra = {}) {
       openExternal: async (u) => { opened.push(u); }
     },
     desktopDir: path.join(base, 'desktop'),
-    appExePath: 'C:\\MC\\Multi-Claude.exe'
+    appExePath: 'C:\\MC\\Multi-Claude.exe',
+    // Last, so a test can replace any default.
+    ...extra
   });
 
   return { base, userProfile, profilesRoot, defaultProfileDir, svc, launched, opened, shortcuts,
@@ -198,7 +199,6 @@ test('operations on an unknown id are rejected', async () => {
     () => h.svc.launch({ id: 'deadbeef' }),
     () => h.svc.rename({ id: 'deadbeef', label: 'x' }),
     () => h.svc.remove({ id: 'deadbeef', confirmLabel: 'x', unlockOutsideRoot: false }),
-    () => h.svc.openFolder({ id: 'deadbeef' }),
     () => h.svc.createShortcut({ id: 'deadbeef' })
   ]) {
     await assert.rejects(op, (e) => e.code === 'unknown_account');
@@ -660,14 +660,15 @@ test('show fails cleanly for an unknown account or a missing claude.exe', async 
 
 const { PALETTE } = require('../src/main/colors.js');
 
-function fakeIconUrl() {
+/** A PNG-shaped data URL; fill makes different "pictures". */
+function fakeIconUrl(fill = 0, size = 256) {
   const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const ihdr = Buffer.alloc(25);
   ihdr.writeUInt32BE(13, 0);
   ihdr.write('IHDR', 4, 'latin1');
-  ihdr.writeUInt32BE(256, 8);
-  ihdr.writeUInt32BE(256, 12);
-  return `data:image/png;base64,${Buffer.concat([sig, ihdr, Buffer.alloc(32)]).toString('base64')}`;
+  ihdr.writeUInt32BE(size, 8);
+  ihdr.writeUInt32BE(size, 12);
+  return `data:image/png;base64,${Buffer.concat([sig, ihdr, Buffer.alloc(32, fill)]).toString('base64')}`;
 }
 
 test('init gives existing accounts a colour, and add picks an unused one', async () => {
@@ -754,8 +755,7 @@ test('setColor rewrites an existing shortcut with a new icon and drops the old o
 
   await h.svc.createShortcut({ id: a.id, iconPng: fakeIconUrl() });
   const first = made[0].iconFile;
-  await new Promise((res) => setTimeout(res, 5));
-  r = await h.svc.setColor({ id: a.id, color: PALETTE[4].hex, iconPng: fakeIconUrl() });
+  r = await h.svc.setColor({ id: a.id, color: PALETTE[4].hex, iconPng: fakeIconUrl(4) });
   assert.strictEqual(r.shortcutUpdated, true);
   const second = made[1].iconFile;
   assert.notStrictEqual(second, first);
@@ -764,6 +764,167 @@ test('setColor rewrites an existing shortcut with a new icon and drops the old o
   assert.deepStrictEqual(fs.readdirSync(iconsDir).length, 1);
   cleanup(h);
   fs.rmSync(base, { recursive: true, force: true });
+});
+
+// ------------------------------------------------------- taskbar buttons --
+
+/** A service with a fake taskbar and scanner; nothing sleeps. */
+function taskbarHarness() {
+  const runs = [];
+  const running = { dirs: [] };
+  const windowsFor = { value: 1 };
+  const base = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'mc-tb-'));
+  const taskbar = {
+    apply: async (items) => {
+      runs.push({ mode: 'apply', items });
+      return { ok: true, results: items.map((i) => ({ dir: i.dir, pid: 9, windows: windowsFor.value, changed: 1 })) };
+    },
+    clear: async (dirs) => { runs.push({ mode: 'clear', dirs }); return { ok: true, results: [] }; }
+  };
+  const h = harness({
+    taskbar,
+    iconsDir: path.join(base, 'icons'),
+    taskbarDelays: [0],
+    sleep: async () => {},
+    scanner: { scan: async () => ({ dirs: running.dirs, ok: true }) }
+  });
+  const done = () => { cleanup(h); fs.rmSync(base, { recursive: true, force: true }); };
+  return { h, runs, running, windowsFor, done };
+}
+
+async function addedWithIcon(h, label = 'Work') {
+  const a = await h.svc.add({ label });
+  await h.svc.saveIcon({ id: a.id, iconPng: fakeIconUrl(1), iconSmall: [fakeIconUrl(2, 32), fakeIconUrl(3, 16)] });
+  return a;
+}
+
+test('saveIcon writes one multi-size .ico, named by its content', async () => {
+  const { h, done } = taskbarHarness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Work' });
+  const r1 = await h.svc.saveIcon({ id: a.id, iconPng: fakeIconUrl(1), iconSmall: [fakeIconUrl(2, 32)] });
+  assert.deepStrictEqual(r1, { ok: true, changed: true, shortcutUpdated: false });
+  const r2 = await h.svc.saveIcon({ id: a.id, iconPng: fakeIconUrl(1), iconSmall: [fakeIconUrl(2, 32)] });
+  assert.strictEqual(r2.changed, false, 'the same icon keeps its file');
+  await h.svc.saveIcon({ id: a.id, iconPng: fakeIconUrl(5), iconSmall: [] });
+  await assert.rejects(() => h.svc.saveIcon({ id: a.id, iconPng: fakeIconUrl(1), iconSmall: [fakeIconUrl(2, 20)] }),
+    (e) => e.code === 'bad_icon');
+  done();
+});
+
+test('launching an added account gives its window its own taskbar button', async () => {
+  const { h, runs, done } = taskbarHarness();
+  await h.svc.init();
+  const a = await addedWithIcon(h);
+  await h.svc.launch({ id: a.id });
+  await h.svc._taskbarIdle();
+  assert.strictEqual(runs.length, 1);
+  const it = runs[0].items[0];
+  assert.strictEqual(it.dir, a.dir);
+  assert.strictEqual(it.id, `dev.multiclaude.app.shortcut.${a.id}`);
+  assert.strictEqual(it.name, 'Claude - Work');
+  assert.match(it.icon, /\.ico,0$/);
+  assert.strictEqual(it.command, `"C:\\MC\\Multi-Claude.exe" --launch ${a.id}`);
+  done();
+});
+
+test('the default account is never moved off Claude\'s taskbar button', async () => {
+  const { h, runs, running, done } = taskbarHarness();
+  await h.svc.init();
+  const def = (await h.svc.list())[0];
+  await h.svc.saveIcon({ id: def.id, iconPng: fakeIconUrl(1) });
+  await h.svc.launch({ id: def.id });
+  running.dirs = [def.dir];
+  await h.svc.scan();
+  await h.svc._taskbarIdle();
+  assert.strictEqual(runs.length, 0);
+  done();
+});
+
+test('an account started outside Multi-Claude gets its button on the next scan, once', async () => {
+  const { h, runs, running, done } = taskbarHarness();
+  await h.svc.init();
+  const a = await addedWithIcon(h);
+  running.dirs = [a.dir];
+  await h.svc.scan(); await h.svc._taskbarIdle();
+  await h.svc.scan(); await h.svc._taskbarIdle();
+  assert.strictEqual(runs.length, 1, 'applied once, not on every scan');
+  // Closed and opened again: a new window, so it is applied again.
+  running.dirs = [];
+  await h.svc.scan();
+  running.dirs = [a.dir];
+  await h.svc.scan(); await h.svc._taskbarIdle();
+  assert.strictEqual(runs.length, 2);
+  done();
+});
+
+test('a window that wasn\'t up yet is tried again on the next scan', async () => {
+  const { h, runs, running, windowsFor, done } = taskbarHarness();
+  await h.svc.init();
+  const a = await addedWithIcon(h);
+  windowsFor.value = 0;
+  running.dirs = [a.dir];
+  await h.svc.scan(); await h.svc._taskbarIdle();
+  windowsFor.value = 1;
+  await h.svc.scan(); await h.svc._taskbarIdle();
+  await h.svc.scan(); await h.svc._taskbarIdle();
+  assert.strictEqual(runs.length, 2);
+  done();
+});
+
+test('without an icon yet, nothing is applied', async () => {
+  const { h, runs, running, done } = taskbarHarness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'NoIcon' });
+  running.dirs = [a.dir];
+  await h.svc.scan(); await h.svc._taskbarIdle();
+  await h.svc.launch({ id: a.id }); await h.svc._taskbarIdle();
+  assert.strictEqual(runs.length, 0);
+  done();
+});
+
+test('turning the setting off clears running windows and stops applying; on applies again', async () => {
+  const { h, runs, running, done } = taskbarHarness();
+  await h.svc.init();
+  assert.deepStrictEqual(h.svc.settings(), { taskbarGroups: true, taskbarSupported: true });
+  const a = await addedWithIcon(h);
+  running.dirs = [a.dir];
+  await h.svc.scan(); await h.svc._taskbarIdle();
+
+  assert.deepStrictEqual(await h.svc.setTaskbarGroups({ on: false }), { taskbarGroups: false, taskbarSupported: true });
+  await h.svc._taskbarIdle();
+  assert.deepStrictEqual(runs[runs.length - 1], { mode: 'clear', dirs: [a.dir] });
+  const before = runs.length;
+  await h.svc.scan(); await h.svc._taskbarIdle();
+  await h.svc.launch({ id: a.id }); await h.svc._taskbarIdle();
+  assert.strictEqual(runs.length, before, 'nothing applied while off');
+  const saved = JSON.parse(fs.readFileSync(path.join(h.base, 'cfg', 'accounts.json'), 'utf8'));
+  assert.strictEqual(saved.taskbarGroups, false);
+
+  await h.svc.setTaskbarGroups({ on: true }); await h.svc._taskbarIdle();
+  assert.strictEqual(runs[runs.length - 1].mode, 'apply');
+  done();
+});
+
+test('a new colour re-applies the running window\'s button with the new icon', async () => {
+  const { h, runs, running, done } = taskbarHarness();
+  await h.svc.init();
+  const a = await addedWithIcon(h);
+  running.dirs = [a.dir];
+  await h.svc.scan(); await h.svc._taskbarIdle();
+  const firstIcon = runs[0].items[0].icon;
+  await h.svc.setColor({ id: a.id, color: PALETTE[5].hex, iconPng: fakeIconUrl(9) });
+  await h.svc._taskbarIdle();
+  assert.strictEqual(runs.length, 2);
+  assert.notStrictEqual(runs[1].items[0].icon, firstIcon);
+  done();
+});
+
+test('with no taskbar (a Mac), the setting is unsupported and nothing runs', async () => {
+  const h = harness();
+  await h.svc.init();
+  assert.deepStrictEqual(h.svc.settings(), { taskbarGroups: true, taskbarSupported: false });
+  cleanup(h);
 });
 
 test('useVsCodeAccount writes the account config dir into settings', async () => {

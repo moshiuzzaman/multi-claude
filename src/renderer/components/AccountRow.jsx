@@ -18,7 +18,7 @@ export default function AccountRow({ account, running, scanOk, size, lastUsed, a
 
   return (
     <div className={missing ? 'acct missing' : 'acct'}>
-      <Avatar account={account} status={status} size={32} />
+      <Avatar account={account} status={status} size={42} />
 
       <div
         className={onOpen ? 'info clickable' : 'info'}
@@ -55,13 +55,16 @@ export default function AccountRow({ account, running, scanOk, size, lastUsed, a
             </button>
           </>
         ) : (
-          <button className="primary" onClick={() => actions.launch(account)} disabled={missing && !isDefault}>
-            Launch
-          </button>
+          <>
+            <button className="primary" onClick={() => actions.launch(account)} disabled={missing && !isDefault}>
+              Launch
+            </button>
+            {/* Always there, so every row's buttons sit in the same places. */}
+            <button className="subtle" disabled title="Not running">Close</button>
+          </>
         )}
         {!compactView && (
           <>
-            <button className="ghost" onClick={() => actions.openFolder(account)} disabled={missing}>Folder</button>
             <button className="ghost" onClick={() => actions.shortcut(account)}>Shortcut</button>
             <button className="ghost" onClick={() => actions.useVsCodeAccount(account)} title="Make VS Code use this account">
               Use in VS Code

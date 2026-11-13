@@ -40,7 +40,7 @@ export default function AccountDetail({
       <button className="link back" onClick={() => setView('dashboard')}>← All accounts</button>
 
       <div className="page-head detail-head">
-        <Avatar account={account} size={46} status={!scanOk ? 'unknown' : isRunning ? 'running' : 'stopped'} />
+        <Avatar account={account} size={58} status={!scanOk ? 'unknown' : isRunning ? 'running' : 'stopped'} />
         <div style={{ minWidth: 0 }}>
           <h1>
             {account.label}
@@ -65,11 +65,13 @@ export default function AccountDetail({
               <button className="subtle" onClick={() => actions.close(account)}>Close</button>
             </>
           ) : (
-            <button className="primary" onClick={() => actions.launch(account)} disabled={missing && !isDefault}>
-              Launch
-            </button>
+            <>
+              <button className="primary" onClick={() => actions.launch(account)} disabled={missing && !isDefault}>
+                Launch
+              </button>
+              <button className="subtle" disabled title="Not running">Close</button>
+            </>
           )}
-          <button className="ghost" onClick={() => actions.openFolder(account)} disabled={missing}>Folder</button>
           {!isDefault && (
             <button className="ghost" onClick={() => actions.signInHelp(account)} title="How to sign in to this account's Claude window">
               Sign-in help

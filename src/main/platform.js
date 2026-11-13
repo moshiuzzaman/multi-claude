@@ -34,6 +34,8 @@ function windowsParts({ env, shell }) {
     ccCandidates: null,
     ccOpenTerminal: null,
     makeShortcut: null,
+    // A taskbar button of its own for each added account (taskbar.js).
+    taskbar: require('./taskbar.js').createTaskbar({ runPowerShell }),
     iconFormat: 'ico',
     shortcutFileName: null,
     recordStatusLine: true,
@@ -72,6 +74,8 @@ function macParts({ env, shell }) {
       iconFile: opts.iconFile || path.join(path.dirname(path.dirname(opts.exePath)), 'Resources', 'icon.icns')
     }),
     iconFormat: 'icns',
+    // The Dock can't be split per window without copying Claude.
+    taskbar: null,
     shortcutFileName: (label) => mac.shortcutName(label),
     // The status-line recorder is a PowerShell script.
     recordStatusLine: false,

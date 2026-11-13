@@ -1,93 +1,114 @@
-// Draws an account's desktop-shortcut icon: a glossy rounded tile in the
-// account's colour with its first letter, and the Multi-Claude mark in the
-// corner so it still reads as a Multi-Claude shortcut. Returns a 256x256 PNG
-// data URL; the main process checks it and wraps it as .ico / .icns.
+// Draws an account's icon for its taskbar button and desktop shortcut:
+// Multi-Claude's own icon, with a round badge at the bottom right in the
+// account's colour carrying its first letter. The badge looks like the account's
+// avatar in the app (the same glossy colour), so the two match.
+// Each size (256 down to 16 px) is drawn at its own size from the nearest copy of
+// the app icon (build/icon.ico), with a larger badge in the small sizes so the
+// letter stays readable on the taskbar. The main process wraps the PNGs as
+// .ico / .icns.
 
-import logoMark from '../assets/logo-mark.png';
+import icon256 from '../assets/app-icon-256.png';
+import icon64 from '../assets/app-icon-64.png';
+import icon32 from '../assets/app-icon-32.png';
 import { colorOf, letterOf, shade, inkOn } from './colors.js';
 
 const SIZE = 256;
+const SMALL_SIZES = [128, 96, 64, 48, 32, 24, 16];
 
+const sources = new Map();
 function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = src;
-  });
+  if (!sources.has(src)) {
+    sources.set(src, new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    }));
+  }
+  return sources.get(src);
 }
 
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
+/** The smallest copy of the app icon that is at least this big. */
+function iconFor(size) {
+  return size <= 32 ? icon32 : size <= 64 ? icon64 : icon256;
 }
 
-export async function drawAccountIcon(account) {
+async function drawIcon(account, size) {
   const hex = colorOf(account);
   const canvas = document.createElement('canvas');
-  canvas.width = SIZE;
-  canvas.height = SIZE;
+  canvas.width = size;
+  canvas.height = size;
   const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
 
-  // The tile: a top-to-bottom gradient of the colour, slightly inset so the
-  // rounded corners aren't clipped by the icon's edge.
-  const inset = 12;
-  const tile = SIZE - inset * 2;
-  roundRect(ctx, inset, inset, tile, tile, 52);
-  const fill = ctx.createLinearGradient(0, inset, 0, inset + tile);
-  fill.addColorStop(0, shade(hex, 0.22));
+  // Multi-Claude's own icon, full size.
+  try {
+    ctx.drawImage(await loadImage(iconFor(size)), 0, 0, size, size);
+  } catch { /* the badge alone still tells the account apart */ }
+
+  // The badge: bigger in the small sizes so the letter stays readable.
+  const ratio = size >= 96 ? 0.54 : size >= 48 ? 0.6 : 0.66;
+  const d = size * ratio;
+  const r = d / 2;
+  const cx = size - r;
+  const cy = size - r;
+  const edge = Math.max(1, size * 0.018);
+
+  // A darker ring of the same colour separates it from the logo.
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = shade(hex, -0.45);
+  ctx.fill();
+
+  // The badge itself: the account's colour, lighter at the top (as the avatar).
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - edge, 0, Math.PI * 2);
+  const fill = ctx.createLinearGradient(0, cy - r, 0, cy + r);
+  fill.addColorStop(0, shade(hex, 0.25));
   fill.addColorStop(0.55, hex);
-  fill.addColorStop(1, shade(hex, -0.28));
+  fill.addColorStop(1, shade(hex, -0.3));
   ctx.fillStyle = fill;
   ctx.fill();
 
-  // Gloss on the upper half.
-  ctx.save();
-  ctx.clip();
-  const gloss = ctx.createLinearGradient(0, inset, 0, inset + tile * 0.55);
-  gloss.addColorStop(0, 'rgba(255,255,255,0.38)');
-  gloss.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = gloss;
-  ctx.beginPath();
-  ctx.ellipse(SIZE / 2, inset - tile * 0.18, tile * 0.78, tile * 0.62, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  if (size >= 32) {
+    // Gloss on the upper part.
+    ctx.save();
+    ctx.clip();
+    const gloss = ctx.createRadialGradient(cx, cy - r, 0, cx, cy - r, r * 1.2);
+    gloss.addColorStop(0, 'rgba(255, 255, 255, 0.38)');
+    gloss.addColorStop(0.6, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = gloss;
+    ctx.fillRect(cx - r, cy - r, d, d);
+    ctx.restore();
+  }
 
-  // The letter.
-  ctx.fillStyle = inkOn(hex);
-  ctx.font = '700 136px "Segoe UI", -apple-system, system-ui, sans-serif';
+  // The letter, in whichever of dark or white reads better on the colour.
+  const fontPx = d * 0.62;
+  ctx.font = `700 ${fontPx}px "Segoe UI", -apple-system, system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(0,0,0,0.25)';
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetY = 3;
-  ctx.fillText(letterOf(account.label), SIZE / 2, SIZE / 2 + 6);
+  ctx.fillStyle = inkOn(hex);
+  if (size >= 48) {
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+    ctx.shadowBlur = size * 0.02;
+    ctx.shadowOffsetY = size * 0.006;
+  }
+  ctx.fillText(letterOf(account.label), cx, cy + fontPx * 0.05);
   ctx.shadowColor = 'transparent';
 
-  // The Multi-Claude mark on a dark disc, bottom right.
-  try {
-    const mark = await loadImage(logoMark);
-    const d = 84;
-    const cx = SIZE - inset - d / 2 + 6;
-    const cy = SIZE - inset - d / 2 + 6;
-    ctx.beginPath();
-    ctx.arc(cx, cy, d / 2, 0, Math.PI * 2);
-    ctx.fillStyle = '#1d1b19';
-    ctx.fill();
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.stroke();
-    const m = d * 0.62;
-    const ratio = mark.width / mark.height || 1;
-    const w = ratio >= 1 ? m : m * ratio;
-    const h = ratio >= 1 ? m / ratio : m;
-    ctx.drawImage(mark, cx - w / 2, cy - h / 2, w, h);
-  } catch { /* the letter tile alone is fine */ }
-
   return canvas.toDataURL('image/png');
+}
+
+/** The large icon (256 px). */
+export function drawAccountIcon(account) {
+  return drawIcon(account, SIZE);
+}
+
+/** Everything an account's .ico needs: { iconPng, iconSmall }. */
+export async function drawAccountIconSet(account) {
+  return {
+    iconPng: await drawIcon(account, SIZE),
+    iconSmall: await Promise.all(SMALL_SIZES.map((s) => drawIcon(account, s)))
+  };
 }
