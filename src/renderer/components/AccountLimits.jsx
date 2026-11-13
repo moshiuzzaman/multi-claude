@@ -1,5 +1,6 @@
 import React from 'react';
 import { relativeTime, timeLeft } from '../lib/format.js';
+import CcInstall from './CcInstall.jsx';
 
 export function resetText(ms) {
   if (!ms) return '';
@@ -99,13 +100,7 @@ export function extraUsageText(eu) {
  */
 export function LimitsBlock({ row, actions, busy, cliMissing }) {
   if (cliMissing) {
-    return (
-      <div className="note">
-        Claude Code wasn't found on this PC, and it's what reports usage limits. Open the
-        Code tab in Claude Desktop once so it downloads its own copy, or install Claude Code
-        from code.claude.com, then refresh.
-      </div>
-    );
+    return <CcInstall onDone={() => actions.refreshLimits(true)} />;
   }
   if (!row) return <div className="skeleton" style={{ height: 70 }} />;
 
