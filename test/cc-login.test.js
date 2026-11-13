@@ -142,3 +142,53 @@ test('a stuck sign-in times out and is killed', async () => {
   assert.match(m.status('a1').message, /timed out/);
   assert.strictEqual(spawned[0].c.killed, true);
 });
+
+test('a paste Claude Code calls invalid goes back to the paste box instead of hanging', () => {
+  // Claude Code 2.1.322 answers a paste without the "#state" part like this,
+  // then waits for another paste rather than exiting.
+  const { m, spawned } = manager();
+  m.start('a1', { cliPath: 'x', configDir: 'd' });
+  const c = spawned[0].c;
+  c.stdout.emit('data', 'Paste code here if prompted > ');
+  m.submit('a1', 'ABC123');
+  assert.strictEqual(m.status('a1').state, 'checking');
+  c.stderr.emit('data', 'Invalid code. Please make sure the full code was copied.\n');
+  const st = m.status('a1');
+  assert.strictEqual(st.state, 'waiting');
+  assert.match(st.message, /whole code/);
+  assert.strictEqual(c.killed, false, 'the sign-in stays open for another try');
+
+  // The next paste is accepted as usual.
+  m.submit('a1', 'ABC123#xyz');
+  assert.strictEqual(m.status('a1').state, 'checking');
+  assert.strictEqual(m.status('a1').message, null);
+  c.emit('exit', 0);
+  assert.strictEqual(m.status('a1').state, 'done');
+});
+
+test('a code Claude Code never answers returns to the paste box after the check time', async () => {
+  const { m } = manager({ checkMs: 20 });
+  m.start('a1', { cliPath: 'x', configDir: 'd' });
+  m.submit('a1', 'ABC123#xyz');
+  await new Promise((r) => setTimeout(r, 60));
+  const st = m.status('a1');
+  assert.strictEqual(st.state, 'waiting');
+  assert.match(st.message, /didn't answer/);
+});
+
+test('cancel works while a code is being checked', () => {
+  const { m, spawned } = manager();
+  m.start('a1', { cliPath: 'x', configDir: 'd' });
+  m.submit('a1', 'ABC123#xyz');
+  assert.strictEqual(m.cancel('a1').state, 'cancelled');
+  assert.strictEqual(spawned[0].c.killed, true);
+});
+
+test('a rejected code still ends as failed, not as a retry', () => {
+  const { m, spawned } = manager();
+  m.start('a1', { cliPath: 'x', configDir: 'd' });
+  m.submit('a1', 'ABC123#xyz');
+  spawned[0].c.stderr.emit('data', "Login failed: That code wasn't accepted. It may be incomplete, expired, already used, or from an earlier sign-in attempt.\n");
+  spawned[0].c.emit('exit', 1);
+  assert.strictEqual(m.status('a1').state, 'failed');
+});

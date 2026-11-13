@@ -367,6 +367,8 @@ function createService(deps) {
         userProfile: deps.userProfile
       });
 
+      // A sign-in still running for it would keep a hidden Claude Code alive.
+      try { logins.cancel(id); } catch { /* nothing running */ }
       // The account's Claude Code sign-in goes with it. Guarded so it can only
       // ever delete a folder inside Multi-Claude's own cc root.
       const cc = ccDirFor(account);
