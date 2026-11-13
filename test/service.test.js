@@ -635,6 +635,27 @@ test('launch fails cleanly when claude.exe cannot be found', async () => {
   cleanup(h);
 });
 
+test('show starts the account again (falling back to launch) and records no activity', async () => {
+  const h = harness();
+  await h.svc.init();
+  const def = (await h.svc.list())[0];
+  const res = await h.svc.show({ id: def.id });
+  assert.deepStrictEqual(res, { ok: true });
+  assert.deepStrictEqual(h.launched, [{ exe: 'C:\\fake\\claude.exe', id: def.id }]);
+  assert.deepStrictEqual((await h.svc.activity()).accounts, []);
+  cleanup(h);
+});
+
+test('show fails cleanly for an unknown account or a missing claude.exe', async () => {
+  const h = harness();
+  await h.svc.init();
+  await assert.rejects(() => h.svc.show({ id: 'nope' }), (e) => e.code === 'unknown_account');
+  h.svc._setLocatorForTest({ resolve: async () => null });
+  const def = (await h.svc.list())[0];
+  await assert.rejects(() => h.svc.show({ id: def.id }), (e) => e.code === 'no_exe');
+  cleanup(h);
+});
+
 test('useVsCodeAccount writes the account config dir into settings', async () => {
   const h = harness();
   await h.svc.init();

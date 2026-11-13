@@ -57,7 +57,10 @@ function AccountCard({ account, running, scanOk, limitRow, size, lastUsed, cliMi
           </div>
         </div>
         {isRunning ? (
-          <button className="subtle" onClick={stop(() => actions.close(account))}>Close</button>
+          <div className="acct-card-btns">
+            <button className="primary" onClick={stop(() => actions.show(account))} title="Bring this account's Claude window to the front">Show</button>
+            <button className="subtle" onClick={stop(() => actions.close(account))}>Close</button>
+          </div>
         ) : (
           <button className="primary" disabled={missing && !isDefault} onClick={stop(() => actions.launch(account))}>
             Launch

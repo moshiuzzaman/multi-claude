@@ -58,7 +58,10 @@ export default function AccountDetail({
         <span className="spacer" />
         <div className="actions">
           {isRunning ? (
-            <button className="subtle" onClick={() => actions.close(account)}>Close</button>
+            <>
+              <button className="primary" onClick={() => actions.show(account)} title="Bring this account's Claude window to the front">Show</button>
+              <button className="subtle" onClick={() => actions.close(account)}>Close</button>
+            </>
           ) : (
             <button className="primary" onClick={() => actions.launch(account)} disabled={missing && !isDefault}>
               Launch

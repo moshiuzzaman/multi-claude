@@ -46,9 +46,14 @@ export default function AccountRow({ account, running, scanOk, size, lastUsed, a
             existing window, whereas offering Close for something that may not
             be running would be a lie. */}
         {running && scanOk ? (
-          <button className="subtle" onClick={() => actions.close(account)} title="Close this Claude window">
-            Close
-          </button>
+          <>
+            <button className="primary" onClick={() => actions.show(account)} title="Bring this account's Claude window to the front">
+              Show
+            </button>
+            <button className="subtle" onClick={() => actions.close(account)} title="Close this Claude window">
+              Close
+            </button>
+          </>
         ) : (
           <button className="primary" onClick={() => actions.launch(account)} disabled={missing && !isDefault}>
             Launch

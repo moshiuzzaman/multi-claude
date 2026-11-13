@@ -24,6 +24,7 @@ export const api = {
   add: (label) => call('add', { label }),
   rename: (id, label) => call('rename', { id, label }),
   launch: (id) => call('launch', { id }),
+  show: (id) => call('show', { id }),
   closeAccount: (id) => call('closeAccount', { id }),
   limits: (opts) => call('limits', opts),
   connectAccount: (id) => call('connectAccount', { id }),

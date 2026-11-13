@@ -744,6 +744,7 @@ button.ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); }
 .acct-card.missing { opacity: 0.55; }
 
 .acct-card-head { display: flex; align-items: center; gap: 11px; }
+.acct-card-btns { display: flex; gap: 6px; flex-shrink: 0; }
 .acct-card-title { flex: 1; min-width: 0; }
 .acct-card-title .name { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
 .acct-card-sub {
