@@ -828,3 +828,13 @@ button.text-btn:hover:not(:disabled) { background: none; filter: brightness(1.15
   margin-top: 6px; height: 4px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, 0.08);
 }
 .modal .update-progress .bar > div { height: 100%; background: var(--accent); transition: width 0.3s var(--ease); }
+
+/* ---------------------------------------------- Claude Code download --- */
+.cc-install { display: flex; flex-direction: column; gap: 10px; }
+.cc-install .primary, .cc-install .ghost { align-self: flex-start; }
+.cc-install-line { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.cc-install-line.error { color: #f3a9a0; }
+.cc-install-line .bar {
+  margin-top: 6px; height: 4px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, 0.08);
+}
+.cc-install-line .bar > div { height: 100%; background: var(--accent); transition: width 0.3s var(--ease); }

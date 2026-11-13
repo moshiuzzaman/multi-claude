@@ -1,5 +1,6 @@
 import React from 'react';
 import { Meter } from '../components/AccountLimits.jsx';
+import CcInstall from '../components/CcInstall.jsx';
 import { bytes, relativeTime } from '../lib/format.js';
 
 /**
@@ -102,6 +103,12 @@ export default function Dashboard({
       </div>
 
       {accounts.length === 0 && <div className="panel"><div className="empty">No accounts yet.</div></div>}
+
+      {cliMissing && accounts.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <CcInstall onDone={() => actions.refreshLimits(true)} />
+        </div>
+      )}
 
       <div className="card-grid">
         {accounts.map((a) => (

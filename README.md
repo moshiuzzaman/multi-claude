@@ -67,6 +67,18 @@ If `/usage` is ever unavailable, the account falls back to what Claude Code's st
 recorded for that account (see `limits.js`). The newest Claude Code installed on the PC is
 used automatically; `/usage` reports need Claude Code 2.1.273 or later.
 
+**A PC without Claude Code.** Claude Desktop downloads its own copy into the profile
+folder the first time its Code tab is opened, and Multi-Claude finds that copy. If there
+is none at all, the Dashboard and the account page show **Set up usage limits**. One click
+downloads Anthropic's official Claude Code (about 350 MB) the same way Anthropic's own
+install script does: it asks `downloads.claude.ai` for the newest version, reads that
+version's manifest, downloads `claude.exe`, and keeps it only if its size and SHA-256 match
+the manifest. A progress line shows while it runs; the limits load by themselves when it
+finishes. It goes into `%APPDATA%\multi-claude\claude-code\<version>` and nowhere else:
+unlike the install script, Multi-Claude never runs `claude install`, so your PATH and home
+folder are not changed. Claude Code is not bundled with Multi-Claude; it only ever comes
+from Anthropic's server, and only when you click.
+
 ## Activity and storage
 
 **History** is observed by Multi-Claude itself, so it is exact per account. The limit is
@@ -229,6 +241,7 @@ version after it arrives through the button.
 | Launch history | `%APPDATA%\multi-claude\activity.jsonl` |
 | Each account's Claude Code sign-in (for usage limits) | `%APPDATA%\multi-claude\cc\<account id>` |
 | VS Code's active account | `%APPDATA%\Code\User\settings.json` (a managed block) |
+| Claude Code downloaded by Multi-Claude (only if you clicked *Set up usage limits*) | `%APPDATA%\multi-claude\claude-code\<version>\claude.exe` |
 | Status-line recorder (limits fallback) | `%APPDATA%\multi-claude\limits-recorder.ps1` |
 | A downloaded update, until the next launch | `%TEMP%\multi-claude-update` |
 
