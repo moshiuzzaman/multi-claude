@@ -331,6 +331,13 @@ goes stale. Clicking one launches the profile without opening the manager window
 - Launching the Store build's executable directly means the second instance runs without
   package identity, so `claude://` deep links and some notification routing still go to
   the default instance. This applies equally to the `.bat` approach.
+- **Sign in to an added account with the email code, not Google.** Claude Desktop registers
+  its `claude://` sign-in link without a profile folder, so a sign-in that finishes in the
+  browser (Continue with Google) is handed to the default Claude. The added account never
+  receives it and shows "Get started" on every launch. Entering your email and typing the
+  emailed code into the account's own window never leaves that window, so it sticks.
+  Multi-Claude does not reroute the link: it carries the sign-in code, and Multi-Claude
+  never handles a credential.
 - Shortcut icons use the Multi-Claude icon, not Claude's.
 - **Start it yourself, not from inside Claude Desktop.** If Multi-Claude is launched by a
   process running inside the Store version of Claude Desktop (for example by Claude Code
