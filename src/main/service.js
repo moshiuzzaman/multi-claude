@@ -61,7 +61,9 @@ function createService(deps) {
     // Claude Desktop keeps its own Claude Code inside each profile folder, so
     // the accounts' folders are searched as well as the usual install places.
     find: () => ccCliMod.findClaudeCli({
-      profileDirs: [deps.defaultProfileDir, ...((data && data.accounts) || []).map((a) => a.dir)]
+      // deps.appDir holds the copy Multi-Claude downloads itself (cc-install.js),
+      // laid out the same way: <dir>/claude-code/<version>/claude.exe.
+      profileDirs: [deps.appDir, deps.defaultProfileDir, ...((data && data.accounts) || []).map((a) => a.dir)]
     }),
     authStatus: (cli, dir) => ccCliMod.authStatus(cli, dir),
     openTerminal: (cli, dir, args, opts) => ccCliMod.openTerminal(cli, dir, args, opts)
@@ -550,6 +552,20 @@ function createService(deps) {
     async loginOpenPage({ id }) {
       find(id);
       return logins.openPage(id);
+    },
+
+    /**
+     * Download Anthropic's Claude Code into Multi-Claude's own folder, for a PC
+     * that has none. Not awaited by the caller: the UI polls ccInstallStatus.
+     */
+    ccInstallStart() {
+      if (!deps.ccInstaller) throw err('unsupported', 'Downloading Claude Code is not available here.');
+      deps.ccInstaller.start().catch(() => {});
+      return deps.ccInstaller.status();
+    },
+
+    ccInstallStatus() {
+      return deps.ccInstaller ? deps.ccInstaller.status() : { state: 'idle' };
     },
 
     /** Open an interactive Claude Code session as this account. */

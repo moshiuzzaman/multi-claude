@@ -134,3 +134,23 @@ test('the verified installer can be started the moment the download resolves', a
     await Promise.all(spinners);
   }
 });
+
+test('downloadVerified also accepts a hex SHA-256, as Anthropic publishes for Claude Code', async () => {
+  const sha256 = crypto.createHash('sha256').update(BODY).digest('hex');
+  const good = path.join(dir, 'sha256-good.exe');
+  await H.downloadVerified(`${base}/file`, good, { sha256, size: BODY.length });
+  assert.ok(fs.readFileSync(good).equals(BODY));
+
+  const bad = path.join(dir, 'sha256-bad.exe');
+  await assert.rejects(
+    () => H.downloadVerified(`${base}/file`, bad, { sha256: 'f'.repeat(64), size: BODY.length }),
+    (e) => e.code === 'damaged'
+  );
+  assert.strictEqual(fs.existsSync(bad), false);
+});
+
+test('downloadVerified refuses to run without a checksum', async () => {
+  const dest = path.join(dir, 'nosum.exe');
+  await assert.rejects(() => H.downloadVerified(`${base}/file`, dest, { size: BODY.length }), (e) => e.code === 'damaged');
+  assert.strictEqual(fs.existsSync(dest), false);
+});
