@@ -197,15 +197,14 @@ export default function App() {
       setAdding(false);
       await loadAccounts();
       setActivity(null);
-      setTimeout(loadScan, 1500);
 
-      // Straight on, as the sign-in guide's Later did: the Claude Code
-      // sign-in if asked for, otherwise a pointer to Sign-in help on the
-      // account's page. The account exists either way.
+      // Claude isn't opened here; it opens on Launch. Next comes the Claude
+      // Code sign-in if asked for, otherwise a pointer to Launch and Sign-in
+      // help. The account exists either way.
       if (connectClaudeCode) {
         setSigningIn({ id: a.id, label: a.label });
       } else {
-        say(`Sign in to ${a.label} with the email code whenever you're ready. The steps are under Sign-in help on its page.`);
+        say(`${a.label} added. Click Launch to open it and sign in with the email code. The steps are under Sign-in help on its page.`);
       }
     },
     signInHelp: (a) => setGuiding({ id: a.id, label: a.label }),
@@ -352,7 +351,7 @@ export default function App() {
       {adding && (
         <TextPromptDialog
           title="Add an account"
-          description="A new, empty Claude profile is created and opened. Next, Multi-Claude shows you how to sign in to it with an email code."
+          description="A new, empty Claude profile is created. Click Launch when you want to open it, then sign in there with an email code."
           label="Account name"
           placeholder="Personal"
           confirmText="Create and open"

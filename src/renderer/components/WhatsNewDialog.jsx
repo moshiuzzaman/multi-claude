@@ -11,14 +11,17 @@ import { releaseDate } from '../lib/format.js';
  * 'major') locks the dialog: it has no Close, ignores Escape and the backdrop,
  * and stays up through the download — the only ways out are to update or to
  * quit. A minor update can be put off with "Later" until the next launch.
+ *
+ * Once an update is downloading or installing, the dialog turns into a
+ * progress screen that can't be closed (`blocking`), until Multi-Claude restarts.
  */
-export default function WhatsNewDialog({ status, prompt = false, onUpdate, onClose }) {
+export default function WhatsNewDialog({ status, prompt = false, blocking = false, onUpdate, onClose }) {
   const [log, setLog] = useState(null);
   const firstRef = useRef(null);
 
   // A copy run from source cannot install itself, so it is never locked in.
   const locked = status.kind === 'major' && status.mode !== 'source';
-  const close = () => { if (!locked) onClose(); };
+  const close = () => { if (!locked && !blocking) onClose(); };
 
   useEffect(() => { firstRef.current?.focus(); }, []);
   useEffect(() => {
@@ -31,6 +34,7 @@ export default function WhatsNewDialog({ status, prompt = false, onUpdate, onClo
   }, []);
 
   const busy = status.state === 'downloading' || status.state === 'installing';
+  if (busy) return <UpdateProgress status={status} />;
   const canUpdate = (status.state === 'available' || status.state === 'failed') && status.mode !== 'source';
   const updateLabel = status.state === 'failed'
     ? 'Try again'
@@ -127,6 +131,57 @@ export default function WhatsNewDialog({ status, prompt = false, onUpdate, onClo
             </button>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The blocking screen shown while an update downloads and installs. There is
+ * nothing to click: Multi-Claude closes and reopens on its own when it's done.
+ */
+function UpdateProgress({ status }) {
+  const installing = status.state === 'installing';
+  const pct = installing ? 100 : Math.round((status.progress || 0) * 100);
+  const steps = [
+    { label: 'Download', state: installing ? 'done' : 'active' },
+    { label: 'Install', state: installing ? 'active' : 'todo' },
+    { label: 'Restart', state: 'todo' }
+  ];
+
+  return (
+    <div className="overlay update-overlay">
+      <div className="modal update-progress-modal" role="alertdialog" aria-modal="true"
+           aria-labelledby="update-progress-title" aria-describedby="update-progress-note">
+        <div className="upm-head">
+          <span className="upm-spinner" aria-hidden="true" />
+          <div>
+            <h2 id="update-progress-title">Updating Multi-Claude</h2>
+            <div className="upm-versions">v{status.current} → v{status.latest}</div>
+          </div>
+        </div>
+
+        <ol className="upm-steps">
+          {steps.map((s) => (
+            <li key={s.label} className={`upm-step ${s.state}`}>
+              <span className="upm-step-dot" aria-hidden="true">{s.state === 'done' ? '✓' : ''}</span>
+              {s.label}
+            </li>
+          ))}
+        </ol>
+
+        <div className="upm-status" aria-live="polite">
+          <span>{installing ? 'Installing the update…' : `Downloading v${status.latest}…`}</span>
+          <span className="upm-pct">{installing ? '' : `${pct}%`}</span>
+        </div>
+        <div className={`upm-bar${installing ? ' indeterminate' : ''}`}>
+          <div style={installing ? undefined : { width: `${pct}%` }} />
+        </div>
+
+        <p id="update-progress-note" className="upm-note">
+          Please wait. Multi-Claude will close and reopen by itself when the update is done.
+          Claude windows you have open keep running.
+        </p>
       </div>
     </div>
   );

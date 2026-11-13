@@ -115,15 +115,15 @@ test('init creates the managed root and is idempotent', async () => {
   cleanup(h);
 });
 
-test('add creates a folder, persists, and launches it', async () => {
+test('add creates a folder and persists it, without launching Claude', async () => {
   const h = harness();
   await h.svc.init();
   const a = await h.svc.add({ label: 'My Personal' });
   assert.strictEqual(a.kind, 'managed');
   assert.strictEqual(a.dir, path.join(h.profilesRoot, 'my-personal'));
   assert.ok(fs.existsSync(a.dir));
-  assert.strictEqual(h.launched.length, 1);
-  assert.strictEqual(h.launched[0].id, a.id);
+  assert.strictEqual(h.launched.length, 0, 'Claude opens only on Launch');
+  assert.ok((await h.svc.list()).some((x) => x.id === a.id));
   cleanup(h);
 });
 

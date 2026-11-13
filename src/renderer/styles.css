@@ -791,13 +791,65 @@ button.link.back:hover { color: var(--text); }
 
 /* ------------------------------------------------------------ updates -- */
 
+/* The update status card at the bottom of the sidebar. */
 .update-foot {
-  margin-top: 8px;
-  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
+  --tone: var(--faint);
+  margin-top: 10px;
+  padding: 8px 8px 8px 11px;
+  display: flex; align-items: center; gap: 10px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.035);
   color: var(--muted);
+  line-height: 1.35;
 }
-.update-foot button.primary { padding: 3px 10px; font-size: 11px; }
-.update-foot button.update-recheck { font-size: 14px; line-height: 1; }
+.update-foot.tone-ok  { --tone: var(--good); }
+.update-foot.tone-new { --tone: var(--accent); border-color: rgba(217, 119, 87, 0.35); background: var(--accent-dim); }
+.update-foot.tone-bad { --tone: var(--warn); }
+
+.uf-dot {
+  width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%;
+  background: var(--tone);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 22%, transparent);
+}
+.uf-text { flex: 1; min-width: 0; }
+.uf-title {
+  color: var(--text); font-size: 11.5px; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.uf-sub {
+  color: var(--faint); font-size: 10.5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+button.uf-link {
+  background: none; border: 0; padding: 0;
+  color: var(--accent-hi); font: inherit; cursor: pointer;
+}
+button.uf-link:hover:not(:disabled) { background: none; text-decoration: underline; text-underline-offset: 2px; }
+
+button.uf-icon {
+  width: 26px; height: 26px; padding: 0; flex-shrink: 0;
+  display: grid; place-items: center;
+  border: 1px solid transparent; border-radius: 8px;
+  background: transparent; color: var(--muted); cursor: pointer;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease), border-color 0.15s var(--ease);
+}
+button.uf-icon:hover:not(:disabled) {
+  background: var(--glass-hi); border-color: var(--glass-border); color: var(--text);
+}
+button.uf-icon:disabled { cursor: default; opacity: 0.8; }
+button.uf-icon.spinning svg { animation: spin 0.9s linear infinite; }
+
+/* The sidebar is narrow: Update takes its own full-width row under the text. */
+.update-foot:has(.uf-update) { flex-wrap: wrap; row-gap: 8px; }
+.update-foot button.uf-update { flex: 1 0 100%; padding: 5px 11px; font-size: 11.5px; }
+
+.uf-bar {
+  display: block; height: 3px; margin-top: 5px; border-radius: 2px;
+  background: var(--glass-hi); overflow: hidden;
+}
+.uf-bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.3s var(--ease); }
 
 button.text-btn {
   background: none; border: 0; padding: 0;
@@ -876,3 +928,50 @@ button.link.inline-link {
   font-size: inherit; text-decoration: underline; cursor: pointer;
 }
 button.link.inline-link:hover { color: var(--text); }
+
+/* ------------------------------------------- blocking update progress --- */
+.update-overlay { z-index: 1000; }
+.modal.update-progress-modal { max-width: 400px; padding: 22px 22px 18px; }
+
+.upm-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.upm-head h2 { margin: 0; }
+.upm-versions { margin-top: 2px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.upm-spinner {
+  width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%;
+  border: 2.5px solid var(--accent-dim); border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+
+.upm-steps {
+  list-style: none; margin: 0 0 18px; padding: 0;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--faint);
+}
+.upm-step { display: flex; align-items: center; gap: 6px; flex: 1; }
+.upm-step + .upm-step::before {
+  content: ''; flex: 0 0 14px; height: 1px; background: var(--glass-border-hi); margin-right: 2px;
+}
+.upm-step-dot {
+  width: 16px; height: 16px; flex-shrink: 0; border-radius: 50%;
+  display: grid; place-items: center; font-size: 9.5px; font-weight: 700;
+  border: 1.5px solid var(--glass-border-hi);
+}
+.upm-step.active { color: var(--text); }
+.upm-step.active .upm-step-dot { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.upm-step.done { color: var(--muted); }
+.upm-step.done .upm-step-dot { border-color: var(--good); background: var(--good); color: #fff; }
+
+.upm-status {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12.5px; color: var(--text); margin-bottom: 7px;
+}
+.upm-pct { color: var(--muted); font-variant-numeric: tabular-nums; }
+.upm-bar { height: 6px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, 0.08); }
+.upm-bar > div {
+  height: 100%; border-radius: 3px; background: var(--accent);
+  transition: width 0.3s var(--ease);
+}
+.upm-bar.indeterminate > div { width: 35%; animation: upm-slide 1.2s var(--ease) infinite; }
+@keyframes upm-slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+
+.upm-note { margin: 14px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--muted); }

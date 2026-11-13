@@ -280,8 +280,8 @@ function createService(deps) {
       data.accounts.push(account);
       await persist();
 
-      // Opens signed out; the user logs in inside Claude's own window.
-      deps.launcher.launch(await exe(), account);
+      // Not launched: Claude opens only when the user clicks Launch, signed
+      // out the first time, and they log in inside its own window.
       return account;
     },
 
