@@ -24,11 +24,18 @@ const { createUpdater } = require('./updater.js');
 const updateHttp = require('./update-http.js');
 const updateConfig = require('./update-config.js');
 const { createCcInstaller } = require('./cc-install.js');
+const { APP_USER_MODEL_ID } = require('./shortcuts.js');
 
 if (process.platform !== 'win32' && process.platform !== 'darwin') {
   console.error('Multi-Claude runs on Windows and macOS.');
   app.exit(1);
 }
+
+// Multi-Claude's own taskbar identity, the same id the installer stamps on its
+// Start menu shortcut. Without it Windows groups the window by its .exe and can
+// borrow the icon of any shortcut pointing at that .exe, such as an account's
+// coloured desktop shortcut, instead of showing Multi-Claude's own logo.
+if (process.platform === 'win32') app.setAppUserModelId(APP_USER_MODEL_ID);
 
 // Finding, starting, watching and quitting Claude: Windows or Mac versions.
 const os_ = platformParts({ shell });

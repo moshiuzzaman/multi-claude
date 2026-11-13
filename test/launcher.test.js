@@ -100,6 +100,21 @@ test('createShortcut targets Multi-Claude with --launch <id>', () => {
   assert.strictEqual(written[0].opts.args, '--launch abc123de');
 });
 
+test('an account shortcut has its own taskbar id, never Multi-Claude\'s', () => {
+  const written = [];
+  const shell = { writeShortcutLink: (p, op, opts) => { written.push(opts); return true; } };
+  S.createShortcut({ shell, desktopDir: 'C:\\Desktop', exePath: 'C:\\MC\\Multi-Claude.exe',
+    account: { id: 'abc123de', label: 'Work' }, iconFile: 'C:\\icons\\abc123de-1.ico' });
+  assert.strictEqual(written[0].appUserModelId, 'dev.multiclaude.app.shortcut.abc123de');
+  assert.notStrictEqual(written[0].appUserModelId, S.APP_USER_MODEL_ID);
+  assert.strictEqual(written[0].icon, 'C:\\icons\\abc123de-1.ico');
+});
+
+test('Multi-Claude\'s taskbar id matches the build appId', () => {
+  const pkg = require('../package.json');
+  assert.strictEqual(S.APP_USER_MODEL_ID, pkg.build.appId);
+});
+
 test('createShortcut prefixes args for a development run', () => {
   const written = [];
   const shell = {

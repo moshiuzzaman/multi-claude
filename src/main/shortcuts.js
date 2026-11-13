@@ -5,8 +5,21 @@
 // Store build's executable path contains its version number and changes on
 // every update. Going through Multi-Claude means the path is resolved fresh on
 // each launch, so a pinned shortcut never goes stale.
+//
+// Taskbar identity: Multi-Claude's window uses APP_USER_MODEL_ID (the build's
+// appId, also on the installer's Start menu shortcut), and each account
+// shortcut gets an id of its own. So an account's coloured icon only ever
+// shows on its own shortcut (or its own pinned taskbar button) and never
+// replaces Multi-Claude's logo on Multi-Claude's taskbar button.
 
 const path = require('node:path');
+
+/** Must match "appId" in package.json's build section (a test checks). */
+const APP_USER_MODEL_ID = 'dev.multiclaude.app';
+
+function shortcutAppId(accountId) {
+  return `${APP_USER_MODEL_ID}.shortcut.${String(accountId).replace(/[^A-Za-z0-9]/g, '')}`;
+}
 
 function shortcutName(label) {
   const clean = String(label == null ? '' : label).replace(/[\\/:*?"<>|]/g, '').trim();
@@ -27,6 +40,7 @@ function createShortcut({ shell, desktopDir, exePath, account, argsPrefix = '', 
     // The account's own icon in its colour, or Multi-Claude's.
     icon: iconFile || exePath,
     iconIndex: 0,
+    appUserModelId: shortcutAppId(account.id),
     description: `Open Claude with the ${account.label} profile`
   });
 
@@ -38,4 +52,4 @@ function createShortcut({ shell, desktopDir, exePath, account, argsPrefix = '', 
   return target;
 }
 
-module.exports = { shortcutName, createShortcut };
+module.exports = { APP_USER_MODEL_ID, shortcutAppId, shortcutName, createShortcut };
