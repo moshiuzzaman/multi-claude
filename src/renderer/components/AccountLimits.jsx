@@ -99,6 +99,19 @@ export function extraUsageText(eu) {
  * isn't signed in. Used on the Dashboard cards and on the account's own page.
  */
 export function LimitsBlock({ row, actions, busy, cliMissing }) {
+  if (row && row.freePlan) {
+    return (
+      <div className="note free-plan">
+        <div>
+          <strong>Free plan.</strong> Claude Code only connects Pro, Max and Ultra plans, so this
+          account's usage limits can't be shown here. Everything else works as usual.
+        </div>
+        <button className="ghost" onClick={() => actions.setFreePlan(row, false)}>
+          Upgraded? Connect for usage limits
+        </button>
+      </div>
+    );
+  }
   if (cliMissing) {
     return <CcInstall onDone={() => actions.refreshLimits(true)} />;
   }
@@ -169,7 +182,10 @@ export function LimitsBlock({ row, actions, busy, cliMissing }) {
       {!connected && (
         <div className="limit-hint">
           Signs this account in to Claude Code through Anthropic's own login, once. Multi-Claude
-          never sees the password or the sign-in token.
+          never sees the password or the sign-in token. Needs a Pro, Max or Ultra plan.{' '}
+          <button className="link inline-link" onClick={() => actions.setFreePlan(row, true)}>
+            Free plan? Stop asking
+          </button>
         </div>
       )}
       {connected && !signedIn && !checking && (

@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('multiClaude', {
   ccInstallStart: call('ccInstallStart'),
   ccInstallStatus: call('ccInstallStatus'),
   openGmail: call('openGmail'),
+  setFreePlan: call('setFreePlan'),
   loginStatus: call('loginStatus'),
   loginSubmit: call('loginSubmit'),
   loginCancel: call('loginCancel'),

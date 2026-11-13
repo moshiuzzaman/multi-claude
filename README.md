@@ -67,6 +67,13 @@ If `/usage` is ever unavailable, the account falls back to what Claude Code's st
 recorded for that account (see `limits.js`). The newest Claude Code installed on the PC is
 used automatically; `/usage` reports need Claude Code 2.1.273 or later.
 
+**Free plans.** Claude Code only signs in Pro, Max and Ultra plans (and Team or
+Enterprise); for a free account the browser shows *Claude Max, Ultra, or Pro is required*
+and no code. Such an account works in Multi-Claude as usual but can't show usage limits.
+Choose **It's a free plan, stop asking** in the sign-in dialog, or **Free plan?** on its
+card, and it stops asking to connect; Multi-Claude then never starts Claude Code for it.
+**Upgraded? Connect for usage limits** on its page undoes that.
+
 **A PC without Claude Code.** Claude Desktop downloads its own copy into the profile
 folder the first time its Code tab is opened, and Multi-Claude finds that copy. If there
 is none at all, the Dashboard and the account page show **Set up usage limits**. One click

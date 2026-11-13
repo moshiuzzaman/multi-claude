@@ -278,6 +278,16 @@ export default function App() {
     // Sign-in runs inside the app: no terminal window. See SignInDialog.
     connect: (row) => setSigningIn({ id: row.id, label: row.label }),
     refreshLimits: (force) => loadLimits(force),
+    // Free Claude plans can't connect to Claude Code, so they never show limits.
+    setFreePlan: async (a, free) => {
+      try {
+        await api.setFreePlan(a.id, free);
+        say(free
+          ? `${a.label} is marked as a free plan. It won't ask to connect for usage limits.`
+          : `${a.label} is no longer marked as a free plan. Connect it to see its usage limits.`);
+        loadLimits(false);
+      } catch (e) { fail(e); }
+    },
     startRename: setRenaming,
     startDelete: setDeleting,
     refreshStorage: () => { setStorage(null); loadStorage(true); }
@@ -348,7 +358,7 @@ export default function App() {
           onCancel={() => setAdding(false)}
           option={{
             label: 'Also connect Claude Code for usage limits',
-            hint: 'Opens Anthropic\'s own Claude Code sign-in too, so this account\'s Session and Weekly limits show on its card and its own page. One time only. Sign in with the same account in both windows.',
+            hint: 'Opens Anthropic\'s own Claude Code sign-in too, so this account\'s Session and Weekly limits show on its card and its own page. One time only. Needs a Pro, Max or Ultra plan: leave it off for a free account.',
             defaultChecked: true
           }}
         />
@@ -385,6 +395,7 @@ export default function App() {
             loadLimits(true);
           }}
           onClose={() => { setSigningIn(null); loadLimits(true); }}
+          onFreePlan={(acct) => { setSigningIn(null); actions.setFreePlan(acct, true); }}
         />
       )}
 
