@@ -27,6 +27,7 @@ const vscodeMod = require('./vscode.js');
 const vscodeSettings = require('./vscode-settings.js');
 
 const LIMITS_FILE = 'multi-claude-limits.json';
+const GMAIL_URL = 'https://mail.google.com/';
 const AUTH_TTL_MS = 2 * 60 * 1000;
 // How long a fetched /usage report is reused before Claude Code is asked again.
 const PLAN_TTL_MS = 90 * 1000;
@@ -384,6 +385,15 @@ function createService(deps) {
       find(id);
       data.accounts = data.accounts.filter((x) => x.id !== id);
       await persist();
+      return { ok: true };
+    },
+
+    /**
+     * Open Gmail in the browser, for the email sign-in code. The address is
+     * fixed here: the renderer cannot ask for any other page.
+     */
+    async openGmail() {
+      await deps.shellImpl.openExternal(GMAIL_URL);
       return { ok: true };
     },
 

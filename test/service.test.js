@@ -15,6 +15,7 @@ function harness(extra = {}) {
   fs.mkdirSync(defaultProfileDir, { recursive: true });
 
   const launched = [];
+  const opened = [];
   const shortcuts = [];
   const terminals = [];
   const vsLaunches = [];
@@ -67,13 +68,14 @@ function harness(extra = {}) {
     scanner: { scan: async () => ({ dirs: [], ok: true }) },
     shellImpl: {
       writeShortcutLink: (p) => { shortcuts.push(p); return true; },
-      openPath: async () => ''
+      openPath: async () => '',
+      openExternal: async (u) => { opened.push(u); }
     },
     desktopDir: path.join(base, 'desktop'),
     appExePath: 'C:\\MC\\Multi-Claude.exe'
   });
 
-  return { base, userProfile, profilesRoot, defaultProfileDir, svc, launched, shortcuts,
+  return { base, userProfile, profilesRoot, defaultProfileDir, svc, launched, opened, shortcuts,
            terminals, vsLaunches, vsCodeInstalled, vsCodeRunning,
            vscodeSettingsFile: path.join(base, 'code-user', 'settings.json'), authCalls, authReply, cliInstalled, logins, usageFetches, usageReply };
 }
@@ -850,5 +852,12 @@ test('ccInstallStart says so when downloading is not available', async () => {
   await h.svc.init();
   assert.deepStrictEqual(h.svc.ccInstallStatus(), { state: 'idle' });
   assert.throws(() => h.svc.ccInstallStart(), (e) => e.code === 'unsupported');
+  cleanup(h);
+});
+
+test('openGmail opens only the fixed Gmail address', async () => {
+  const h = harness();
+  await h.svc.openGmail({ url: 'https://evil.example/' });
+  assert.deepStrictEqual(h.opened, ['https://mail.google.com/']);
   cleanup(h);
 });

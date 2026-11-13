@@ -59,6 +59,11 @@ export default function AccountDetail({
             </button>
           )}
           <button className="ghost" onClick={() => actions.openFolder(account)} disabled={missing}>Folder</button>
+          {!isDefault && (
+            <button className="ghost" onClick={() => actions.signInHelp(account)} title="How to sign in to this account's Claude window">
+              Sign-in help
+            </button>
+          )}
           <button className="ghost" onClick={() => actions.shortcut(account)}>Shortcut</button>
           <button className="ghost" onClick={() => actions.useVsCodeAccount(account)} title="Make VS Code use this account">
             Use in VS Code

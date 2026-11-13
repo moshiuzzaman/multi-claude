@@ -11,7 +11,7 @@ const CHANNELS = [
   'usage', 'activity', 'storage', 'purgeCache', 'accountInfo', 'closeAccount',
   'limits', 'connectAccount', 'openClaudeCode', 'useVsCodeAccount',
   'loginStatus', 'loginSubmit', 'loginCancel', 'loginOpenPage',
-  'ccInstallStart', 'ccInstallStatus',
+  'ccInstallStart', 'ccInstallStatus', 'openGmail',
   'updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'updateOpenPage', 'updateQuit'
 ];
 
@@ -36,6 +36,7 @@ function register(service, updater) {
     useVsCodeAccount: (p) => service.useVsCodeAccount(p),
     ccInstallStart: () => service.ccInstallStart(),
     ccInstallStatus: () => service.ccInstallStatus(),
+    openGmail: () => service.openGmail(),
     loginStatus: (p) => service.loginStatus(p),
     loginSubmit: (p) => service.loginSubmit(p),
     loginCancel: (p) => service.loginCancel(p),

@@ -4,6 +4,7 @@ import Icon from './components/Icon.jsx';
 import DeleteDialog from './components/DeleteDialog.jsx';
 import QuitDialog from './components/QuitDialog.jsx';
 import SignInDialog from './components/SignInDialog.jsx';
+import ClaudeSignInGuide from './components/ClaudeSignInGuide.jsx';
 import TextPromptDialog from './components/TextPromptDialog.jsx';
 import Dashboard from './views/Dashboard.jsx';
 import Accounts from './views/Accounts.jsx';
@@ -34,6 +35,7 @@ export default function App() {
   const [storage, setStorage] = useState(null);
   const [limits, setLimits] = useState(null);
   const [limitsLoading, setLimitsLoading] = useState(false);
+  const [guiding, setGuiding] = useState(null); // added account being walked through its Claude sign-in
   const [days, setDays] = useState(30);
 
   const [toast, setToast] = useState(null);
@@ -197,15 +199,22 @@ export default function App() {
       setActivity(null);
       setTimeout(loadScan, 1500);
 
-      if (!connectClaudeCode) {
-        say(`Created ${a.label}. Sign in with your email and its code in the Claude window, not with Google.`);
-        return;
+      // First the Claude window's own sign-in (email code), then, if asked
+      // for, the Claude Code sign-in for usage limits. The account exists
+      // either way; both can be done later from the account's page.
+      setGuiding({ id: a.id, label: a.label, then: connectClaudeCode });
+    },
+    signInHelp: (a) => setGuiding({ id: a.id, label: a.label, then: false }),
+    finishGuide: (signedIn) => {
+      const g = guiding;
+      setGuiding(null);
+      if (g.then) {
+        setSigningIn({ id: g.id, label: g.label });
+      } else if (signedIn) {
+        say(`${g.label} is signed in.`);
+      } else {
+        say(`Sign in to ${g.label} with the email code whenever you're ready. The steps are under Sign-in help on its page.`);
       }
-
-      // The account exists either way; the sign-in dialog handles its own
-      // failures and can be retried later from the account's card or page.
-      say(`Created ${a.label}. Sign in to Claude in the new window, and finish the Claude Code sign-in here.`);
-      setSigningIn({ id: a.id, label: a.label });
     },
     rename: async (label) => {
       try {
@@ -331,7 +340,7 @@ export default function App() {
       {adding && (
         <TextPromptDialog
           title="Add an account"
-          description="A new, empty Claude profile is created and opened. Sign in there with your email address and the code Claude emails you, typed into that window. Don't use Continue with Google: it finishes in the browser and signs in your default Claude, so this account would ask you to sign in again every time."
+          description="A new, empty Claude profile is created and opened. Next, Multi-Claude shows you how to sign in to it with an email code."
           label="Account name"
           placeholder="Personal"
           confirmText="Create and open"
@@ -354,6 +363,16 @@ export default function App() {
           confirmText="Rename"
           onConfirm={actions.rename}
           onCancel={() => setRenaming(null)}
+        />
+      )}
+
+      {guiding && (
+        <ClaudeSignInGuide
+          account={guiding}
+          onOpenClaude={() => actions.launch(accounts.find((x) => x.id === guiding.id) || guiding)}
+          onOpenGmail={() => api.openGmail().catch(fail)}
+          onDone={() => actions.finishGuide(true)}
+          onLater={() => actions.finishGuide(false)}
         />
       )}
 

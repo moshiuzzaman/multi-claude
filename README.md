@@ -349,6 +349,10 @@ goes stale. Clicking one launches the profile without opening the manager window
   browser (Continue with Google) is handed to the default Claude. The added account never
   receives it and shows "Get started" on every launch. Entering your email and typing the
   emailed code into the account's own window never leaves that window, so it sticks.
+  After **Add account**, Multi-Claude walks you through this step by step, with an
+  **Open Gmail** button for the code; an account made with Google signs in the same way
+  with that Google email. The same steps are under **Sign-in help** on each added
+  account's page.
   Multi-Claude does not reroute the link: it carries the sign-in code, and Multi-Claude
   never handles a credential.
 - Shortcut icons use the Multi-Claude icon, not Claude's.
