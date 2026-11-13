@@ -1,7 +1,7 @@
 {
   "name": "multi-claude",
   "productName": "Multi-Claude",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "private": true,
   "description": "Launch and manage separate Claude Desktop profiles. Not affiliated with Anthropic.",
   "main": "src/main/main.js",
