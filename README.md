@@ -192,8 +192,8 @@ inside Claude Desktop** under Known limitations.
 Multi-Claude checks GitHub Releases each time it opens. If a newer version has
 been published, an update dialog opens on its own with the release notes of
 every version since yours, and the sidebar footer shows it with **What's new**
-and **Update**. Otherwise it says everything is up to date, and there is
-nothing to click.
+and **Update**. Otherwise it says everything is up to date; the ↻ button next
+to it checks again.
 
 The dialog depends on which number in the version went up:
 
@@ -210,6 +210,11 @@ release's `latest.yml`, runs it silently and closes Multi-Claude; the installer
 starts the new version when it finishes. A download that does not match is
 deleted and never run. Your accounts and settings are kept, and any Claude
 window you launched keeps running.
+
+From the moment **Update** is clicked, a progress screen covers the app
+(Download → Install → Restart) and cannot be closed, so nothing new is started
+while Multi-Claude is about to restart. If the update fails, the dialog shows
+why and can be closed again.
 
 Nothing is downloaded without a click. Run from source, the footer tells you to
 `git pull` instead; the portable build's **Update** opens the download page,

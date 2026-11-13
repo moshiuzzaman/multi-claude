@@ -16,13 +16,14 @@ export default function ClaudeSignInGuide({ account, onOpenClaude, onOpenGmail, 
            onKeyDown={(e) => { if (e.key === 'Escape') onLater(); }}>
         <h2>Sign in to {account.label}</h2>
         <p>
-          The new Claude window is open. Sign in there with an email code. It takes a minute,
+          Sign in to this account's own Claude window with an email code. It takes a minute,
           and the account stays signed in.
         </p>
 
         <ol className="guide-steps">
           <li>
-            In the Claude window, click <strong>Get started</strong>.
+            Open the account's Claude window (<strong>Open Claude</strong> below, or Launch),
+            then click <strong>Get started</strong>.
           </li>
           <li>
             Type the account's email address in <strong>Enter your email</strong>, then
@@ -52,7 +53,7 @@ export default function ClaudeSignInGuide({ account, onOpenClaude, onOpenGmail, 
         </div>
 
         <div className="buttons">
-          <button className="link guide-reopen" onClick={onOpenClaude}>Claude window closed? Open it again</button>
+          <button className="link guide-reopen" onClick={onOpenClaude}>Open Claude</button>
           <span className="spacer" />
           <button onClick={onLater}>Later</button>
           <button className="primary" onClick={onDone}>I'm signed in</button>
