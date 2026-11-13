@@ -656,6 +656,116 @@ test('show fails cleanly for an unknown account or a missing claude.exe', async 
   cleanup(h);
 });
 
+// ---------------------------------------------------------- account colour --
+
+const { PALETTE } = require('../src/main/colors.js');
+
+function fakeIconUrl() {
+  const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const ihdr = Buffer.alloc(25);
+  ihdr.writeUInt32BE(13, 0);
+  ihdr.write('IHDR', 4, 'latin1');
+  ihdr.writeUInt32BE(256, 8);
+  ihdr.writeUInt32BE(256, 12);
+  return `data:image/png;base64,${Buffer.concat([sig, ihdr, Buffer.alloc(32)]).toString('base64')}`;
+}
+
+test('init gives existing accounts a colour, and add picks an unused one', async () => {
+  const h = harness();
+  fs.mkdirSync(path.join(h.userProfile, 'Claude_Work'));
+  await h.svc.init();
+  const list = await h.svc.list();
+  assert.deepStrictEqual(list.map((a) => a.color), [PALETTE[0].hex, PALETTE[1].hex]);
+  const added = await h.svc.add({ label: 'Personal' });
+  assert.strictEqual(added.color, PALETTE[2].hex);
+  cleanup(h);
+});
+
+test('an account list saved before colours existed gets colours on start', async () => {
+  const h = harness();
+  await h.svc.init();
+  const file = path.join(h.base, 'cfg', 'accounts.json');
+  const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+  delete saved.accounts[0].color;
+  fs.writeFileSync(file, JSON.stringify(saved));
+  await h.svc.init();
+  assert.strictEqual((await h.svc.list())[0].color, PALETTE[0].hex);
+  const after = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.strictEqual(after.accounts[0].color, PALETTE[0].hex, 'saved');
+  assert.strictEqual(after.version, 1, 'schema version unchanged');
+  cleanup(h);
+});
+
+test('setColor saves a palette colour and refuses anything else', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = (await h.svc.list())[0];
+  const r = await h.svc.setColor({ id: a.id, color: PALETTE[3].hex.toUpperCase() });
+  assert.deepStrictEqual(r, { ok: true, color: PALETTE[3].hex, shortcutUpdated: false });
+  assert.strictEqual((await h.svc.list())[0].color, PALETTE[3].hex);
+  await assert.rejects(() => h.svc.setColor({ id: a.id, color: '#123456' }), (e) => e.code === 'bad_color');
+  await assert.rejects(() => h.svc.setColor({ id: a.id, color: 'red' }), (e) => e.code === 'bad_color');
+  cleanup(h);
+});
+
+test('createShortcut writes the account icon as .ico and points the shortcut at it', async () => {
+  const made = [];
+  const base = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'mc-icons-'));
+  const iconsDir = path.join(base, 'icons');
+  const h = harness({
+    iconsDir,
+    makeShortcut: (opts) => { made.push(opts); return path.join(opts.desktopDir, 'x.lnk'); }
+  });
+  await h.svc.init();
+  const a = (await h.svc.list())[0];
+  await h.svc.createShortcut({ id: a.id, iconPng: fakeIconUrl() });
+  const icon = made[0].iconFile;
+  assert.ok(icon.startsWith(iconsDir) && icon.endsWith('.ico'));
+  assert.strictEqual(fs.readFileSync(icon).readUInt16LE(2), 1, 'an icon file');
+  // Without an icon the shortcut falls back to Multi-Claude's own.
+  await h.svc.createShortcut({ id: a.id });
+  assert.strictEqual(made[1].iconFile, null);
+  await assert.rejects(() => h.svc.createShortcut({ id: a.id, iconPng: 'data:image/png;base64,AAAA' }),
+    (e) => e.code === 'bad_icon');
+  cleanup(h);
+  fs.rmSync(base, { recursive: true, force: true });
+});
+
+test('setColor rewrites an existing shortcut with a new icon and drops the old one', async () => {
+  const made = [];
+  const base = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'mc-icons-'));
+  const iconsDir = path.join(base, 'icons');
+  const h = harness({
+    iconsDir,
+    makeShortcut: (opts) => {
+      made.push(opts);
+      const p = path.join(opts.desktopDir, `Claude - ${opts.account.label}.lnk`);
+      fs.writeFileSync(p, 'lnk');
+      return p;
+    }
+  });
+  await h.svc.init();
+  const a = (await h.svc.list())[0];
+
+  // No shortcut on the desktop yet: only the colour changes.
+  let r = await h.svc.setColor({ id: a.id, color: PALETTE[2].hex, iconPng: fakeIconUrl() });
+  assert.strictEqual(r.shortcutUpdated, false);
+  assert.strictEqual(made.length, 0);
+
+  await h.svc.createShortcut({ id: a.id, iconPng: fakeIconUrl() });
+  const first = made[0].iconFile;
+  await new Promise((res) => setTimeout(res, 5));
+  r = await h.svc.setColor({ id: a.id, color: PALETTE[4].hex, iconPng: fakeIconUrl() });
+  assert.strictEqual(r.shortcutUpdated, true);
+  const second = made[1].iconFile;
+  assert.notStrictEqual(second, first);
+  assert.ok(fs.existsSync(second));
+  assert.ok(!fs.existsSync(first), 'the old icon file is removed');
+  assert.deepStrictEqual(fs.readdirSync(iconsDir).length, 1);
+  cleanup(h);
+  fs.rmSync(base, { recursive: true, force: true });
+});
+
 test('useVsCodeAccount writes the account config dir into settings', async () => {
   const h = harness();
   await h.svc.init();

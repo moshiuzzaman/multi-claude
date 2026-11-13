@@ -34,6 +34,8 @@ function windowsParts({ env, shell }) {
     ccCandidates: null,
     ccOpenTerminal: null,
     makeShortcut: null,
+    iconFormat: 'ico',
+    shortcutFileName: null,
     recordStatusLine: true,
     exeLabel: 'claude.exe',
     exeFilter: { name: 'Claude', extensions: ['exe'] },
@@ -66,9 +68,11 @@ function macParts({ env, shell }) {
       exePath: opts.exePath,
       account: opts.account,
       argsPrefix: opts.argsPrefix,
-      // The packaged app's own icon, if it is there.
-      iconFile: path.join(path.dirname(path.dirname(opts.exePath)), 'Resources', 'icon.icns')
+      // The account's own icon, or else the packaged app's icon if it is there.
+      iconFile: opts.iconFile || path.join(path.dirname(path.dirname(opts.exePath)), 'Resources', 'icon.icns')
     }),
+    iconFormat: 'icns',
+    shortcutFileName: (label) => mac.shortcutName(label),
     // The status-line recorder is a PowerShell script.
     recordStatusLine: false,
     exeLabel: 'Claude.app',

@@ -13,6 +13,7 @@ import Storage from './views/Storage.jsx';
 import AccountDetail from './views/AccountDetail.jsx';
 import UpdateFoot from './components/UpdateFoot.jsx';
 import logoMark from './assets/logo-mark.png';
+import { drawAccountIcon } from './lib/accountIcon.js';
 
 const POLL_MS = 5000;
 
@@ -258,8 +259,21 @@ export default function App() {
     openFolder: async (a) => { try { await api.openFolder(a.id); } catch (e) { fail(e); } },
     shortcut: async (a) => {
       try {
-        await api.createShortcut(a.id);
+        // The icon is the account's colour and letter; if it can't be drawn,
+        // the shortcut still works with Multi-Claude's own icon.
+        let icon = null;
+        try { icon = await drawAccountIcon(a); } catch { /* plain icon */ }
+        await api.createShortcut(a.id, icon);
         say(`Desktop shortcut created for ${a.label}.`);
+      } catch (e) { fail(e); }
+    },
+    setColor: async (a, color) => {
+      try {
+        let icon = null;
+        try { icon = await drawAccountIcon({ ...a, color }); } catch { /* shortcut keeps its icon */ }
+        const r = await api.setColor(a.id, color, icon);
+        await loadAccounts();
+        say(r && r.shortcutUpdated ? `${a.label}'s colour and desktop shortcut updated.` : `${a.label}'s colour updated.`);
       } catch (e) { fail(e); }
     },
     useVsCodeAccount: async (a) => {
