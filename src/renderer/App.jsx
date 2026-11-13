@@ -193,7 +193,7 @@ export default function App() {
         loadScan();
       }
     },
-    add: async (label, connectClaudeCode) => {
+    add: async (label) => {
       let a;
       try {
         a = await api.add(label);
@@ -203,10 +203,10 @@ export default function App() {
       await loadAccounts();
       setActivity(null);
 
-      // Every sign-in happens now, once: first the account's own Claude
-      // window (email code), then Claude Code for usage limits if asked for.
-      // After this, Launch opens it already signed in.
-      setGuiding({ id: a.id, label: a.label, then: connectClaudeCode, first: true });
+      // The one sign-in happens now: the account's own Claude window, by
+      // email code. Claude keeps it, so Launch opens it signed in from then
+      // on, and its usage limits come from what that window records.
+      setGuiding({ id: a.id, label: a.label, first: true });
     },
     signInHelp: (a) => setGuiding({ id: a.id, label: a.label }),
     finishGuide: async (signedIn) => {
@@ -215,9 +215,7 @@ export default function App() {
       const list = await api.list().catch(() => null);
       if (list) setAccounts(list);
       const now = list && list.find((x) => x.id === g.id);
-      if (g.then) {
-        setSigningIn({ id: g.id, label: g.label });
-      } else if (signedIn && now && now.signedIn === false) {
+      if (signedIn && now && now.signedIn === false) {
         say(`${g.label}'s Claude window doesn't look signed in yet. Finish the email code there, then it stays signed in.`, true);
       } else if (signedIn) {
         say(`${g.label} is signed in. Launch opens it signed in from now on.`);
@@ -359,17 +357,12 @@ export default function App() {
       {adding && (
         <TextPromptDialog
           title="Add an account"
-          description="A new Claude profile is created and you sign in to it once, right now. After that, Launch opens it already signed in."
+          description="A new Claude profile is created and you sign in to it once, right now, with an email code. That one sign-in is all it needs: Launch opens it signed in, and its usage limits show here."
           label="Account name"
           placeholder="Personal"
           confirmText="Create account"
-          onConfirm={actions.add}
+          onConfirm={(label) => actions.add(label)}
           onCancel={() => setAdding(false)}
-          option={{
-            label: 'Also connect Claude Code for usage limits',
-            hint: 'Opens Anthropic\'s own Claude Code sign-in too, so this account\'s Session and Weekly limits show on its card and its own page. One time only. Needs a Pro, Max or Ultra plan: leave it off for a free account.',
-            defaultChecked: true
-          }}
         />
       )}
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { relativeTime, timeLeft } from '../lib/format.js';
 import CcInstall from './CcInstall.jsx';
 
@@ -94,60 +94,67 @@ export function extraUsageText(eu) {
   return 'Extra usage: on';
 }
 
+/** Bars from the usage Claude Desktop records itself (see desktop-usage.js). */
+export function desktopMeters(d) {
+  if (!d) return [];
+  const sev = (p) => (p >= 95 ? 'critical' : p >= 80 ? 'warning' : 'normal');
+  const out = [];
+  if (d.session !== null) out.push({ kind: 'session', group: 'session', title: 'Session (5hr)', percent: d.session, severity: sev(d.session) });
+  if (d.weekly !== null) out.push({ kind: 'weekly_all', group: 'weekly', title: 'Weekly (all models)', percent: d.weekly, severity: sev(d.weekly) });
+  return out;
+}
+
+/** The "as of" line under Desktop's figures, with the optional live upgrade. */
+export function DesktopAsOf({ d, onLive, liveLabel = 'Live limits' }) {
+  return (
+    <div className="limit-asof desktop-asof">
+      <span title="Claude Desktop records these a few times a day while it runs. They have no reset times.">
+        From Claude · {relativeTime(d.recordedAt)}
+      </span>
+      {onLive && (
+        <>
+          {' · '}
+          <button className="link inline-link" onClick={(e) => { e.stopPropagation(); onLive(); }}
+                  title="Live figures with reset times, through one browser sign-in for Claude Code">
+            {liveLabel}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 /**
- * One account's plan limits: sign-in state, its meters, and Connect when it
- * isn't signed in. Used on the Dashboard cards and on the account's own page.
+ * One account's plan limits, used on the Dashboard cards and on the account's
+ * own page. By default these are what the account's Claude window records
+ * itself, so no second sign-in is needed. Live limits (with reset times) are
+ * an optional extra through Claude Code.
  */
 export function LimitsBlock({ row, actions, busy, cliMissing }) {
-  if (row && row.freePlan) {
-    return (
-      <div className="note free-plan">
-        <div>
-          <strong>Free plan.</strong> Claude Code only connects Pro, Max and Ultra plans, so this
-          account's usage limits can't be shown here. Everything else works as usual.
-        </div>
-        <button className="ghost" onClick={() => actions.setFreePlan(row, false)}>
-          Upgraded? Connect for usage limits
-        </button>
-      </div>
-    );
-  }
-  if (cliMissing) {
-    return <CcInstall onDone={() => actions.refreshLimits(true)} />;
-  }
+  const [installing, setInstalling] = useState(false);
   if (!row) return <div className="skeleton" style={{ height: 70 }} />;
 
   const { auth, limits, connected } = row;
+  const free = !!row.freePlan;
   const signedIn = connected && auth && auth.loggedIn;
   const checking = connected && auth && auth.pending;
+  const live = signedIn && row.plan && row.plan.ok;
+  const fromDesktop = desktopMeters(row.desktop);
+
+  const goLive = free ? null : () => {
+    if (cliMissing) setInstalling(true);
+    else actions.connect(row);
+  };
+  const liveLabel = connected && !signedIn ? 'Sign in again for live limits' : 'Live limits';
 
   return (
     <div className="limit-block">
-      <div className="limit-card-head">
-        <div>
-          <div className="limit-who">
-            {!connected && 'Not connected'}
-            {checking && 'Checking sign-in…'}
-            {connected && !signedIn && !checking && 'Sign-in not finished'}
-            {signedIn && (
-              <>
-                Signed in as <strong>{auth.email || 'unknown'}</strong>
-                {auth.subscriptionType ? ` · ${auth.subscriptionType}` : ''}
-              </>
-            )}
-          </div>
-        </div>
-        <div className="limit-actions">
-          {!signedIn && !checking && (
-            <button className="primary" disabled={busy} onClick={() => actions.connect(row)}>
-              {connected ? 'Sign in again' : 'Connect'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {signedIn && row.plan && row.plan.ok && (
+      {live ? (
         <>
+          <div className="limit-who">
+            Live · signed in to Claude Code as <strong>{auth.email || 'unknown'}</strong>
+            {auth.subscriptionType ? ` · ${auth.subscriptionType}` : ''}
+          </div>
           <div className="limit-bars">
             {row.plan.meters.map((m) => <Meter key={m.kind + (m.scopeLabel || '')} m={m} />)}
           </div>
@@ -156,42 +163,61 @@ export function LimitsBlock({ row, actions, busy, cliMissing }) {
             {extraUsageText(row.plan.extraUsage) ? ` · ${extraUsageText(row.plan.extraUsage)}` : ''}
           </div>
         </>
-      )}
-
-      {signedIn && !row.plan && (
-        <div className="limit-hint">Loading this account's limits…</div>
-      )}
-
-      {signedIn && row.plan && !row.plan.ok && (
+      ) : (
         <>
-          {/* Fall back to what the status line last recorded, if anything. */}
-          {limits && (
-            <div className="limit-bars">
-              <LimitBar title="Session (5hr)" win={limits.fiveHour} />
-              <LimitBar title="Weekly (7 day)" win={limits.sevenDay} weekly />
+          {fromDesktop.length > 0 ? (
+            <>
+              <div className="limit-bars">
+                {fromDesktop.map((m) => <Meter key={m.kind} m={m} />)}
+              </div>
+              <DesktopAsOf d={row.desktop} onLive={checking || busy ? null : goLive} liveLabel={liveLabel} />
+            </>
+          ) : (
+            <div className="limit-hint">
+              Usage shows here once this account's Claude window has been used.
+              {goLive && !checking && (
+                <>
+                  {' '}
+                  <button className="link inline-link" onClick={goLive}>{liveLabel}</button>
+                </>
+              )}
             </div>
           )}
-          <div className="note" style={{ marginTop: 12 }}>
-            {row.plan.reason}
-            {row.plan.needsSignIn && ' Use Sign in again above.'}
-            {row.plan.reachedModel && ' Automatic refresh is paused for this account so it cannot spend usage; Refresh still works.'}
-          </div>
-        </>
-      )}
 
-      {!connected && (
-        <div className="limit-hint">
-          Signs this account in to Claude Code through Anthropic's own login, once. Multi-Claude
-          never sees the password or the sign-in token. Needs a Pro, Max or Ultra plan.{' '}
-          <button className="link inline-link" onClick={() => actions.setFreePlan(row, true)}>
-            Free plan? Stop asking
-          </button>
-        </div>
-      )}
-      {connected && !signedIn && !checking && (
-        <div className="limit-hint">
-          Sign-in isn't finished for this account. Use Sign in again to complete it.
-        </div>
+          {checking && <div className="limit-hint">Checking live limits…</div>}
+
+          {signedIn && !row.plan && <div className="limit-hint">Loading live limits…</div>}
+
+          {signedIn && row.plan && !row.plan.ok && (
+            <>
+              {/* What the status line last recorded, if anything. */}
+              {limits && fromDesktop.length === 0 && (
+                <div className="limit-bars">
+                  <LimitBar title="Session (5hr)" win={limits.fiveHour} />
+                  <LimitBar title="Weekly (7 day)" win={limits.sevenDay} weekly />
+                </div>
+              )}
+              <div className="note" style={{ marginTop: 12 }}>
+                Live limits: {row.plan.reason}
+                {row.plan.needsSignIn && ' Use Sign in again for live limits.'}
+                {row.plan.reachedModel && ' Automatic refresh is paused for this account so it cannot spend usage; Refresh still works.'}
+              </div>
+            </>
+          )}
+
+          {installing && cliMissing && (
+            <div style={{ marginTop: 12 }}>
+              <CcInstall onDone={() => { setInstalling(false); actions.refreshLimits(true); }} />
+            </div>
+          )}
+
+          {free && (
+            <div className="limit-hint">
+              Free plan: live limits need Pro, Max or Ultra.{' '}
+              <button className="link inline-link" onClick={() => actions.setFreePlan(row, false)}>Upgraded?</button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

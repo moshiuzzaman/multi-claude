@@ -1,6 +1,5 @@
 import React from 'react';
-import { Meter } from '../components/AccountLimits.jsx';
-import CcInstall from '../components/CcInstall.jsx';
+import { Meter, desktopMeters, DesktopAsOf } from '../components/AccountLimits.jsx';
 import { bytes, relativeTime } from '../lib/format.js';
 
 /**
@@ -19,10 +18,18 @@ function AccountCard({ account, running, scanOk, limitRow, size, lastUsed, cliMi
   const plan = limitRow && limitRow.plan;
   const free = !!(limitRow && limitRow.freePlan);
 
-  // The two meters Claude's own panel leads with.
-  const meters = plan && plan.ok
+  // Live figures when Claude Code is connected; otherwise what the account's
+  // own Claude window recorded, so no second sign-in is needed.
+  const live = !!(signedIn && plan && plan.ok);
+  const desktop = limitRow && limitRow.desktop;
+  const meters = live
     ? plan.meters.filter((m) => m.kind === 'session' || m.kind === 'weekly_all')
-    : [];
+    : desktopMeters(desktop);
+  // Live limits are optional. Without Claude Code on the PC, the account's
+  // page offers to download it.
+  const goLive = free || checking ? null
+    : cliMissing ? open
+    : () => actions.connect(limitRow);
 
   const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
 
@@ -42,13 +49,11 @@ function AccountCard({ account, running, scanOk, limitRow, size, lastUsed, cliMi
             )}
           </div>
           <div className="acct-card-sub">
-            {free ? 'Free plan · no usage limits'
-              : cliMissing ? 'Usage limits need Claude Code installed'
-              : !limitRow ? ' '
-              : !limitRow.connected ? 'Not connected'
-              : checking ? 'Checking sign-in…'
-              : signedIn ? (auth.email || 'Signed in')
-              : 'Sign-in not finished'}
+            {account.signedIn === false ? 'Claude window not signed in yet'
+              : live ? (auth.email || 'Signed in')
+              : free ? 'Free plan'
+              : account.signedIn ? 'Signed in to Claude'
+              : ' '}
           </div>
         </div>
         {isRunning ? (
@@ -63,22 +68,18 @@ function AccountCard({ account, running, scanOk, limitRow, size, lastUsed, cliMi
       <div className="acct-card-body">
         {meters.length > 0 && meters.map((m) => <Meter key={m.kind} m={m} />)}
 
-        {signedIn && !plan && <div className="limit-hint">Loading limits…</div>}
-        {signedIn && plan && !plan.ok && <div className="limit-hint">{plan.reason}</div>}
-
-        {!cliMissing && !free && limitRow && !signedIn && !checking && (
-          <div className="connect-row">
-            <button className="ghost connect-inline" onClick={stop(() => actions.connect(limitRow))}>
-              {limitRow.connected ? 'Sign in again to see limits' : 'Connect to see usage limits'}
-            </button>
-            {!limitRow.connected && (
-              <button className="link inline-link" title="Claude Code can't connect free accounts"
-                      onClick={stop(() => actions.setFreePlan(limitRow, true))}>
-                Free plan?
-              </button>
-            )}
+        {!live && desktop && meters.length > 0 && (
+          <DesktopAsOf d={desktop} onLive={goLive}
+                       liveLabel={limitRow && limitRow.connected && !signedIn ? 'Sign in again for live limits' : 'Live limits'} />
+        )}
+        {!live && meters.length === 0 && limitRow && (
+          <div className="limit-hint">
+            {account.signedIn === false
+              ? 'Sign in to its Claude window once, then its usage shows here.'
+              : "Usage shows here once this account's Claude window has been used."}
           </div>
         )}
+        {signedIn && !plan && meters.length === 0 && <div className="limit-hint">Loading limits…</div>}
       </div>
 
       <div className="acct-card-foot">
@@ -97,8 +98,6 @@ export default function Dashboard({
 }) {
   const runningCount = accounts.filter((a) => running.includes(a.id)).length;
   const cliMissing = !!(limits && !limits.cli);
-  // Free accounts can't use Claude Code, so they never need it downloaded.
-  const anyPaid = !!(limits && limits.accounts && limits.accounts.some((r) => !r.freePlan));
   const lastUsed = {};
   if (activity) for (const a of activity.accounts) lastUsed[a.id] = a.lastUsed;
 
@@ -120,12 +119,6 @@ export default function Dashboard({
       </div>
 
       {accounts.length === 0 && <div className="panel"><div className="empty">No accounts yet.</div></div>}
-
-      {cliMissing && anyPaid && accounts.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <CcInstall onDone={() => actions.refreshLimits(true)} />
-        </div>
-      )}
 
       <div className="card-grid">
         {accounts.map((a) => (

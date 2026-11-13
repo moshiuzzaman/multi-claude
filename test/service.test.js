@@ -921,3 +921,16 @@ test("list says whether each account's Claude window is signed in", async () => 
   assert.ok(seen.includes(work.dir));
   cleanup(h);
 });
+
+test('limits carry what each account\'s Claude window recorded, with no sign-in', async () => {
+  const h = harness({ desktopUsage: (dir) => (dir.endsWith('work') ? { recordedAt: 1, session: 12, weekly: 34, extra: null } : null) });
+  await h.svc.init();
+  const work = await h.svc.add({ label: 'Work' });
+  const home = await h.svc.add({ label: 'Home' });
+  const res = await h.svc.limits({ cachedOnly: true });
+  const row = (id) => res.accounts.find((r) => r.id === id);
+  assert.deepStrictEqual(row(work.id).desktop, { recordedAt: 1, session: 12, weekly: 34, extra: null });
+  assert.strictEqual(row(home.id).desktop, null);
+  assert.strictEqual(row(work.id).connected, false, 'no Claude Code sign-in was needed');
+  cleanup(h);
+});
