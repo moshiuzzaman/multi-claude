@@ -7,6 +7,7 @@
 
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
+const crypto = require('node:crypto');
 const path = require('node:path');
 
 const store = require('./store.js');
@@ -15,6 +16,7 @@ const deleter = require('./deleter.js');
 const { createShortcut, shortcutName } = require('./shortcuts.js');
 const colors = require('./colors.js');
 const icons = require('./icons.js');
+const taskbarMod = require('./taskbar.js');
 const P = require('./paths.js');
 const { scanUsage, SUMMARY_VERSION } = require('./usage-reader.js');
 const { buildDashboard } = require('./usage-aggregate.js');
@@ -77,6 +79,15 @@ function createService(deps) {
   };
   let cliPromise = null;
   const authCache = new Map(); // account id -> { at, auth }
+  const iconFiles = new Map(); // account id -> its current .ico / .icns
+
+  // Taskbar buttons per account (taskbar.js). taskbarDone: running accounts
+  // whose windows already have their properties; runs are queued one at a time.
+  const taskbarDone = new Set();
+  const taskbarPending = new Set();
+  let taskbarQueue = Promise.resolve();
+  let lastRunning = new Set();
+  let lastTaskbarRun = null;
   const planCache = new Map(); // account id -> { at, value } from /usage
   // Accounts whose /usage fetch ever reached a model. Auto-refresh stops for
   // them so a changed CLI can never quietly spend usage on a timer.
@@ -252,19 +263,93 @@ function createService(deps) {
    * own data folder and return its path. Each write gets a new file name, so
    * Windows' icon cache can't keep showing the old colour; older ones go.
    */
-  async function writeIcon(a, iconPng) {
+  async function writeIcon(a, iconPng, iconSmall) {
     const png = icons.pngFromDataUrl(iconPng);
+    const small = icons.smallPngsFromDataUrls(iconSmall);
     const format = deps.iconFormat === 'icns' ? 'icns' : 'ico';
-    const bytes = format === 'icns' ? icons.pngToIcns(png) : icons.pngToIco(png);
+    const bytes = format === 'icns' ? icons.pngToIcns(png) : icons.pngToIco([png, ...small]);
     const dir = deps.iconsDir;
     if (!dir) throw err('no_icons_dir', 'Icons cannot be saved here.');
     await fsp.mkdir(dir, { recursive: true });
+    // Named by content: the same icon keeps its path (nothing pointing at it
+    // changes), and a new colour or letter gets a new name, so Windows' icon
+    // cache can't keep showing the old one.
+    const hash = crypto.createHash('sha1').update(bytes).digest('hex').slice(0, 12);
+    const name = `${a.id}-${hash}.${format}`;
+    const file = path.join(dir, name);
+    if (!fs.existsSync(file)) await fsp.writeFile(file, bytes);
     let old = [];
-    try { old = (await fsp.readdir(dir)).filter((n) => n.startsWith(`${a.id}-`)); } catch { /* none yet */ }
-    const file = path.join(dir, `${a.id}-${Date.now().toString(36)}.${format}`);
-    await fsp.writeFile(file, bytes);
+    try { old = (await fsp.readdir(dir)).filter((n) => n.startsWith(`${a.id}-`) && n !== name); } catch { /* none */ }
     for (const n of old) await fsp.rm(path.join(dir, n), { force: true });
+    iconFiles.set(a.id, file);
     return file;
+  }
+
+  /** The account's current icon file, or null if none has been drawn yet. */
+  function iconFileFor(a) {
+    const known = iconFiles.get(a.id);
+    if (known && fs.existsSync(known)) return known;
+    const ext = deps.iconFormat === 'icns' ? '.icns' : '.ico';
+    try {
+      const n = fs.readdirSync(deps.iconsDir || '').find((x) => x.startsWith(`${a.id}-`) && x.endsWith(ext));
+      if (n) {
+        iconFiles.set(a.id, path.join(deps.iconsDir, n));
+        return iconFiles.get(a.id);
+      }
+    } catch { /* no icons folder yet */ }
+    return null;
+  }
+
+  const sleep = (ms) => (deps.sleep || ((m) => new Promise((res) => setTimeout(res, m))))(ms);
+
+  function taskbarOn() {
+    return !!deps.taskbar && data.taskbarGroups !== false;
+  }
+
+  /** What to set on the account's windows, or null (default account, no icon yet). */
+  function taskbarItem(a) {
+    if (!a || a.kind === 'default') return null;
+    const iconFile = iconFileFor(a);
+    if (!iconFile) return null;
+    return taskbarMod.itemFor(a, {
+      exePath: deps.appExePath, argsPrefix: deps.shortcutArgsPrefix || '', iconFile
+    });
+  }
+
+  /**
+   * Apply the taskbar properties to these accounts' windows (one PowerShell
+   * run, queued after any other). Resolves to the ids whose windows were found.
+   */
+  function applyTaskbar(accounts) {
+    const list = accounts.filter((a) => taskbarItem(a));
+    if (!taskbarOn() || list.length === 0) return Promise.resolve([]);
+    for (const a of list) taskbarPending.add(a.id);
+    const run = taskbarQueue.then(async () => {
+      const items = list.map(taskbarItem).filter(Boolean);
+      const r = await deps.taskbar.apply(items);
+      const found = [];
+      for (const a of list) {
+        taskbarPending.delete(a.id);
+        const res = r.results.find((x) => P.samePath(x.dir, a.dir));
+        if (res && res.windows > 0) { taskbarDone.add(a.id); found.push(a.id); } else taskbarDone.delete(a.id);
+      }
+      return found;
+    }).catch(() => {
+      for (const a of list) taskbarPending.delete(a.id);
+      return [];
+    });
+    taskbarQueue = run;
+    return run;
+  }
+
+  /** After a launch the window takes a few seconds to appear: try a few times. */
+  async function applyTaskbarSoon(a, delays) {
+    for (const ms of delays) {
+      await sleep(ms);
+      if (!taskbarOn()) return;
+      const found = await applyTaskbar([a]);
+      if (found.includes(a.id)) return;
+    }
   }
 
   // Re-resolves claude.exe whenever the remembered path has gone stale, which
@@ -373,6 +458,11 @@ function createService(deps) {
     async launch({ id }) {
       const account = find(id);
       deps.launcher.launch(await exe(), account);
+      // Its own taskbar button once its window is up (not awaited).
+      if (taskbarOn() && account.kind !== 'default') {
+        taskbarDone.delete(account.id);
+        lastTaskbarRun = applyTaskbarSoon(account, deps.taskbarDelays || [1500, 4000, 9000, 20000]);
+      }
       return { ok: true };
     },
 
@@ -384,7 +474,56 @@ function createService(deps) {
       const account = find(id);
       const launcher = deps.launcher;
       (launcher.show || launcher.launch)(await exe(), account);
+      if (taskbarOn() && account.kind !== 'default' && !taskbarDone.has(account.id)) {
+        lastTaskbarRun = applyTaskbarSoon(account, deps.taskbarDelays || [0, 1500, 5000]);
+      }
       return { ok: true };
+    },
+
+    /** Settings that aren't about one account. */
+    settings() {
+      return { taskbarGroups: data.taskbarGroups !== false, taskbarSupported: !!deps.taskbar };
+    },
+
+    /**
+     * Turn the per-account taskbar buttons on or off. Off clears Multi-Claude's
+     * properties from the running accounts' windows; they go back into
+     * Claude's group the next time each window is shown.
+     */
+    async setTaskbarGroups({ on }) {
+      data.taskbarGroups = !!on;
+      await persist();
+      const running = data.accounts.filter((a) => lastRunning.has(a.id) && a.kind !== 'default');
+      taskbarDone.clear();
+      if (deps.taskbar && running.length > 0) {
+        if (on) lastTaskbarRun = applyTaskbar(running);
+        else {
+          lastTaskbarRun = taskbarQueue = taskbarQueue.then(() => deps.taskbar.clear(running.map((a) => a.dir))).catch(() => null);
+        }
+      }
+      return this.settings();
+    },
+
+    /**
+     * Save the account's icon (drawn by the renderer in its colour and letter)
+     * so its taskbar button and shortcut can use it. When it changed, the
+     * running window's button and an existing desktop shortcut follow.
+     */
+    async saveIcon({ id, iconPng, iconSmall }) {
+      const a = find(id);
+      const before = iconFileFor(a);
+      const file = await writeIcon(a, iconPng, iconSmall);
+      const changed = file !== before;
+      let shortcutUpdated = false;
+      if (changed && before && fs.existsSync(shortcutPathFor(a))) {
+        await makeShortcutFor(a, file);
+        shortcutUpdated = true;
+      }
+      if (changed && lastRunning.has(a.id)) {
+        taskbarDone.delete(a.id);
+        lastTaskbarRun = applyTaskbar([a]);
+      }
+      return { ok: true, changed, shortcutUpdated };
     },
 
     /**
@@ -486,21 +625,14 @@ function createService(deps) {
       return { ok: true };
     },
 
-    async openFolder({ id }) {
-      const a = find(id);
-      if (!fs.existsSync(a.dir)) throw err('missing', 'That folder no longer exists.');
-      await deps.shellImpl.openPath(a.dir);
-      return { ok: true };
-    },
-
     /**
      * iconPng: the account's icon as a PNG data URL, drawn by the renderer in
      * the account's colour. Optional: without it the shortcut uses
      * Multi-Claude's own icon.
      */
-    async createShortcut({ id, iconPng }) {
+    async createShortcut({ id, iconPng, iconSmall }) {
       const a = find(id);
-      const iconFile = iconPng ? await writeIcon(a, iconPng) : null;
+      const iconFile = iconPng ? await writeIcon(a, iconPng, iconSmall) : null;
       return { path: await makeShortcutFor(a, iconFile) };
     },
 
@@ -508,16 +640,23 @@ function createService(deps) {
      * Change an account's colour. If its desktop shortcut exists, it is
      * written again with the new icon so the colour follows it there too.
      */
-    async setColor({ id, color, iconPng }) {
+    async setColor({ id, color, iconPng, iconSmall }) {
       const a = find(id);
       if (!colors.isPaletteColor(color)) throw err('bad_color', 'Pick one of the colours shown.');
       a.color = color.toLowerCase();
       await persist();
 
       let shortcutUpdated = false;
-      if (iconPng && fs.existsSync(shortcutPathFor(a))) {
-        await makeShortcutFor(a, await writeIcon(a, iconPng));
-        shortcutUpdated = true;
+      if (iconPng) {
+        const file = await writeIcon(a, iconPng, iconSmall);
+        if (fs.existsSync(shortcutPathFor(a))) {
+          await makeShortcutFor(a, file);
+          shortcutUpdated = true;
+        }
+        if (lastRunning.has(a.id)) {
+          taskbarDone.delete(a.id);
+          lastTaskbarRun = applyTaskbar([a]);
+        }
       }
       return { ok: true, color: a.color, shortcutUpdated };
     },
@@ -540,6 +679,16 @@ function createService(deps) {
       // stream of false stop events into the activity log.
       if (ok && activity) {
         try { await activity.record(running); } catch { /* logging is best effort */ }
+      }
+
+      if (ok) {
+        lastRunning = new Set(running);
+        for (const id of [...taskbarDone]) if (!lastRunning.has(id)) taskbarDone.delete(id);
+        // Accounts started outside Multi-Claude (a shortcut, a .bat), or whose
+        // window wasn't up yet last time, get their taskbar button now.
+        const todo = data.accounts.filter((a) => lastRunning.has(a.id) && a.kind !== 'default'
+          && !taskbarDone.has(a.id) && !taskbarPending.has(a.id));
+        if (taskbarOn() && todo.length > 0) lastTaskbarRun = applyTaskbar(todo);
       }
 
       return { running, ok };
@@ -812,7 +961,9 @@ function createService(deps) {
     _setCloserForTest(c) { deps.closer = c; },
     _setSleepForTest(f) { deps.sleep = f; },
     _expirePlanCacheForTest() { for (const v of planCache.values()) v.at = 0; },
-    _setLocatorForTest(l) { locator = l; }
+    _setLocatorForTest(l) { locator = l; },
+    /** Resolves when the last taskbar run started by a call has finished. */
+    _taskbarIdle() { return Promise.resolve(lastTaskbarRun).then(() => taskbarQueue); }
   };
 }
 

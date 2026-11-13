@@ -15,7 +15,7 @@ Everything is per account. Nothing is summed or merged across accounts.
 | View | What it shows |
 |---|---|
 | **Dashboard** | One card per account: its own Session and Weekly limits, whether it is running, Launch/Close. Click a card to open the account. |
-| **Account page** | Everything about that one account: its usage limits, its actions (Launch/Close, folder, shortcut, rename, delete), its disk usage, and its launch history. |
+| **Account page** | Everything about that one account: its usage limits, its actions (Launch/Show/Close, shortcut, rename, delete), its disk usage, and its launch history. |
 | **Accounts** | The list of accounts with their actions; click one to open its page |
 | **History** | Which account was open, when, and for how long |
 | **Storage** | Per-profile disk usage split by category, with a cache purge |
@@ -121,6 +121,26 @@ That is the whole mechanism. Multi-Claude does **not**:
 - touch rate limits, quotas or device identity
 
 You sign in to each account yourself, inside Claude's own window.
+
+### One taskbar button per account (Windows)
+
+Normally every Claude window shares Claude's one taskbar button, so accounts look
+identical there. Multi-Claude gives each **added** account's Claude window a taskbar
+button of its own, with the account's colour and first letter, its name
+("Claude - Work") in the tooltip, and a pin that opens that account. The default
+account stays on Claude's own button, and Multi-Claude's own button always shows its
+own logo.
+
+It does this with four standard Windows shell properties set on the account's Claude
+windows from outside (the taskbar id `System.AppUserModel.ID` and the relaunch icon,
+name and command), after Launch or Show and when it sees an account running that
+doesn't have them yet. Nothing in Claude is changed or read. Right-clicking such a
+button shows Multi-Claude's pin rather than Claude's own menu.
+
+Turn it off on the **Accounts** page (**Separate taskbar button for each added
+account**); the windows go back onto Claude's button the next time each is shown.
+Not available on a Mac, where the Dock can't be split per window without copying
+Claude.
 
 ## What it will not do, on purpose
 

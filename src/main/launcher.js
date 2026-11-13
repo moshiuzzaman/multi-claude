@@ -7,8 +7,9 @@
 // Showing a running account uses the same mechanism. Claude holds a
 // single-instance lock per data folder, so starting it again for a folder that
 // is already open hands the request to the running copy, which brings its own
-// window forward (from the tray or minimised) and the new process exits. No
-// window is touched from outside.
+// window forward (from the tray or minimised) and the new process exits. Show
+// itself doesn't touch the window; the only thing Multi-Claude ever sets on
+// Claude's windows is their taskbar properties (see taskbar.js).
 
 function buildArgs(account) {
   // The default account is whatever Claude uses on its own, so it gets no flag.

@@ -105,6 +105,7 @@ if (!app.requestSingleInstanceLock()) {
       // Each account's shortcut icon, drawn in its colour.
       iconsDir: path.join(appDir, 'icons'),
       iconFormat: os_.iconFormat,
+      ...(os_.taskbar ? { taskbar: os_.taskbar } : {}),
       shellImpl: shell,
       desktopDir: app.getPath('desktop'),
       appExePath: process.execPath,

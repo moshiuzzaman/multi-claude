@@ -13,7 +13,8 @@ import Storage from './views/Storage.jsx';
 import AccountDetail from './views/AccountDetail.jsx';
 import UpdateFoot from './components/UpdateFoot.jsx';
 import logoMark from './assets/logo-mark.png';
-import { drawAccountIcon } from './lib/accountIcon.js';
+import { drawAccountIconSet } from './lib/accountIcon.js';
+import { colorOf, letterOf } from './lib/colors.js';
 
 const POLL_MS = 5000;
 
@@ -52,7 +53,9 @@ export default function App() {
   const say = useCallback((message, isError = false) => {
     clearTimeout(toastTimer.current);
     setToast({ message, isError });
-    toastTimer.current = setTimeout(() => setToast(null), isError ? 6500 : 3200);
+    // Long enough to read: about 55 ms a character, between 3.2 and 9 seconds.
+    const ms = isError ? 6500 : Math.min(9000, Math.max(3200, String(message).length * 55));
+    toastTimer.current = setTimeout(() => setToast(null), ms);
   }, []);
 
   const fail = useCallback((e) => {
@@ -125,6 +128,29 @@ export default function App() {
     loadScan();
     loadStorage();
   }, [loadAccounts, loadScan, loadStorage]);
+
+  // Settings that aren't about one account (the taskbar buttons).
+  const [settings, setSettings] = useState(null);
+  useEffect(() => { api.settings().then(setSettings).catch(() => {}); }, []);
+
+  // Every account's icon (colour + first letter) is saved once per change, so
+  // its taskbar button and desktop shortcut can use it. iconSigs remembers what
+  // was saved this session.
+  const iconSigs = useRef(new Map());
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      for (const a of accounts) {
+        const sig = `${colorOf(a)}|${letterOf(a.label)}`;
+        if (cancelled || iconSigs.current.get(a.id) === sig) continue;
+        try {
+          await api.saveIcon(a.id, await drawAccountIconSet(a));
+          iconSigs.current.set(a.id, sig);
+        } catch { /* tried again on the next change */ }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [accounts]);
 
   useEffect(() => {
     if ((view === 'dashboard' || view === 'history' || view === 'detail') && !activity) loadActivity(days);
@@ -256,21 +282,29 @@ export default function App() {
         say(`Removed ${a.label} from the list.`);
       } catch (e) { fail(e); }
     },
-    openFolder: async (a) => { try { await api.openFolder(a.id); } catch (e) { fail(e); } },
     shortcut: async (a) => {
       try {
         // The icon is the account's colour and letter; if it can't be drawn,
         // the shortcut still works with Multi-Claude's own icon.
         let icon = null;
-        try { icon = await drawAccountIcon(a); } catch { /* plain icon */ }
+        try { icon = await drawAccountIconSet(a); } catch { /* plain icon */ }
         await api.createShortcut(a.id, icon);
         say(`Desktop shortcut created for ${a.label}.`);
+      } catch (e) { fail(e); }
+    },
+    setTaskbarGroups: async (on) => {
+      try {
+        setSettings(await api.setTaskbarGroups(on));
+        say(on
+          ? 'Each added account now gets its own taskbar button.'
+          : 'Added accounts go back into Claude\'s taskbar button the next time each window is shown.');
       } catch (e) { fail(e); }
     },
     setColor: async (a, color) => {
       try {
         let icon = null;
-        try { icon = await drawAccountIcon({ ...a, color }); } catch { /* shortcut keeps its icon */ }
+        try { icon = await drawAccountIconSet({ ...a, color }); } catch { /* shortcut keeps its icon */ }
+        if (icon) iconSigs.current.set(a.id, `${color}|${letterOf(a.label)}`);
         const r = await api.setColor(a.id, color, icon);
         await loadAccounts();
         say(r && r.shortcutUpdated ? `${a.label}'s colour and desktop shortcut updated.` : `${a.label}'s colour updated.`);
@@ -286,7 +320,10 @@ export default function App() {
         } else if (r && r.launched) {
           say(`VS Code is opening, using ${a.label}.`);
         } else {
-          say(`VS Code is now using ${a.label}.`);
+          // An open VS Code switches in place, but Claude Code's own Account &
+          // Usage panel keeps the previous account's figures until a new Claude
+          // Code process starts (an extension issue, not this app's).
+          say(`VS Code now uses ${a.label}. Claude Code's usage panel updates when you reopen Claude or send your next message.`);
         }
       } catch (e) { fail(e); }
     },
@@ -322,7 +359,7 @@ export default function App() {
   };
 
   const shared = {
-    accounts, running, scanOk, sizes, activity, storage,
+    accounts, running, scanOk, sizes, activity, storage, settings,
     limits, limitsLoading,
     days, setDays: changeRange, actions, setView, openAccount
   };

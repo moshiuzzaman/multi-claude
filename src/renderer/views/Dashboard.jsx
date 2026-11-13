@@ -38,7 +38,7 @@ function AccountCard({ account, running, scanOk, limitRow, size, lastUsed, cliMi
     <div className={missing ? 'acct-card missing' : 'acct-card'} onClick={open} role="button" tabIndex={0}
          onKeyDown={(e) => { if (e.key === 'Enter') open(); }}>
       <div className="acct-card-head">
-        <Avatar account={account} size={36} status={!scanOk ? 'unknown' : isRunning ? 'running' : 'stopped'} />
+        <Avatar account={account} size={46} status={!scanOk ? 'unknown' : isRunning ? 'running' : 'stopped'} />
         <div className="acct-card-title">
           <div className="name">
             {account.label}
@@ -63,9 +63,12 @@ function AccountCard({ account, running, scanOk, limitRow, size, lastUsed, cliMi
             <button className="subtle" onClick={stop(() => actions.close(account))}>Close</button>
           </div>
         ) : (
-          <button className="primary" disabled={missing && !isDefault} onClick={stop(() => actions.launch(account))}>
-            Launch
-          </button>
+          <div className="acct-card-btns">
+            <button className="primary" disabled={missing && !isDefault} onClick={stop(() => actions.launch(account))}>
+              Launch
+            </button>
+            <button className="subtle" disabled title="Not running" onClick={stop(() => {})}>Close</button>
+          </div>
         )}
       </div>
 

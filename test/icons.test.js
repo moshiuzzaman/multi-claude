@@ -65,3 +65,29 @@ test('the wrappers refuse a non-PNG', () => {
 });
 
 
+test('pngToIco holds several sizes, each pointing at its own image', () => {
+  const big = fakePng(256, 256, 40);
+  const small = [fakePng(48, 48, 30), fakePng(16, 16, 20)];
+  const ico = I.pngToIco([big, ...small]);
+  assert.strictEqual(ico.readUInt16LE(4), 3);
+  const entries = [0, 1, 2].map((i) => ({
+    w: ico.readUInt8(6 + 16 * i), len: ico.readUInt32LE(6 + 16 * i + 8), off: ico.readUInt32LE(6 + 16 * i + 12)
+  }));
+  assert.deepStrictEqual(entries.map((e) => e.w), [0, 48, 16]);
+  assert.strictEqual(entries[0].off, 6 + 16 * 3);
+  [big, ...small].forEach((png, i) => {
+    assert.ok(ico.subarray(entries[i].off, entries[i].off + entries[i].len).equals(png));
+  });
+});
+
+test('smallPngsFromDataUrls takes only the small sizes, once each', () => {
+  assert.deepStrictEqual(I.smallPngsFromDataUrls(undefined), []);
+  const ok = I.smallPngsFromDataUrls([dataUrl(fakePng(48, 48)), dataUrl(fakePng(16, 16))]);
+  assert.strictEqual(ok.length, 2);
+  const bad = (v) => assert.throws(() => I.smallPngsFromDataUrls(v), (e) => e.code === 'bad_icon');
+  bad([dataUrl(fakePng(20, 20))]);
+  bad([dataUrl(fakePng(32, 32)), dataUrl(fakePng(32, 32))]);
+  bad([dataUrl(fakePng(256, 256))]);
+  bad('nope');
+  bad(new Array(8).fill(dataUrl(fakePng(16, 16))));
+});
