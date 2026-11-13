@@ -58,7 +58,11 @@ function createService(deps) {
 
   // ---- per-account Claude Code (for plan limits) ---------------------------
   const ccCli = deps.ccCli || {
-    find: () => ccCliMod.findClaudeCli(),
+    // Claude Desktop keeps its own Claude Code inside each profile folder, so
+    // the accounts' folders are searched as well as the usual install places.
+    find: () => ccCliMod.findClaudeCli({
+      profileDirs: [deps.defaultProfileDir, ...((data && data.accounts) || []).map((a) => a.dir)]
+    }),
     authStatus: (cli, dir) => ccCliMod.authStatus(cli, dir),
     openTerminal: (cli, dir, args, opts) => ccCliMod.openTerminal(cli, dir, args, opts)
   };
@@ -153,7 +157,7 @@ function createService(deps) {
     const found = await cli();
     if (!found) {
       throw err('no_claude_code',
-        'Claude Code is not installed. Install it from code.claude.com, then try again.');
+        'Claude Code was not found. Open the Code tab in Claude Desktop once, or install it from code.claude.com, then try again.');
     }
     return found;
   }

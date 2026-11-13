@@ -138,3 +138,56 @@ test('findClaudeCli returns null when none is installed', async () => {
   });
   assert.strictEqual(best, null);
 });
+
+// A fake disk: `files` maps a full path to the version that binary reports.
+function fakeDisk(files) {
+  const all = Object.keys(files);
+  return {
+    existsSync: (p) => p in files,
+    readdirSync: (dir) => {
+      const names = new Set();
+      for (const f of all) {
+        if (f.startsWith(dir + '\\')) names.add(f.slice(dir.length + 1).split('\\')[0]);
+      }
+      if (names.size === 0) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      return [...names];
+    }
+  };
+}
+
+test('findClaudeCli finds the copy Claude Desktop keeps in a profile folder', async () => {
+  const files = {
+    'L\\Claude-Data\\claude_abc\\claude-code\\2.1.321\\d0e23af87588\\claude.exe': '2.1.321 (Claude Code)',
+    'H\\ClaudeProfiles\\work\\claude-code\\2.1.317\\a33aa5518497\\claude.exe': '2.1.317 (Claude Code)'
+  };
+  const best = await CC.findClaudeCli({
+    env: { USERPROFILE: 'H', APPDATA: 'A', LOCALAPPDATA: 'L' },
+    fsImpl: fakeDisk(files),
+    run: async (p) => files[p],
+    profileDirs: ['H\\ClaudeProfiles\\work']
+  });
+  assert.deepStrictEqual(best.version, [2, 1, 321]);
+  assert.ok(best.path.startsWith('L\\Claude-Data\\claude_abc\\claude-code'));
+});
+
+test('findClaudeCli finds a classic Claude Desktop install and a copy on PATH', async () => {
+  const classic = { 'A\\Claude\\claude-code\\2.1.300\\claude.exe': '2.1.300 (Claude Code)' };
+  const a = await CC.findClaudeCli({
+    env: { USERPROFILE: 'H', APPDATA: 'A', LOCALAPPDATA: 'L' },
+    fsImpl: fakeDisk(classic), run: async (p) => classic[p]
+  });
+  assert.deepStrictEqual(a.version, [2, 1, 300]);
+
+  const onPath = { 'D\\tools\\claude.exe': '2.1.310 (Claude Code)' };
+  const b = await CC.findClaudeCli({
+    env: { USERPROFILE: 'H', APPDATA: 'A', LOCALAPPDATA: 'L', Path: 'C\\Windows;D\\tools;' },
+    fsImpl: fakeDisk(onPath), run: async (p) => onPath[p]
+  });
+  assert.strictEqual(b.path, 'D\\tools\\claude.exe');
+});
+
+test('candidatePaths lists each binary once', () => {
+  const files = { 'H\\.local\\bin\\claude.exe': 'x' };
+  const got = CC.candidatePaths({ USERPROFILE: 'H', APPDATA: 'A', LOCALAPPDATA: 'L', PATH: 'H\\.local\\bin' }, fakeDisk(files));
+  assert.deepStrictEqual(got, ['H\\.local\\bin\\claude.exe']);
+});

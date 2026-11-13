@@ -35,22 +35,79 @@ function compareVersions(a, b) {
   return 0;
 }
 
-/** Every place an official Claude Code binary is commonly installed. */
-function candidatePaths(env, fsImpl = fs) {
+// Editors that install the Claude Code extension the way VS Code does.
+const EDITOR_DIRS = ['.vscode', '.vscode-insiders', '.cursor', '.windsurf'];
+
+function listDir(fsImpl, dir) {
+  try { return fsImpl.readdirSync(dir).map(String); } catch { return []; }
+}
+
+/**
+ * The Claude Code copies Claude Desktop keeps inside one profile folder:
+ * <profile>\claude-code\<version>\<build>\claude.exe (older builds leave out
+ * the <build> level).
+ */
+function desktopCopies(profileDir, fsImpl) {
+  const out = [];
+  const root = path.join(profileDir, 'claude-code');
+  for (const version of listDir(fsImpl, root)) {
+    out.push(path.join(root, version, 'claude.exe'));
+    for (const build of listDir(fsImpl, path.join(root, version))) {
+      out.push(path.join(root, version, build, 'claude.exe'));
+    }
+  }
+  return out;
+}
+
+/**
+ * Every place an official Claude Code binary is commonly installed.
+ *
+ * A PC that only has Claude Desktop has no standalone install, npm package or
+ * editor extension — but Claude Desktop downloads its own copy into the
+ * profile folder the first time its Code tab is used, so those are searched
+ * too: the default profile (Store and classic builds) and `profileDirs`, the
+ * folders of the accounts Multi-Claude manages.
+ */
+function candidatePaths(env, fsImpl = fs, profileDirs = []) {
   const home = env.USERPROFILE || '';
   const out = [
     path.join(home, '.local', 'bin', 'claude.exe'),
     path.join(env.APPDATA || '', 'npm', 'claude.cmd')
   ];
-  const extDir = path.join(home, '.vscode', 'extensions');
-  try {
-    for (const name of fsImpl.readdirSync(extDir)) {
+
+  for (const editor of EDITOR_DIRS) {
+    const extDir = path.join(home, editor, 'extensions');
+    for (const name of listDir(fsImpl, extDir)) {
       if (name.startsWith('anthropic.claude-code-')) {
         out.push(path.join(extDir, name, 'resources', 'native-binary', 'claude.exe'));
       }
     }
-  } catch { /* no VS Code extensions */ }
-  return out.filter((p) => { try { return fsImpl.existsSync(p); } catch { return false; } });
+  }
+
+  const profiles = [...profileDirs];
+  if (env.APPDATA) profiles.push(path.join(env.APPDATA, 'Claude'));
+  if (env.LOCALAPPDATA) {
+    const store = path.join(env.LOCALAPPDATA, 'Claude-Data');
+    for (const family of listDir(fsImpl, store)) profiles.push(path.join(store, family));
+  }
+  for (const dir of profiles) {
+    if (dir) out.push(...desktopCopies(dir, fsImpl));
+  }
+
+  // Anything else the user installed and put on PATH.
+  for (const dir of String(env.PATH || env.Path || '').split(';')) {
+    const d = dir.trim().replace(/^"|"$/g, '');
+    if (!d) continue;
+    out.push(path.join(d, 'claude.exe'), path.join(d, 'claude.cmd'));
+  }
+
+  const seen = new Set();
+  return out.filter((p) => {
+    const key = p.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    try { return fsImpl.existsSync(p); } catch { return false; }
+  });
 }
 
 function runFile(file, args, opts = {}) {
@@ -68,9 +125,9 @@ function runFile(file, args, opts = {}) {
  * rate_limits field only exists in recent versions and this machine has
  * binaries spanning 2.1.112 to 2.1.319.
  */
-async function findClaudeCli({ env = process.env, fsImpl = fs, run = runFile } = {}) {
+async function findClaudeCli({ env = process.env, fsImpl = fs, run = runFile, profileDirs = [] } = {}) {
   let best = null;
-  for (const p of candidatePaths(env, fsImpl)) {
+  for (const p of candidatePaths(env, fsImpl, profileDirs)) {
     let v;
     try { v = parseVersion(await run(p, ['--version'])); } catch { continue; }
     if (!v) continue;

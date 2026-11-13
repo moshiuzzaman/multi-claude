@@ -101,8 +101,9 @@ export function LimitsBlock({ row, actions, busy, cliMissing }) {
   if (cliMissing) {
     return (
       <div className="note">
-        Claude Code isn't installed on this PC, and it's what reports usage limits.
-        Install it from code.claude.com, then refresh.
+        Claude Code wasn't found on this PC, and it's what reports usage limits. Open the
+        Code tab in Claude Desktop once so it downloads its own copy, or install Claude Code
+        from code.claude.com, then refresh.
       </div>
     );
   }
