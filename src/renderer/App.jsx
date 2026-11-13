@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { api } from './lib/api.js';
+import { api, isMac } from './lib/api.js';
 import Icon from './components/Icon.jsx';
 import DeleteDialog from './components/DeleteDialog.jsx';
 import QuitDialog from './components/QuitDialog.jsx';
@@ -182,7 +182,7 @@ export default function App() {
         const { closed, stillRunning } = await api.closeAccount(a.id);
         setQuitting(null);
         if (closed === 0) say(`${a.label} was not running.`);
-        else if (stillRunning) say(`${a.label} is still running. Try again, or end it from Task Manager.`, true);
+        else if (stillRunning) say(`${a.label} is still running. Try again, or end it from ${isMac ? 'Activity Monitor' : 'Task Manager'}.`, true);
         else say(`${a.label} closed.`);
       } catch (e) {
         setQuitting(null);
@@ -341,9 +341,9 @@ export default function App() {
       <main className="main">
         {exeMissing && (
           <div className="banner">
-            <span>Could not find claude.exe automatically.</span>
+            <span>Could not find {isMac ? 'Claude.app' : 'claude.exe'} automatically.</span>
             <span className="spacer" />
-            <button onClick={onLocateExe}>Locate claude.exe…</button>
+            <button onClick={onLocateExe}>Locate {isMac ? 'Claude.app' : 'claude.exe'}…</button>
           </div>
         )}
 

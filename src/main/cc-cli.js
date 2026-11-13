@@ -125,9 +125,9 @@ function runFile(file, args, opts = {}) {
  * rate_limits field only exists in recent versions and this machine has
  * binaries spanning 2.1.112 to 2.1.319.
  */
-async function findClaudeCli({ env = process.env, fsImpl = fs, run = runFile, profileDirs = [] } = {}) {
+async function findClaudeCli({ env = process.env, fsImpl = fs, run = runFile, profileDirs = [], candidates = candidatePaths } = {}) {
   let best = null;
-  for (const p of candidatePaths(env, fsImpl, profileDirs)) {
+  for (const p of candidates(env, fsImpl, profileDirs)) {
     let v;
     try { v = parseVersion(await run(p, ['--version'])); } catch { continue; }
     if (!v) continue;

@@ -17,11 +17,7 @@ const fsp = require('node:fs/promises');
 const { spawn } = require('node:child_process');
 
 const { createService } = require('./service.js');
-const { createLocator, resolveDefaultProfileDir } = require('./claude-locator.js');
-const { createLauncher } = require('./launcher.js');
-const { createScanner } = require('./scanner.js');
-const { createCloser } = require('./closer.js');
-const { runPowerShell } = require('./run-powershell.js');
+const { platformParts } = require('./platform.js');
 const { parseLaunchArg } = require('./argv.js');
 const ipc = require('./ipc.js');
 const { createUpdater } = require('./updater.js');
@@ -29,10 +25,13 @@ const updateHttp = require('./update-http.js');
 const updateConfig = require('./update-config.js');
 const { createCcInstaller } = require('./cc-install.js');
 
-if (process.platform !== 'win32') {
-  console.error('Multi-Claude is Windows-only.');
+if (process.platform !== 'win32' && process.platform !== 'darwin') {
+  console.error('Multi-Claude runs on Windows and macOS.');
   app.exit(1);
 }
+
+// Finding, starting, watching and quitting Claude: Windows or Mac versions.
+const os_ = platformParts({ shell });
 
 const RENDERER_DIR = path.join(__dirname, '..', '..', 'dist-renderer');
 
@@ -50,9 +49,7 @@ if (!app.requestSingleInstanceLock()) {
 
   async function buildService() {
     const userProfile = os.homedir();
-    const defaultProfileDir = await resolveDefaultProfileDir({
-      fsImpl: fs, env: process.env, runPowerShell
-    });
+    const defaultProfileDir = await os_.resolveDefaultProfileDir();
 
     const appDir = path.join(app.getPath('appData'), 'multi-claude');
 
@@ -66,8 +63,12 @@ if (!app.requestSingleInstanceLock()) {
         download: (url, dest, opts) => updateHttp.downloadVerified(url, dest, opts),
         rename: (from, to) => fsp.rename(from, to),
         remove: (p) => fsp.rm(p, { force: true }),
+        chmod: os_.chmod || null,
         rootDir: path.join(appDir, 'claude-code'),
-        arch: process.env.PROCESSOR_ARCHITEW6432 === 'ARM64' || process.env.PROCESSOR_ARCHITECTURE === 'ARM64' ? 'arm64' : 'x64'
+        os: os_.os,
+        arch: os_.os === 'darwin'
+          ? process.arch
+          : process.env.PROCESSOR_ARCHITEW6432 === 'ARM64' || process.env.PROCESSOR_ARCHITECTURE === 'ARM64' ? 'arm64' : 'x64'
       }),
       usageCacheFile: path.join(appDir, 'usage-cache.json'),
       storageCacheFile: path.join(appDir, 'storage-cache.json'),
@@ -76,7 +77,8 @@ if (!app.requestSingleInstanceLock()) {
       // One VS Code, one account at a time: the account is a setting in the
       // user's own settings.json, which the extension watches.
       vscodeSettingsFile: path.join(app.getPath('appData'), 'Code', 'User', 'settings.json'),
-      runPowerShell,
+      runPowerShell: os_.runPowerShell,
+      recordStatusLine: os_.recordStatusLine,
       recorderFile: path.join(appDir, 'limits-recorder.ps1'),
       activityFile: path.join(appDir, 'activity.jsonl'),
       // Claude Code's session logs. Home-based, so shared by every profile.
@@ -85,10 +87,13 @@ if (!app.requestSingleInstanceLock()) {
       profilesRoot: path.join(userProfile, 'ClaudeProfiles'),
       userProfile,
       defaultProfileDir,
-      locator: createLocator({ fsImpl: fs, env: process.env, runPowerShell }),
-      launcher: createLauncher({ spawnImpl: spawn }),
-      scanner: createScanner({ runPowerShell }),
-      closer: createCloser({ runPowerShell }),
+      locator: os_.locator,
+      launcher: os_.launcher,
+      scanner: os_.scanner,
+      closer: os_.closer,
+      ...(os_.vscode ? { vscode: os_.vscode } : {}),
+      ...(os_.ccCandidates ? { ccCandidates: os_.ccCandidates, ccOpenTerminal: os_.ccOpenTerminal } : {}),
+      ...(os_.makeShortcut ? { makeShortcut: os_.makeShortcut } : {}),
       shellImpl: shell,
       desktopDir: app.getPath('desktop'),
       appExePath: process.execPath,
@@ -98,9 +103,11 @@ if (!app.requestSingleInstanceLock()) {
   }
 
   function buildUpdater() {
+    // A Mac copy can't run the Windows installer, so like the portable build
+    // its Update opens the release page to download the new version.
     const mode = !app.isPackaged
       ? 'source'
-      : process.env.PORTABLE_EXECUTABLE_FILE ? 'portable' : 'installed';
+      : process.platform === 'darwin' || process.env.PORTABLE_EXECUTABLE_FILE ? 'portable' : 'installed';
     const tmpDir = path.join(os.tmpdir(), 'multi-claude-update');
     // An installer from an earlier update is finished with by now. Best effort:
     // right after an update it may still be exiting, and goes next launch.
@@ -183,7 +190,7 @@ if (!app.requestSingleInstanceLock()) {
       // A packaged build takes its window icon from the .exe, which electron-builder
       // stamps with build/icon.ico. Run from source, the window would otherwise
       // show Electron's own icon.
-      icon: app.isPackaged ? undefined : path.join(app.getAppPath(), 'build', 'icon.ico'),
+      icon: app.isPackaged || process.platform !== 'win32' ? undefined : path.join(app.getAppPath(), 'build', 'icon.ico'),
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
@@ -373,7 +380,7 @@ if (!app.requestSingleInstanceLock()) {
 
     registerAppProtocol();
     updater = buildUpdater();
-    ipc.register(service, updater);
+    ipc.register(service, updater, { exeLabel: os_.exeLabel, exeFilter: os_.exeFilter });
     createWindow();
     // Once per launch. Never downloads; the footer shows what it found.
     updater.check();

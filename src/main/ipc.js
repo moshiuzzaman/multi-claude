@@ -15,7 +15,7 @@ const CHANNELS = [
   'updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'updateOpenPage', 'updateQuit'
 ];
 
-function register(service, updater) {
+function register(service, updater, { exeLabel = 'claude.exe', exeFilter = { name: 'Claude', extensions: ['exe'] } } = {}) {
   const wrap = (fn) => async (_event, payload) => {
     try {
       return { ok: true, value: await fn(payload || {}) };
@@ -69,9 +69,9 @@ function register(service, updater) {
     // comes from a native file dialog rather than from renderer script.
     locateExe: async () => {
       const r = await dialog.showOpenDialog({
-        title: 'Locate claude.exe',
+        title: `Locate ${exeLabel}`,
         properties: ['openFile'],
-        filters: [{ name: 'Claude', extensions: ['exe'] }]
+        filters: [exeFilter]
       });
       if (r.canceled || r.filePaths.length === 0) return { path: null };
       await service.setExePath(r.filePaths[0]);

@@ -53,8 +53,8 @@ function parseProcessList(stdout) {
  * Walking stops as soon as the parent is not itself a claude.exe we know
  * about, so this can never climb out of the instance and into, say, explorer.
  */
-function findRootPids(processes, targetDir) {
-  const target = normalizeDir(targetDir);
+function findRootPids(processes, targetDir, normalize = normalizeDir) {
+  const target = normalize(targetDir);
   if (target === null) return [];
 
   const byPid = new Map(processes.map((p) => [p.pid, p]));

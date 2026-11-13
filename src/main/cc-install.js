@@ -30,8 +30,10 @@ function parseManifest(manifest, platform) {
   return { sha256, size: p.size };
 }
 
-function createCcInstaller({ fetchText, fetchJson, download, rename, remove, rootDir, arch }) {
-  const platform = arch === 'arm64' ? 'win32-arm64' : 'win32-x64';
+function createCcInstaller({ fetchText, fetchJson, download, rename, remove, chmod = null, rootDir, arch, os = 'win32' }) {
+  // Anthropic's manifest names: win32-x64, win32-arm64, darwin-x64, darwin-arm64.
+  const platform = `${os === 'darwin' ? 'darwin' : 'win32'}-${arch === 'arm64' ? 'arm64' : 'x64'}`;
+  const binary = os === 'darwin' ? 'claude' : 'claude.exe';
   let state = { state: 'idle' };
   const status = () => ({ ...state });
   const failed = (e, fallback) => {
@@ -57,13 +59,13 @@ function createCcInstaller({ fetchText, fetchJson, download, rename, remove, roo
     }
 
     const dir = path.join(rootDir, version);
-    const exe = path.join(dir, 'claude.exe');
+    const exe = path.join(dir, binary);
     // Downloaded under another name: a half-finished file must never be
     // mistaken for a working Claude Code if the app is closed midway.
     const part = `${exe}.download`;
     state = { state: 'downloading', version, size: info.size, progress: 0 };
     try {
-      await download(`${BASE_URL}/${version}/${platform}/claude.exe`, part, {
+      await download(`${BASE_URL}/${version}/${platform}/${binary}`, part, {
         sha256: info.sha256,
         size: info.size,
         onProgress: (p) => {
@@ -71,6 +73,8 @@ function createCcInstaller({ fetchText, fetchJson, download, rename, remove, roo
         }
       });
       await rename(part, exe);
+      // A Mac binary has to be marked runnable.
+      if (chmod) await chmod(exe, 0o755);
     } catch (e) {
       try { await remove(part); } catch { /* best effort */ }
       return failed(e, 'The download failed.');

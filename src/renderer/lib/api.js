@@ -16,6 +16,9 @@ async function call(name, payload) {
   return res.value;
 }
 
+/** True on a Mac. A few labels differ there; nothing else does. */
+export const isMac = !!(bridge && bridge.os === 'darwin');
+
 export const api = {
   list: () => call('list'),
   add: (label) => call('add', { label }),

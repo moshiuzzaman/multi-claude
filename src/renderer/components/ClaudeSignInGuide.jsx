@@ -8,7 +8,7 @@ import React from 'react';
  * account's profile, so Launch opens it signed in from then on.
  *
  * Continue with Google can't be used for an added account: it finishes in the
- * browser, and Windows hands Claude's return link to the default Claude, which
+ * browser, and the system hands Claude's return link to the default Claude, which
  * ignores it because it didn't start that sign-in. The email code is typed into
  * the account's own window, so it never leaves it. Multi-Claude never sees the
  * code or the sign-in; this dialog only explains the steps.

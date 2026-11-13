@@ -1,0 +1,63 @@
+# Builds the macOS app on a Mac and attaches it to the GitHub release.
+#
+# Windows builds are made locally with `npm run release`, which creates the
+# release; this job adds the Mac files (.dmg and .zip, Apple Silicon and Intel)
+# to the same release. It runs for every pushed version tag, and can be run by
+# hand for an existing tag from the Actions tab.
+#
+# The app is ad-hoc signed, not signed with an Apple Developer ID, so macOS asks
+# once on first open (right-click the app, then Open).
+
+name: Mac build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to build, for example v2.6.0'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  mac:
+    runs-on: macos-14
+    timeout-minutes: 60
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build the Mac app
+        run: npm run dist:mac
+        env:
+          # No Developer ID certificate: never search the keychain for one.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Attach to the release
+        run: |
+          set -euo pipefail
+          # The Windows release is usually made right after the tag is pushed.
+          # Wait for it, then upload; if it never appears, make a draft for it.
+          for i in $(seq 1 60); do
+            if gh release view "$TAG" >/dev/null 2>&1; then break; fi
+            if [ "$i" = 60 ]; then
+              gh release create "$TAG" --draft --title "$TAG" --notes "Mac build for $TAG."
+              break
+            fi
+            sleep 30
+          done
+          gh release upload "$TAG" dist/*.dmg dist/*.zip --clobber
