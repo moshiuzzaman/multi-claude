@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('multiClaude', {
   useVsCodeAccount: call('useVsCodeAccount'),
   ccInstallStart: call('ccInstallStart'),
   ccInstallStatus: call('ccInstallStatus'),
+  openGmail: call('openGmail'),
   loginStatus: call('loginStatus'),
   loginSubmit: call('loginSubmit'),
   loginCancel: call('loginCancel'),

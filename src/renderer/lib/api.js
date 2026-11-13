@@ -28,6 +28,7 @@ export const api = {
   useVsCodeAccount: (id) => call('useVsCodeAccount', { id }),
   ccInstallStart: () => call('ccInstallStart'),
   ccInstallStatus: () => call('ccInstallStatus'),
+  openGmail: () => call('openGmail'),
   loginStatus: (id) => call('loginStatus', { id }),
   loginSubmit: (id, code) => call('loginSubmit', { id, code }),
   loginCancel: (id) => call('loginCancel', { id }),
