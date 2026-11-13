@@ -20,6 +20,7 @@ const { createActivityLog, buildSessions, summariseActivity } = require('./activ
 const { breakdown, purgeCaches } = require('./storage.js');
 const { readAccountInfo } = require('./account-info.js');
 const { readDesktopSignIn } = require('./desktop-signin.js');
+const { readDesktopUsage } = require('./desktop-usage.js');
 const limitsMod = require('./limits.js');
 const ccCliMod = require('./cc-cli.js');
 const { createLoginManager } = require('./cc-login.js');
@@ -504,8 +505,11 @@ function createService(deps) {
       const rows = await Promise.all(data.accounts.map(async (a) => {
         // A free Claude plan can't sign in to Claude Code, so there is nothing
         // to ask: no process is started for it.
+        // What the account's own Claude window last recorded: shown when no
+        // live report is available, so limits need no second sign-in.
+        const desktop = fs.existsSync(a.dir) ? (deps.desktopUsage || readDesktopUsage)(a.dir) : null;
         if (a.freePlan === true) {
-          return { id: a.id, label: a.label, freePlan: true, connected: false, auth: { loggedIn: false }, plan: null, limits: null };
+          return { id: a.id, label: a.label, freePlan: true, connected: false, auth: { loggedIn: false }, plan: null, limits: null, desktop };
         }
         const dir = ccDirFor(a);
         const connected = !!dir && fs.existsSync(dir);
@@ -546,7 +550,7 @@ function createService(deps) {
         }
 
         const lim = connected ? await limitsMod.readLimits(path.join(dir, LIMITS_FILE), now) : null;
-        return { id: a.id, label: a.label, connected, auth, plan, limits: lim };
+        return { id: a.id, label: a.label, connected, auth, plan, limits: lim, desktop };
       }));
 
       return {

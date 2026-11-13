@@ -22,9 +22,18 @@ Everything is per account. Nothing is summed or merged across accounts.
 
 ## Usage limits per account
 
-Each account's Dashboard card and its own page show that account's real **Session (5hr)**
-and **Weekly** limits — the same numbers as Claude's own Account & Usage panel — through the one route
-Anthropic sanctions for it.
+Each account's Dashboard card and its own page show that account's **Session (5hr)** and
+**Weekly** limits, and an account needs only **one sign-in**: its own Claude window.
+
+**From Claude itself (the default).** Claude Desktop records its own usage in the profile
+(`plan-usage-history.json`): a sample a few times a day while it runs, as percentages.
+Multi-Claude shows the newest sample with its age ("From Claude · 2 hours ago"); there is no
+reset time in it. Only that file's numbers are read, and nothing is sent anywhere. See
+`desktop-usage.js`.
+
+**Live limits (optional).** For up-to-the-minute figures with reset times, **Live limits**
+on a card or the account's page connects that account to Anthropic's Claude Code through
+a browser sign-in, once. The rest of this section describes that route.
 
 **Why the app can't just read them like VS Code does.** VS Code, the Claude Code CLI and
 Claude Desktop are Anthropic's own apps. When you sign in, Anthropic's login hands *that
@@ -43,8 +52,8 @@ Every account gets its own Claude Code config folder
    Multi-Claude with no terminal window. Your browser opens; click **Authorize** with that
    account and the dialog finishes by itself. If the browser shows a code instead, paste it
    into the dialog: it goes straight to the Claude Code process, exactly like typing it
-   into a terminal, and is never stored or logged. New accounts do this automatically when
-   added (the *Also connect Claude Code* option).
+   into a terminal, and is never stored or logged. Nothing asks for this: it only happens
+   when you choose **Live limits**.
 2. **Fetching** — Multi-Claude then runs `claude -p "/usage"` for each signed-in account,
    hidden. `/usage` is a built-in command: Claude Code answers it from Anthropic's usage
    service and returns a structured report, **without calling a model**. Measured on this
@@ -69,14 +78,15 @@ used automatically; `/usage` reports need Claude Code 2.1.273 or later.
 
 **Free plans.** Claude Code only signs in Pro, Max and Ultra plans (and Team or
 Enterprise); for a free account the browser shows *Claude Max, Ultra, or Pro is required*
-and no code. Such an account works in Multi-Claude as usual but can't show usage limits.
+and no code. Such an account works in Multi-Claude as usual and shows the usage its Claude
+window records, but can't have live limits.
 Choose **It's a free plan, stop asking** in the sign-in dialog, or **Free plan?** on its
 card, and it stops asking to connect; Multi-Claude then never starts Claude Code for it.
 **Upgraded? Connect for usage limits** on its page undoes that.
 
 **A PC without Claude Code.** Claude Desktop downloads its own copy into the profile
 folder the first time its Code tab is opened, and Multi-Claude finds that copy. If there
-is none at all, the Dashboard and the account page show **Set up usage limits**. One click
+is none at all, choosing **Live limits** shows **Set up usage limits** on the account's page. One click
 downloads Anthropic's official Claude Code (about 350 MB) the same way Anthropic's own
 install script does: it asks `downloads.claude.ai` for the newest version, reads that
 version's manifest, downloads `claude.exe`, and keeps it only if its size and SHA-256 match
@@ -367,8 +377,9 @@ goes stale. Clicking one launches the profile without opening the manager window
   account whose window isn't signed in shows **Not signed in**, and Launch brings the
   steps up with the window (also under **Sign-in help** on its page). Multi-Claude tells
   only from the names of the settings in the profile's `config.json`; it never reads a
-  token. The Claude window and Claude Code (usage limits) are separate sign-ins and are
-  never copied from one to the other, so Create account does both, one after the other.
+  token. That one sign-in is all an account needs: its usage limits come from what its
+  Claude window records. Claude Code (for optional live limits) is a separate sign-in that
+  is never copied from the window's.
   Multi-Claude does not reroute the link: it carries the sign-in code, and Multi-Claude
   never handles a credential.
 - Shortcut icons use the Multi-Claude icon, not Claude's.
