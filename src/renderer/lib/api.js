@@ -29,6 +29,7 @@ export const api = {
   ccInstallStart: () => call('ccInstallStart'),
   ccInstallStatus: () => call('ccInstallStatus'),
   openGmail: () => call('openGmail'),
+  setFreePlan: (id, free) => call('setFreePlan', { id, free }),
   loginStatus: (id) => call('loginStatus', { id }),
   loginSubmit: (id, code) => call('loginSubmit', { id, code }),
   loginCancel: (id) => call('loginCancel', { id }),

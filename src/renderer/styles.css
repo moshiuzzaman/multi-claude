@@ -857,3 +857,21 @@ button.link.guide-reopen {
   font-size: 12px; text-decoration: underline; cursor: pointer;
 }
 button.link.guide-reopen:hover { color: var(--text); }
+
+/* ------------------------------------------------------- free plan --- */
+.signin-free {
+  margin: 4px 0 10px; padding: 10px 12px; border-radius: 10px; font-size: 12px; line-height: 1.5;
+  color: var(--muted); background: rgba(255, 255, 255, 0.035); border: 1px solid var(--glass-border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.signin-free strong { color: var(--text); }
+.signin-free > button { align-self: flex-start; }
+.note.free-plan { display: flex; flex-direction: column; gap: 10px; }
+.note.free-plan strong { color: var(--text); }
+.note.free-plan > button { align-self: flex-start; }
+.connect-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+button.link.inline-link {
+  background: none; border: none; padding: 0; color: var(--muted);
+  font-size: inherit; text-decoration: underline; cursor: pointer;
+}
+button.link.inline-link:hover { color: var(--text); }

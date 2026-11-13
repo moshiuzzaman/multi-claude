@@ -861,3 +861,39 @@ test('openGmail opens only the fixed Gmail address', async () => {
   assert.deepStrictEqual(h.opened, ['https://mail.google.com/']);
   cleanup(h);
 });
+
+test('a free-plan account is never asked about Claude Code, and survives a reload', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Free One' });
+  await h.svc.connectAccount({ id: a.id });
+  h.authReply.value = { loggedIn: true };
+
+  const res = await h.svc.setFreePlan({ id: a.id, free: true });
+  assert.strictEqual(res.freePlan, true);
+  const row = (await h.svc.limits({ force: true })).accounts.find((r) => r.id === a.id);
+  assert.strictEqual(row.freePlan, true);
+  assert.strictEqual(row.plan, null);
+  assert.strictEqual(h.authCalls.length, 0, 'no Claude Code process for a free account');
+  assert.strictEqual(h.usageFetches.length, 0);
+
+  const saved = JSON.parse(fs.readFileSync(path.join(h.base, 'cfg', 'accounts.json'), 'utf8'));
+  assert.strictEqual(saved.accounts.find((x) => x.id === a.id).freePlan, true);
+
+  await h.svc.setFreePlan({ id: a.id, free: false });
+  const again = (await h.svc.limits({ force: true })).accounts.find((r) => r.id === a.id);
+  assert.notStrictEqual(again.freePlan, true);
+  assert.strictEqual(h.authCalls.length, 1, 'undoing it asks Claude Code again');
+  assert.strictEqual(
+    JSON.parse(fs.readFileSync(path.join(h.base, 'cfg', 'accounts.json'), 'utf8')).accounts.find((x) => x.id === a.id).freePlan,
+    undefined
+  );
+  cleanup(h);
+});
+
+test('setFreePlan rejects an unknown account', async () => {
+  const h = harness();
+  await h.svc.init();
+  await assert.rejects(() => h.svc.setFreePlan({ id: 'deadbeef', free: true }));
+  cleanup(h);
+});

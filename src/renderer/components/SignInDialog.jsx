@@ -9,7 +9,7 @@ import { api } from '../lib/api.js';
  * If the browser shows a code instead, paste it here: it goes straight to the
  * Claude Code process, like typing into a terminal, and is not kept.
  */
-export default function SignInDialog({ account, onDone, onClose }) {
+export default function SignInDialog({ account, onDone, onClose, onFreePlan }) {
   const [state, setState] = useState('starting');
   const [message, setMessage] = useState(null);
   const [hasPage, setHasPage] = useState(false);
@@ -107,6 +107,22 @@ export default function SignInDialog({ account, onDone, onClose }) {
               Make sure the browser is signed in to the same account as this profile. If it's
               a different one, switch accounts on that page before authorizing.
             </p>
+
+            <div className="signin-free">
+              <span>
+                Browser says <strong>Claude Max, Ultra, or Pro is required</strong>? This account
+                is on the free plan. Claude Code can't connect free accounts, so it can't show
+                usage limits. Everything else in Multi-Claude still works.
+              </span>
+              {onFreePlan && (
+                <button className="ghost" onClick={async () => {
+                  try { await api.loginCancel(account.id); } catch { /* closing anyway */ }
+                  onFreePlan(account);
+                }}>
+                  It's a free plan, stop asking
+                </button>
+              )}
+            </div>
 
             {!showPaste ? (
               <button className="link" onClick={() => setShowPaste(true)}>

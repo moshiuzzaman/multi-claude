@@ -285,6 +285,22 @@ function createService(deps) {
       return account;
     },
 
+    /**
+     * Mark an account as on Claude's free plan, or not. Claude Code only signs
+     * in Pro, Max and Ultra (and Team/Enterprise) accounts, so a free one can
+     * never show usage limits; marked free, it stops asking to connect.
+     */
+    async setFreePlan({ id, free }) {
+      const a = find(id);
+      if (free) a.freePlan = true;
+      else delete a.freePlan;
+      authCache.delete(id);
+      planCache.delete(id);
+      planHalted.delete(id);
+      await persist();
+      return { ok: true, freePlan: a.freePlan === true };
+    },
+
     async rename({ id, label }) {
       const clean = String(label || '').trim();
       if (clean === '') throw err('bad_label', 'Give the account a name.');
@@ -477,6 +493,11 @@ function createService(deps) {
       const now = Date.now();
 
       const rows = await Promise.all(data.accounts.map(async (a) => {
+        // A free Claude plan can't sign in to Claude Code, so there is nothing
+        // to ask: no process is started for it.
+        if (a.freePlan === true) {
+          return { id: a.id, label: a.label, freePlan: true, connected: false, auth: { loggedIn: false }, plan: null, limits: null };
+        }
         const dir = ccDirFor(a);
         const connected = !!dir && fs.existsSync(dir);
         let auth = { loggedIn: false };
