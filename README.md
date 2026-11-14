@@ -96,6 +96,29 @@ unlike the install script, Multi-Claude never runs `claude install`, so your PAT
 folder are not changed. Claude Code is not bundled with Multi-Claude; it only ever comes
 from Anthropic's server, and only when you click.
 
+### One account per profile
+
+Each profile should be signed in to its own Claude account. Otherwise two cards show the
+same usage, and both windows write the same account's chats. Multi-Claude checks this
+every time it reads the account list:
+
+- **Same account as Work:** two profiles are signed in to the same Claude account. Both
+  show the warning. The account's page says how to fix it: in one of them, sign out in
+  Claude and sign in with another account, or delete the extra profile.
+- **Different account:** a profile is now signed in to another account than the one it
+  had. Its page offers **Keep this account** if that's on purpose. Otherwise, sign out in
+  its window and sign in with the old account.
+
+How it knows:
+
+- Claude records the signed-in account's id in the profile's `config.json`
+  (`lastKnownAccountUuid`). This is an id, not a token or a password.
+- Multi-Claude reads that one value and keeps only a one-way fingerprint of it, saved as
+  `accountKey` in `accounts.json`. The first one seen for each profile becomes "its"
+  account.
+- The id itself is never saved, shown or sent anywhere, and the fingerprint never leaves
+  the main process.
+
 ### Tray icon
 
 Multi-Claude has an icon in the Windows tray (the Mac menu bar).
@@ -493,7 +516,9 @@ goes stale. Clicking one launches the profile without opening the manager window
   account whose window isn't signed in shows **Not signed in**, and Launch brings the
   steps up with the window (also under **Sign-in help** on its page). Multi-Claude tells
   only from the names of the settings in the profile's `config.json`; it never reads a
-  token. That one sign-in is all an account needs: its usage limits come from what its
+  token. For the same-account check (below) it also reads one value there, the account's
+  id (`lastKnownAccountUuid`, an id, not a token), and keeps only a one-way fingerprint of
+  it. That one sign-in is all an account needs: its usage limits come from what its
   Claude window records. Claude Code (for optional live limits) is a separate sign-in that
   is never copied from the window's.
   Multi-Claude does not reroute the link: it carries the sign-in code, and Multi-Claude

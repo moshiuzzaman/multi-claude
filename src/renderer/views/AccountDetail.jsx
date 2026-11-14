@@ -5,6 +5,7 @@ import { colorOf, colorName } from '../lib/colors.js';
 import StackedBar from '../charts/StackedBar.jsx';
 import { LimitsBlock } from '../components/AccountLimits.jsx';
 import UsageHistory from '../components/UsageHistory.jsx';
+import { AccountCheckPill, AccountCheckBanner } from '../components/AccountCheck.jsx';
 import { STORAGE_CATEGORIES } from '../lib/storageCategories.js';
 import { bytes, duration, relativeTime, clockTime } from '../lib/format.js';
 
@@ -79,6 +80,7 @@ export default function AccountDetail({
                 Not signed in
               </span>
             )}
+            <span style={{ marginLeft: 10 }}><AccountCheckPill account={account} /></span>
           </h1>
           <div className="sub detail-path" title={account.dir}>
             {missing ? 'Folder missing' : account.dir}
@@ -139,6 +141,8 @@ export default function AccountDetail({
           </label>
         )}
       </div>
+
+      <AccountCheckBanner account={account} actions={actions} />
 
       <div className="stack">
         <div className="panel">

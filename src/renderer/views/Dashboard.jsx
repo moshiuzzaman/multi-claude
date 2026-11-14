@@ -2,6 +2,7 @@ import React from 'react';
 import { Meter, desktopMeters, DesktopAsOf } from '../components/AccountLimits.jsx';
 import { bytes, relativeTime } from '../lib/format.js';
 import { Avatar } from '../components/Avatar.jsx';
+import { AccountCheckPill } from '../components/AccountCheck.jsx';
 
 /**
  * One card per account. Each card shows only that account's own figures —
@@ -48,6 +49,7 @@ function AccountCard({ account, running, scanOk, limitRow, size, lastUsed, cliMi
                 Not signed in
               </span>
             )}
+            <AccountCheckPill account={account} />
           </div>
           <div className="acct-card-sub">
             {account.signedIn === false ? 'Claude window not signed in yet'

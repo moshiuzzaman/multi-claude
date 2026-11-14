@@ -541,6 +541,9 @@ button.ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); }
   color: #f6dca6; font-size: 12.5px; margin-bottom: 14px;
 }
 .banner .spacer { flex: 1; }
+.banner.account-check { align-items: center; line-height: 1.5; }
+.banner.account-check strong { color: #fbe7bd; font-weight: 600; }
+.banner.account-check button { flex-shrink: 0; }
 
 .empty { color: var(--muted); text-align: center; padding: 44px 0; font-size: 12.5px; }
 

@@ -23,7 +23,8 @@ const { buildDashboard } = require('./usage-aggregate.js');
 const { createActivityLog, buildSessions, summariseActivity } = require('./activity-log.js');
 const { breakdown, purgeCaches } = require('./storage.js');
 const { readAccountInfo } = require('./account-info.js');
-const { readDesktopSignIn } = require('./desktop-signin.js');
+const { readDesktopSignIn, readDesktopAccountKey } = require('./desktop-signin.js');
+const accountCheck = require('./account-check.js');
 const { readDesktopUsage, readDesktopSamples } = require('./desktop-usage.js');
 const usageHistory = require('./usage-history.js');
 const limitsMod = require('./limits.js');
@@ -452,13 +453,49 @@ function createService(deps) {
     },
 
     async list() {
+      // Which Claude account each profile is signed in to, as a fingerprint
+      // only (account-check.js). The first one seen is remembered as its own.
+      const current = new Map();
+      for (const a of data.accounts) {
+        const key = fs.existsSync(a.dir) ? (deps.desktopAccountKey || readDesktopAccountKey)(a.dir) : null;
+        if (key) current.set(a.id, key);
+      }
+      if (accountCheck.bindNewAccounts(data.accounts, current)) await persist();
+      const states = accountCheck.accountStates(data.accounts, current);
+      const labelOf = new Map(data.accounts.map((a) => [a.id, a.label]));
+
       return data.accounts.map((a) => {
         const exists = fs.existsSync(a.dir);
         // Whether the account's own Claude window is signed in: true, false,
         // or null when it can't be told. See desktop-signin.js.
         const signedIn = exists ? (deps.desktopSignIn || readDesktopSignIn)(a.dir) : null;
-        return { ...a, exists, signedIn };
+        const st = states.get(a.id);
+        // The fingerprint stays in the main process.
+        const { accountKey, ...rest } = a;
+        void accountKey;
+        return {
+          ...rest,
+          exists,
+          signedIn,
+          accountCheck: {
+            kind: st.kind,
+            sharedWith: st.sharedWith.map((id) => ({ id, label: labelOf.get(id) }))
+          }
+        };
       });
+    },
+
+    /**
+     * The profile is now signed in to a different account than before, and
+     * the user wants to keep it: that account becomes its own from now on.
+     */
+    async acceptAccount({ id }) {
+      const a = find(id);
+      const key = fs.existsSync(a.dir) ? (deps.desktopAccountKey || readDesktopAccountKey)(a.dir) : null;
+      if (!key) throw err('not_signed_in', "This account's Claude window isn't signed in.");
+      a.accountKey = key;
+      await persist();
+      return { ok: true };
     },
 
     async add({ label }) {

@@ -1413,3 +1413,50 @@ test('tray: close-to-tray setting, the one-time notice, and the menu snapshot', 
   assert.deepStrictEqual([...snap.running], [a.id], 'the background check scans, so the tray knows what runs');
   cleanup(h);
 });
+
+// ---- same-account check ---------------------------------------------------------
+
+test('account check: first account is remembered, then a change or a shared account is flagged', async () => {
+  const keys = new Map();
+  const h = harness({ desktopAccountKey: (dir) => keys.get(path.basename(dir)) || null });
+  await h.svc.init();
+  const work = await h.svc.add({ label: 'Work' });
+  const home = await h.svc.add({ label: 'Home' });
+  const state = async (id) => (await h.svc.list()).find((a) => a.id === id).accountCheck;
+
+  assert.deepStrictEqual(await state(work.id), { kind: 'none', sharedWith: [] }, 'not signed in yet');
+  keys.set('work', 'k-work');
+  keys.set('home', 'k-home');
+  assert.deepStrictEqual(await state(work.id), { kind: 'ok', sharedWith: [] });
+  const listed = (await h.svc.list()).find((a) => a.id === work.id);
+  assert.ok(!('accountKey' in listed), 'the fingerprint never reaches the screen');
+
+  keys.set('home', 'k-work');
+  assert.deepStrictEqual(await state(home.id), { kind: 'mismatch', sharedWith: [{ id: work.id, label: 'Work' }] });
+  assert.deepStrictEqual(await state(work.id), { kind: 'ok', sharedWith: [{ id: home.id, label: 'Home' }] });
+
+  keys.set('home', 'k-new');
+  assert.strictEqual((await state(home.id)).kind, 'mismatch');
+  await h.svc.acceptAccount({ id: home.id });
+  assert.deepStrictEqual(await state(home.id), { kind: 'ok', sharedWith: [] }, 'kept the new account');
+
+  const saved = JSON.parse(fs.readFileSync(path.join(h.base, 'cfg', 'accounts.json'), 'utf8'));
+  assert.strictEqual(saved.accounts.find((a) => a.id === home.id).accountKey, 'k-new', 'only the fingerprint is saved');
+  cleanup(h);
+});
+
+test('account check: a new profile signed in to an account already in use is not bound to it', async () => {
+  const keys = new Map([['work', 'same'], ['dup', 'same']]);
+  const h = harness({ desktopAccountKey: (dir) => keys.get(path.basename(dir)) || null });
+  await h.svc.init();
+  const work = await h.svc.add({ label: 'Work' });
+  await h.svc.list(); // Work binds first
+  const dup = await h.svc.add({ label: 'Dup' });
+  const st = (await h.svc.list()).find((a) => a.id === dup.id).accountCheck;
+  assert.deepStrictEqual(st, { kind: 'ok', sharedWith: [{ id: work.id, label: 'Work' }] });
+  keys.set('dup', 'own');
+  assert.deepStrictEqual((await h.svc.list()).find((a) => a.id === dup.id).accountCheck, { kind: 'ok', sharedWith: [] },
+    'once it signs in to its own account, that one becomes its own');
+  await assert.rejects(() => { keys.delete('dup'); return h.svc.acceptAccount({ id: dup.id }); }, /isn't signed in/);
+  cleanup(h);
+});

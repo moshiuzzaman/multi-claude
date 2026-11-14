@@ -303,6 +303,13 @@ export default function App() {
           : 'Added accounts go back into Claude\'s taskbar button the next time each window is shown.');
       } catch (e) { fail(e); }
     },
+    acceptAccount: async (a) => {
+      try {
+        await api.acceptAccount(a.id);
+        await loadAccounts();
+        say(`${a.label} now keeps the account it's signed in to.`);
+      } catch (e) { fail(e); }
+    },
     setCloseToTray: async (on) => {
       try {
         setSettings(await api.setCloseToTray(on));

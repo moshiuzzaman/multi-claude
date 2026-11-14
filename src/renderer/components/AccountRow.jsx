@@ -1,4 +1,5 @@
 import React from 'react';
+import { AccountCheckPill } from './AccountCheck.jsx';
 import { bytes, relativeTime } from '../lib/format.js';
 import { Avatar } from './Avatar.jsx';
 
@@ -35,6 +36,7 @@ export default function AccountRow({ account, running, scanOk, size, lastUsed, a
               Not signed in
             </span>
           )}
+          <AccountCheckPill account={account} />
           {/* No "Running" pill: the dot and the Close button already say so. */}
         </div>
         <div className="meta" title={account.dir}>{meta.join('  ·  ')}</div>

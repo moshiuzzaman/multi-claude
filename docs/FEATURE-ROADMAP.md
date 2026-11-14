@@ -68,7 +68,7 @@ Rejected: <ideas not taken, and why>
 | 1 | Bring a running account to the front | Core | S | Done (Mac untested) |
 | 2 | Per-account colour | Core | M | Done (Mac and installed build untested) |
 | 3 | Own taskbar group per account (Windows) | Core | L | Done (installed build and pinning untested) |
-| 4 | Same-account and wrong-account warning | Core | S | Needs decision |
+| 4 | Same-account and wrong-account warning | Core | S | Done (warning not yet seen in a real duplicate) |
 | 5 | Folder-to-account link for VS Code | Core | M | Analysed (needs your decision: planned approach doesn't work) |
 | 6 | Guided Google sign-in (Mac) | Core | M | To do |
 | 7 | Tray / menu-bar icon | High | M | Done (Mac untested) |
@@ -468,7 +468,40 @@ Each profile must stay one account, or the whole side-by-side setup breaks.
 - What choices does it offer on a mismatch (switch back, keep, remove duplicate)?
 - Is there a way to detect duplicates without reading the ID's value?
 
-**Analysis notes:** _Not analysed yet._
+**Analysis notes (2026-11-14):**
+- *KeyboardCowboy* (`lib/accounts.js`) reads `lastKnownAccountUuid` and checks that it's
+  shaped like a UUID. There is no email in the file, so it asks the user for one as a
+  label.
+  - `bindNewAccounts`: the first account seen is remembered for each profile, unless
+    another profile already uses it.
+  - `accountStates`: `none` / `ok` / `mismatch`, plus `sharedWith`.
+  - On a mismatch it offers switch back, keep, or remove the duplicate, and it refuses to
+    open one account in two profiles.
+- *Take:* the bind-first rule, the states and the "keep the new account" choice.
+- *Do differently:*
+  - Store a salted SHA-256 fingerprint (24 hex characters), never the id, and don't ask for
+    emails.
+  - Warn, don't block launching. Blocking would be a behaviour change the README doesn't
+    promise.
+- *Without reading the value?* No. Setting names can't tell two accounts apart.
+- *Decision:* you OK'd reading the id (2026-11-14) after being told it is an id, not a
+  token.
+
+**Built (2026-11-14):**
+- `readDesktopAccountKey()` in `desktop-signin.js`.
+- `src/main/account-check.js` holds the rules.
+- `service.list()` adds `accountCheck`; the fingerprint is kept out of what the screen gets.
+- `acceptAccount()` is the "keep this account" action.
+- The pill (card, row, page) and the explanation banner come from `AccountCheck.jsx`.
+- README updated: "One account per profile", and the sign-in note on what is read.
+
+**Verification**
+
+| Check | Result |
+|---|---|
+| Unit tests: fingerprint (never the id, case-insensitive, odd values), bind-first, shared, mismatch, keep, not shown to the screen | ✅ 417 pass |
+| Your 3 accounts: all get a fingerprint, no false warning | ✅ |
+| A real duplicate or changed account showing the warning | ⏳ only seen if it happens |
 
 **Where in Multi-Claude:** `src/main/desktop-signin.js` reads only setting *names* from
 `config.json` today. This needs the *value* of `lastKnownAccountUuid` (an account ID,

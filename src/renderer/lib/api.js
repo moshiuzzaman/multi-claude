@@ -51,6 +51,7 @@ export const api = {
   testAlert: () => call('testAlert'),
   usageHistory: (id, days) => call('usageHistory', { id, days }),
   setCloseToTray: (on) => call('setCloseToTray', { on }),
+  acceptAccount: (id) => call('acceptAccount', { id }),
   /** Run fn(id) when a clicked limit alert asks for an account's page. */
   onOpenAccount: (fn) => (bridge && bridge.onOpenAccount ? bridge.onOpenAccount(fn) : () => {}),
   locateExe: () => call('locateExe'),
