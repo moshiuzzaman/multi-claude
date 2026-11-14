@@ -7,11 +7,13 @@ import WhatsNewDialog from './WhatsNewDialog.jsx';
 const MOVING = ['idle', 'checking', 'downloading', 'installing'];
 
 /**
- * The update line in the sidebar footer. Multi-Claude checks once when it
- * opens; this shows the result and is the only place an update is started.
+ * The update line in the sidebar footer. Multi-Claude checks when it starts,
+ * every few hours, and when its window is reopened from the tray; this shows
+ * the result and is the only place an update is started.
  *
- * When the check finds a newer version, the update dialog opens on its own —
- * once per launch. A major version opens it locked, until the user updates
+ * When a check finds a newer version, the update dialog opens on its own. It
+ * opens again when the window is reopened, and whenever the refresh button
+ * finds an update. A major version opens it locked, until the user updates
  * or quits.
  */
 export default function UpdateFoot() {
@@ -26,6 +28,13 @@ export default function UpdateFoot() {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // The main process checked again (timer, window reopened, tray menu).
+  // A prompt opens the dialog even for a version it was already shown for.
+  useEffect(() => api.onUpdateEvent(async ({ prompt }) => {
+    if (prompt) promptedFor.current = null;
+    await refresh();
+  }), [refresh]);
 
   const moving = !st || MOVING.includes(st.state);
   useEffect(() => {
@@ -69,6 +78,12 @@ export default function UpdateFoot() {
     await held;
     if (next) setSt(next); else await refresh();
     setRechecking(false);
+    // Asked for by hand: show the update even if its dialog was closed before.
+    if (next && next.state === 'available') {
+      promptedFor.current = next.latest;
+      setPrompted(true);
+      setShowNotes(true);
+    }
   };
 
   const retry = () => (st.state === 'failed' ? install() : checkNow());

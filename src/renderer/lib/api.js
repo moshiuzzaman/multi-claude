@@ -54,6 +54,8 @@ export const api = {
   acceptAccount: (id) => call('acceptAccount', { id }),
   /** Run fn(id) when a clicked limit alert asks for an account's page. */
   onOpenAccount: (fn) => (bridge && bridge.onOpenAccount ? bridge.onOpenAccount(fn) : () => {}),
+  /** Run fn({ prompt }) when the main process checked for updates again. */
+  onUpdateEvent: (fn) => (bridge && bridge.onUpdateEvent ? bridge.onUpdateEvent(fn) : () => {}),
   locateExe: () => call('locateExe'),
   scan: () => call('scan'),
   sizes: () => call('sizes'),
