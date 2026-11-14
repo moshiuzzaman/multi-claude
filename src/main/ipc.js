@@ -12,7 +12,7 @@ const CHANNELS = [
   'limits', 'connectAccount', 'openClaudeCode', 'useVsCodeAccount',
   'loginStatus', 'loginSubmit', 'loginCancel', 'loginOpenPage',
   'ccInstallStart', 'ccInstallStatus', 'openGmail', 'setFreePlan', 'setColor', 'saveIcon', 'settings', 'setTaskbarGroups',
-  'setAlerts', 'setMuteAlerts', 'testAlert', 'usageHistory', 'setCloseToTray',
+  'setAlerts', 'setMuteAlerts', 'testAlert', 'usageHistory', 'setCloseToTray', 'acceptAccount',
   'updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'updateOpenPage', 'updateQuit'
 ];
 
@@ -49,6 +49,7 @@ function register(service, updater, { exeLabel = 'claude.exe', exeFilter = { nam
     testAlert: () => service.testAlert(),
     usageHistory: (p) => service.usageHistory(p),
     setCloseToTray: (p) => service.setCloseToTray(p),
+    acceptAccount: (p) => service.acceptAccount(p),
     loginStatus: (p) => service.loginStatus(p),
     loginSubmit: (p) => service.loginSubmit(p),
     loginCancel: (p) => service.loginCancel(p),
