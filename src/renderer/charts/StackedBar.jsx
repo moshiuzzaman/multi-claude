@@ -9,7 +9,7 @@ import { bytes } from '../lib/format.js';
  * and tooltips are doing real work, not decoration — never rely on the fill
  * alone to tell them apart.
  */
-export default function StackedBar({ segments, total }) {
+export default function StackedBar({ segments, total, legend = true }) {
   const [hover, setHover] = useState(null);
   const sum = total || segments.reduce((a, s) => a + s.value, 0);
 
@@ -51,14 +51,14 @@ export default function StackedBar({ segments, total }) {
         </div>
       )}
 
-      <div className="legend">
+      {legend && <div className="legend">
         {segments.map((s) => (
           <span className="legend-item" key={s.key}>
             <span className="swatch" style={{ background: s.color }} />
             {s.label} <strong style={{ color: 'var(--text)', fontWeight: 560 }}>{bytes(s.value)}</strong>
           </span>
         ))}
-      </div>
+      </div>}
     </div>
   );
 }

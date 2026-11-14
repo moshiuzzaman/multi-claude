@@ -24,7 +24,8 @@ const { createActivityLog, buildSessions, summariseActivity } = require('./activ
 const { breakdown, purgeCaches } = require('./storage.js');
 const { readAccountInfo } = require('./account-info.js');
 const { readDesktopSignIn } = require('./desktop-signin.js');
-const { readDesktopUsage } = require('./desktop-usage.js');
+const { readDesktopUsage, readDesktopSamples } = require('./desktop-usage.js');
+const usageHistory = require('./usage-history.js');
 const limitsMod = require('./limits.js');
 const ccCliMod = require('./cc-cli.js');
 const { createLoginManager } = require('./cc-login.js');
@@ -38,7 +39,8 @@ const GMAIL_URL = 'https://mail.google.com/';
 const AUTH_TTL_MS = 2 * 60 * 1000;
 // How long a fetched /usage report is reused before Claude Code is asked again.
 const PLAN_TTL_MS = 90 * 1000;
-// The background alert check skips a run when the screen fetched limits this recently.
+// The background check (limit alerts and usage history) skips a run when the
+// screen fetched limits this recently.
 const ALERT_FRESH_MS = 4 * 60 * 1000;
 
 function err(code, message) {
@@ -208,6 +210,9 @@ function createService(deps) {
   let alertState = {};
   let alertSave = Promise.resolve();
   let lastLimitsAt = 0;
+
+  // Usage history (usage-history.js): every live figure fetched, kept 90 days.
+  const historyLog = deps.historyFile ? usageHistory.createHistoryLog({ file: deps.historyFile }) : null;
 
   async function loadAlertState() {
     if (!deps.alertStateFile) return;
@@ -566,14 +571,26 @@ function createService(deps) {
     },
 
     /**
-     * The background check, run on a timer while Multi-Claude is open. Skipped
-     * when alerts are off or the screen just fetched limits anyway.
+     * The background check, run on a timer while Multi-Claude is open: limit
+     * alerts and usage history readings. Skipped when the screen just fetched
+     * limits anyway.
      */
-    async alertTick() {
-      if (!alertsMod.normaliseSettings(data.alerts).on) return { ran: false };
+    async backgroundTick() {
       if (Date.now() - lastLimitsAt < ALERT_FRESH_MS) return { ran: false };
       await this.limits({});
       return { ran: true };
+    },
+
+    /**
+     * One account's usage over the last `days` days, for the chart on its
+     * page: Claude's own samples plus Multi-Claude's readings.
+     * See usage-history.js.
+     */
+    async usageHistory({ id, days = 7 }) {
+      const a = find(id);
+      const claude = fs.existsSync(a.dir) ? (deps.desktopSamples || readDesktopSamples)(a.dir) : [];
+      const own = historyLog ? await historyLog.read(id) : [];
+      return usageHistory.buildHistory({ claude, own }, { days: Number(days) || 7, now: Date.now() });
     },
 
     /**
@@ -693,6 +710,7 @@ function createService(deps) {
       authCache.delete(id);
       planCache.delete(id);
       planHalted.delete(id);
+      if (historyLog) await historyLog.forget(id).catch(() => {});
 
       data.accounts = data.accounts.filter((x) => x.id !== id);
       await persist();
@@ -871,10 +889,18 @@ function createService(deps) {
         return { id: a.id, label: a.label, connected, auth, plan, limits: lim, desktop };
       }));
 
-      // A real fetch (not the instant first paint) is checked for alerts.
+      // A real fetch (not the instant first paint) is checked for alerts, and
+      // its live figures go into the usage history. A cached report has the
+      // same fetch time, so it is never kept twice.
       if (!cachedOnly) {
         lastLimitsAt = Date.now();
         try { runAlerts(rows); } catch { /* alerts never break the limits view */ }
+        if (historyLog) {
+          for (const r of rows) {
+            const reading = usageHistory.liveReading(r);
+            if (reading) await historyLog.record(r.id, reading).catch(() => false);
+          }
+        }
       }
 
       return {
@@ -1047,6 +1073,7 @@ function createService(deps) {
       }
       await saveUsageCache(); // no-ops unless a scan actually changed it
       await alertSave;
+      if (historyLog) await historyLog.flush();
     },
 
     async sizes() {

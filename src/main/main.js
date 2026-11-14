@@ -121,6 +121,8 @@ if (!app.requestSingleInstanceLock()) {
       // Which limit alerts were already shown, so a restart doesn't repeat them.
       alertStateFile: path.join(appDir, 'alert-state.json'),
       notify,
+      // Each account's Session / Weekly percentages over time (90 days), for its chart.
+      historyFile: path.join(appDir, 'usage-history.jsonl'),
       // Claude Code's session logs. Home-based, so shared by every profile.
       claudeProjectsRoot: path.join(userProfile, '.claude', 'projects'),
       claudeConfigFile: path.join(userProfile, '.claude.json'),
@@ -426,9 +428,9 @@ if (!app.requestSingleInstanceLock()) {
     createWindow();
     // Once per launch. Never downloads; the footer shows what it found.
     updater.check();
-    // Limit alerts: checked in the background while Multi-Claude is open, even
-    // minimised. The screen's own refreshes are checked too (service.limits).
-    const tick = () => { service.alertTick().catch(() => {}); };
+    // Limit alerts and usage history: checked in the background while
+    // Multi-Claude is open, even minimised. The screen's own refreshes count too.
+    const tick = () => { service.backgroundTick().catch(() => {}); };
     setTimeout(() => { tick(); setInterval(tick, ALERT_EVERY_MS); }, ALERT_FIRST_MS);
   });
 
