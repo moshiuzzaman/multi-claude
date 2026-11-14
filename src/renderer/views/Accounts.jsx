@@ -41,10 +41,11 @@ export default function Accounts({ accounts, running, scanOk, sizes, activity, s
               onChange={(e) => actions.setTaskbarGroups(e.target.checked)}
             />
             <span>
-              <strong>Separate taskbar button for each added account</strong>
+              <strong>Account icons on the taskbar and in the tray</strong>
               <span className="setting-hint">
                 Each added account's Claude window gets its own taskbar button with its colour
-                and letter. The default account stays on Claude's own button.
+                and letter, and every account's Claude tray icon shows its letter too. The default
+                account keeps Claude's own taskbar button.
               </span>
             </span>
           </label>

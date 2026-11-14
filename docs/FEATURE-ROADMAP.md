@@ -449,6 +449,25 @@ this PC, buttons clicked in the app, taskbar captured after each step)
 
 Anika was started only for this test and quit again afterwards.
 
+**Follow-up (2026-11-14): tray icons.** Your request after using 2.8.0: Claude's own
+tray icons all looked the same.
+- Each Claude process has one tray icon (id 3) on its `Electron_NotifyIconHostWindow`.
+  `Shell_NotifyIcon(NIM_MODIFY)` from outside changes its icon (tested on your PC).
+  **Icon only:** setting the hover text too replaced Claude's own usage text (you spotted
+  it), so only `NIF_ICON` is sent. Claude updating its text sends only `NIF_TIP`, so it
+  doesn't undo the icon.
+- Applied with the taskbar run: on launch, on Show, when a running account is found, and
+  on every 5-minute check, because Claude or an Explorer restart can reset it.
+- The default account gets a tray icon too; its taskbar button is unchanged.
+- Turning the setting off puts Claude's own icon back (taken from its exe).
+- The default Claude is found as the `claude.exe` that has windows or a tray icon, because
+  Claude Code's command-line `claude.exe` has the same name.
+
+| Check | Result |
+|---|---|
+| Unit tests: tray item, script parts, default account, refresh on the background check | ✅ 420 pass |
+| Real run on your PC: Default and Anika tray icons changed (tray 1 each) | ✅ (please confirm by eye) |
+
 ---
 
 ### 4. Same-account and wrong-account warning
