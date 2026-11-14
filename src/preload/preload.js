@@ -42,6 +42,18 @@ contextBridge.exposeInMainWorld('multiClaude', {
     ipcRenderer.on('mc:open-account', h);
     return () => ipcRenderer.removeListener('mc:open-account', h);
   },
+  // The main process checked for updates again (prompt: open the update
+  // dialog even if it was closed before). No data comes through.
+  onUpdateEvent: (fn) => {
+    const changed = () => fn({ prompt: false });
+    const prompt = () => fn({ prompt: true });
+    ipcRenderer.on('mc:update-changed', changed);
+    ipcRenderer.on('mc:update-prompt', prompt);
+    return () => {
+      ipcRenderer.removeListener('mc:update-changed', changed);
+      ipcRenderer.removeListener('mc:update-prompt', prompt);
+    };
+  },
   loginStatus: call('loginStatus'),
   loginSubmit: call('loginSubmit'),
   loginCancel: call('loginCancel'),

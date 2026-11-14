@@ -344,16 +344,25 @@ inside Claude Desktop** under Known limitations.
 
 ## Updates
 
-Multi-Claude checks GitHub Releases each time it opens. If a newer version has
-been published, an update dialog opens on its own with the release notes of
-every version since yours, and the sidebar footer shows it with **What's new**
-and **Update**. Otherwise it says everything is up to date; the ↻ button next
-to it checks again.
+Multi-Claude checks GitHub Releases at these times:
+
+- when it starts;
+- every 4 hours while it runs, in the tray too;
+- when its window is reopened from the tray;
+- when you choose **Check for updates** in the tray menu;
+- when you click ↻ in the sidebar footer.
+
+If a newer version has been published, an update dialog opens on its own with the
+release notes of every version since yours, and the sidebar footer shows it with
+**What's new** and **Update**. The dialog opens again each time the window is reopened,
+and whenever ↻ or the tray menu finds the update. If the window is hidden when the 4-hour
+check finds one, a notification says so, and clicking it opens the dialog. Otherwise the
+footer says everything is up to date.
 
 The dialog depends on which number in the version went up:
 
-- **Minor update** (`1.2.x` → `1.3.0` or `1.2.2`): **Later** closes it until the
-  next launch, when it opens again. The footer keeps offering the update in
+- **Minor update** (`1.2.x` → `1.3.0` or `1.2.2`): **Later** closes it until the window is
+  next reopened (or Multi-Claude restarts), when it opens again. The footer keeps offering the update in
   the meantime.
 - **Major update** (`1.x.x` → `2.0.0`): the dialog cannot be closed — no Close
   button, Escape or clicking outside. It stays up through the download, and the

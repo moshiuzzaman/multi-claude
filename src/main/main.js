@@ -63,9 +63,48 @@ if (!app.requestSingleInstanceLock()) {
 
   function showWindow() {
     if (!win) return;
+    // Reopened from the tray: like a fresh start, check for updates and offer
+    // one again, since the app may have been running for days.
+    const wasHidden = !win.isVisible();
     if (win.isMinimized()) win.restore();
     win.show();
     win.focus();
+    if (wasHidden) checkForUpdates({ prompt: true }).catch(() => {});
+  }
+
+  // ---- update checks ---------------------------------------------------------
+  // Multi-Claude can stay running in the tray for days, so one check at start
+  // isn't enough: it checks again every few hours, when the window is reopened,
+  // and from the tray menu. 'mc:update-changed' tells the screen to re-read the
+  // status (a newly found version opens the update dialog); 'mc:update-prompt'
+  // opens the dialog even if it was closed before.
+  const UPDATE_EVERY_MS = 4 * 60 * 60 * 1000;
+  // Reopening the window more often than this reuses the last answer.
+  const UPDATE_RECHECK_MS = 10 * 60 * 1000;
+  let lastUpdateCheck = 0;
+  let updateNotifiedFor = null;
+
+  async function checkForUpdates({ prompt = false, force = false } = {}) {
+    if (!updater) return null;
+    let st = updater.status();
+    const settled = st.state === 'current' || st.state === 'available';
+    if (force || !settled || Date.now() - lastUpdateCheck > UPDATE_RECHECK_MS) {
+      lastUpdateCheck = Date.now();
+      st = await updater.check();
+    }
+    if (win && !win.isDestroyed()) {
+      win.webContents.send(prompt && st && st.state === 'available' ? 'mc:update-prompt' : 'mc:update-changed');
+    }
+    return st;
+  }
+
+  // The background check. With the window hidden, a new version is told once
+  // by a notification; clicking it opens the window and the update dialog.
+  async function backgroundUpdateCheck() {
+    const st = await checkForUpdates({ force: true });
+    if (!st || st.state !== 'available' || !win || win.isVisible() || updateNotifiedFor === st.latest) return;
+    updateNotifiedFor = st.latest;
+    notify({ id: null, title: `Multi-Claude ${st.latest} is available`, body: 'Click to update.' });
   }
 
   // ---- tray (tray.js) --------------------------------------------------------
@@ -127,9 +166,11 @@ if (!app.requestSingleInstanceLock()) {
         if (await confirmClose(id)) await service.closeAccount({ id });
         break;
       case 'check-updates': {
-        const st = await updater.check();
+        const st = await checkForUpdates({ force: true });
         if (st && st.state === 'available') {
-          notify({ id: null, title: `Multi-Claude ${st.latest} is available`, body: 'Open Multi-Claude to update.' });
+          // Open the window with the update dialog up.
+          showWindow();
+          if (win) win.webContents.send('mc:update-prompt');
         } else if (st && st.state === 'current') {
           notify({ id: null, title: 'Multi-Claude is up to date', body: `Version ${app.getVersion()}.` });
         } else {
@@ -174,8 +215,10 @@ if (!app.requestSingleInstanceLock()) {
     n.on('click', () => {
       forget();
       showWindow();
-      // Open that account's page.
+      // Open that account's page, or (no account) bring up the update dialog
+      // if there is an update.
       if (id && win) win.webContents.send('mc:open-account', id);
+      else if (win && updater && updater.status().state === 'available') win.webContents.send('mc:update-prompt');
     });
     n.on('close', forget);
     shownAlerts.add(n);
@@ -546,8 +589,11 @@ if (!app.requestSingleInstanceLock()) {
     ipc.register(service, updater, { exeLabel: os_.exeLabel, exeFilter: os_.exeFilter });
     createWindow();
     createTray();
-    // Once per launch. Never downloads; the footer shows what it found.
+    // At start, then every few hours (also while in the tray). Never
+    // downloads; the footer shows what it found.
+    lastUpdateCheck = Date.now();
     updater.check();
+    setInterval(() => { backgroundUpdateCheck().catch(() => {}); }, UPDATE_EVERY_MS);
     // Limit alerts and usage history: checked in the background while
     // Multi-Claude is open, even minimised. The screen's own refreshes count too.
     const tick = () => { service.backgroundTick().then(refreshTrayTip).catch(() => {}); };
