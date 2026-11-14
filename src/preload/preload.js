@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('multiClaude', {
   setAlerts: call('setAlerts'),
   setMuteAlerts: call('setMuteAlerts'),
   testAlert: call('testAlert'),
+  usageHistory: call('usageHistory'),
   // A clicked limit alert asks for its account's page. Only an account id
   // comes through; returns a function that stops listening.
   onOpenAccount: (fn) => {

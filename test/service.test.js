@@ -1330,15 +1330,15 @@ test('alerts: off, muted, and the settings round-trip', async () => {
   cleanup(h);
 });
 
-test('alerts: the background check skips when off or just refreshed', async () => {
+test('the background check skips only when limits were just fetched', async () => {
   const h = alertHarness();
   await h.svc.init();
   await connectedAccount(h);
-  assert.deepStrictEqual(await h.svc.alertTick(), { ran: true });
-  assert.deepStrictEqual(await h.svc.alertTick(), { ran: false }, 'limits were fetched moments ago');
+  assert.deepStrictEqual(await h.svc.backgroundTick(), { ran: true });
+  assert.deepStrictEqual(await h.svc.backgroundTick(), { ran: false }, 'limits were fetched moments ago');
   await h.svc.setAlerts({ on: false });
   h.svc._expireAlertTickForTest();
-  assert.deepStrictEqual(await h.svc.alertTick(), { ran: false });
+  assert.deepStrictEqual(await h.svc.backgroundTick(), { ran: true }, 'still runs with alerts off: it feeds the usage history');
   await h.svc._alertSaved();
   fs.rmSync(h.svc._alertStateFileForTest(), { force: true });
   cleanup(h);
@@ -1349,5 +1349,43 @@ test('alerts: without a notifier the settings say so and testAlert refuses', asy
   await h.svc.init();
   assert.strictEqual(h.svc.settings().alertsSupported, false);
   assert.throws(() => h.svc.testAlert(), /not available/);
+  cleanup(h);
+});
+
+// ---- usage history ------------------------------------------------------------
+
+test("usage history: live figures are kept once per fetch and merged with Claude's samples", async () => {
+  const historyFile = path.join(os.tmpdir(), `mc-hist-svc-${process.pid}-${Math.random().toString(36).slice(2)}.jsonl`);
+  const t0 = Date.now() - 60 * 60 * 1000;
+  const h = harness({ historyFile, desktopSamples: (dir) => (dir.endsWith('work') ? [{ t: t0, session: 40, weekly: 30 }] : []) });
+  await h.svc.init();
+  const a = await connectedAccount(h);
+  h.usageReply.value = { ok: true, reachedModel: false, extraUsage: null, meters: [
+    { kind: 'session', percent: 55, resetsAt: null }, { kind: 'weekly_all', percent: 35, resetsAt: null }
+  ] };
+  await h.svc.limits({ force: true });
+  await h.svc.limits(); // the cached report: same fetch time, not kept again
+  await h.svc.limits({ cachedOnly: true });
+
+  const hist = await h.svc.usageHistory({ id: a.id, days: 7 });
+  assert.deepStrictEqual(hist.readings, { claude: 1, own: 1 });
+  assert.deepStrictEqual(hist.weekly.map((p) => p.v), [30, 35]);
+  assert.strictEqual(hist.days.length, 7);
+  assert.strictEqual(hist.days.at(-1).sessionPeak, 55);
+
+  await h.svc.remove({ id: a.id, confirmLabel: 'Work' });
+  await h.svc.shutdown();
+  assert.ok(!fs.readFileSync(historyFile, 'utf8').includes(a.id), "a deleted account's readings go with it");
+  fs.rmSync(historyFile, { force: true });
+  cleanup(h);
+});
+
+test("usage history without a log still shows Claude's own samples", async () => {
+  const h = harness({ desktopSamples: () => [{ t: Date.now() - 1000, session: 12, weekly: 7 }] });
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Work' });
+  const hist = await h.svc.usageHistory({ id: a.id, days: 30 });
+  assert.strictEqual(hist.days.length, 30);
+  assert.deepStrictEqual(hist.readings, { claude: 1, own: 0 });
   cleanup(h);
 });

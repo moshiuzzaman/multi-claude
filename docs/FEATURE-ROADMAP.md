@@ -73,7 +73,7 @@ Rejected: <ideas not taken, and why>
 | 6 | Guided Google sign-in (Mac) | Core | M | To do |
 | 7 | Tray / menu-bar icon | High | M | To do |
 | 8 | Limit alerts | High | S | Done (click-to-open and Mac untested) |
-| 9 | Usage history chart | High | M | To do |
+| 9 | Usage history chart | High | M | Done (30-day view and Mac untested) |
 | 10 | Claude status (outage) badge | High | S | To do |
 | 11 | Memory per account and idle sleep | Mid | M | To do |
 | 12 | Pace, burn rate and offline cache | Mid | S | To do |
@@ -759,6 +759,23 @@ usage drops below and crosses again; unit tests cover the crossing logic.
 
 ### 9. Usage history chart
 
+**Analysis notes (2026-11-14):**
+- *What Claude records is sparse.* It writes a sample only while its window runs, a few
+  times a day. On this PC:
+  - Default: 36 samples over 26 days, median gap 11 hours.
+  - Anika: 20 samples over 11 days.
+  - m: 4 samples.
+- *So a Session line is misleading:* the window is 5 hours, and readings are hours apart.
+  Show Session as **one bar per day, the highest reading that day**, with 100% marked
+  red. Weekly works as a line of readings; its resets show as drops.
+- *CodexBar / cc-switch:* charts grouped by day, with hover details. Days with no data are
+  shown as missing, not as zero. Take that.
+- *Fill the gaps:* Multi-Claude can keep its own readings. The alert check already reads
+  each account every 5 minutes while it's open. Store percentages only, in
+  `usage-history.jsonl`, for 90 days, and merge them with Claude's samples.
+- *Where:* a "Usage history" panel on each account's page, under Usage limits, with
+  7 days / 30 days. Three tiles: Limit reached (count), Busiest day, Weekly now.
+
 **What:** On each account page, a line chart of Session and Weekly usage over the
 last 7 / 30 days, from every sample in Claude's own `plan-usage-history.json`. Today
 only the newest sample is used. No new data and no extra sign-in needed.
@@ -778,9 +795,33 @@ only the newest sample is used. No new data and no extra sign-in needed.
 - How far apart are the samples in real `plan-usage-history.json` files, and how far
   back do they go? (Decides 7 vs 30 days and how to draw gaps.)
 
-**Analysis notes:** _Not analysed yet._
+**Analysis notes:** see the dated notes at the top of this section.
 
-**Where in Multi-Claude:** add `readDesktopUsageHistory(dir, { since })` next to
+**Built (2026-11-14):**
+- `readDesktopSamples()` in `desktop-usage.js` reads every sample.
+- `src/main/usage-history.js` has two parts:
+  - the readings log (`usage-history.jsonl`): repeats within 30 minutes are skipped,
+    readings are kept 90 days, and a deleted account's readings are removed;
+  - `buildHistory()`: day buckets, limit-reached episodes and busiest day.
+- `service.usageHistory()`; every live fetch is recorded. The 5-minute background check
+  now runs with alerts off too (`backgroundTick`), so history keeps filling.
+- `src/renderer/components/UsageHistory.jsx` on the account page, under Usage limits:
+  - 7 / 30 days;
+  - three tiles;
+  - a Weekly line, dashed across gaps longer than a day and a half;
+  - Session daily-peak bars;
+  - red at 100%, hover tooltips, and an empty state.
+
+**Verification**
+
+| Check | Result |
+|---|---|
+| Unit tests: sample reader, day buckets, empty days stay empty, range edges, limit-reached episodes, log repeats, 90-day prune, restart, delete | ✅ 405 pass |
+| Test copy, Anika: 13 readings from Claude plus 1 of Multi-Claude's own. Session 100% on Mon 9 (red), 9% Tue 10, 30% Sat 14. Weekly line dashed across 10→14 Nov. Limit reached 3 times. | ✅ |
+| 30-day view and hover tooltips checked by eye | ⏳ please try |
+| Mac | ⏳ untested |
+
+**Where in Multi-Claude (as planned):** add `readDesktopUsageHistory(dir, { since })` next to
 `readDesktopUsage` in `src/main/desktop-usage.js` (same parsing and `pct()` clamping);
 expose through `service.js` / `ipc.js` / preload; draw it as a hand-made SVG in a new
 `src/renderer/components/UsageChart.jsx` (the app has no chart library), styled with

@@ -120,6 +120,28 @@ launches or closes anything.
 - Windows' **Do not disturb** hides the pop-up; the alert still lands in the notification
   centre.
 
+### Usage history
+
+Each account's page has a **Usage history** panel for the last **7 or 30 days**:
+
+- **Limit reached:** how many times Session or Weekly hit 100%, and when.
+- **Busiest day:** the day Session went highest.
+- **Weekly, last reading:** where Weekly stood most recently.
+- **Weekly line:** every reading. Resets show as drops, and stretches with no readings
+  are dashed.
+- **Session bars:** the highest reading each day. Claude records usage only a few times a
+  day, hours apart, so a Session line would be misleading. A day with no readings stays
+  empty instead of showing 0%. Red means the limit was reached.
+
+The figures come from two places:
+
+- what the account's own Claude window recorded (`plan-usage-history.json`);
+- Multi-Claude's own readings: every live figure it fetches, about every 5 minutes while
+  it's open, for accounts with live limits.
+
+Multi-Claude keeps its readings in `usage-history.jsonl`: percentages and times only, for
+90 days. Deleting an account deletes its readings.
+
 ## Activity and storage
 
 **History** is observed by Multi-Claude itself, so it is exact per account. The limit is
@@ -334,6 +356,7 @@ version after it arrives through the button.
 | Storage cache | `%APPDATA%\multi-claude\storage-cache.json` |
 | Launch history | `%APPDATA%\multi-claude\activity.jsonl` |
 | Limit alerts already shown (percentages and levels only) | `%APPDATA%\multi-claude\alert-state.json` |
+| Usage history readings, 90 days (percentages and times only) | `%APPDATA%\multi-claude\usage-history.jsonl` |
 | Each account's Claude Code sign-in (for usage limits) | `%APPDATA%\multi-claude\cc\<account id>` |
 | VS Code's active account | `%APPDATA%\Code\User\settings.json` (a managed block) |
 | Claude Code downloaded by Multi-Claude (only if you clicked *Set up usage limits*) | `%APPDATA%\multi-claude\claude-code\<version>\claude.exe` |

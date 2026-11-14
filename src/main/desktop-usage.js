@@ -6,7 +6,8 @@
 // each { t, org, u: { fh, sd, xu } } — the 5-hour session and 7-day weekly
 // limits as percentages used, and extra usage. Claude writes a sample a few
 // times a day while it runs, so the newest one can be hours old; it holds no
-// reset times. Only the newest sample's three numbers and its time are used.
+// reset times. Only the samples' percentages and times are read: the newest
+// for the limits view, all of them for the usage history chart.
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -45,4 +46,29 @@ function readDesktopUsage(dir, fsImpl = fs) {
   return { recordedAt: best.t, session, weekly, extra: pct(best.u.xu) };
 }
 
-module.exports = { readDesktopUsage, FILE };
+/**
+ * Every sample, oldest first, as [{ t, session, weekly }] (percentages or
+ * null). For the usage history chart. [] when there is no usable record.
+ */
+function readDesktopSamples(dir, fsImpl = fs) {
+  if (!dir) return [];
+  let raw;
+  try {
+    raw = JSON.parse(fsImpl.readFileSync(path.join(dir, FILE), 'utf8'));
+  } catch {
+    return [];
+  }
+  const out = [];
+  for (const s of raw && Array.isArray(raw.samples) ? raw.samples : []) {
+    if (!s || typeof s !== 'object' || !s.u || typeof s.u !== 'object') continue;
+    const t = Number(s.t);
+    if (!Number.isFinite(t) || t <= 0) continue;
+    const session = pct(s.u.fh);
+    const weekly = pct(s.u.sd);
+    if (session === null && weekly === null) continue;
+    out.push({ t, session, weekly });
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+
+module.exports = { readDesktopUsage, readDesktopSamples, FILE };
