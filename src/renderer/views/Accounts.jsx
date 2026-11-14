@@ -1,6 +1,7 @@
 import React from 'react';
 import AccountRow from '../components/AccountRow.jsx';
 import AlertSettings from '../components/AlertSettings.jsx';
+import { isMac } from '../lib/api.js';
 
 export default function Accounts({ accounts, running, scanOk, sizes, activity, settings, actions, onAdd, openAccount }) {
   const lastUsed = {};
@@ -44,6 +45,24 @@ export default function Accounts({ accounts, running, scanOk, sizes, activity, s
               <span className="setting-hint">
                 Each added account's Claude window gets its own taskbar button with its colour
                 and letter. The default account stays on Claude's own button.
+              </span>
+            </span>
+          </label>
+        )}
+
+        {settings && settings.traySupported && (
+          <label className="setting-row">
+            <input
+              type="checkbox"
+              checked={settings.closeToTray}
+              onChange={(e) => actions.setCloseToTray(e.target.checked)}
+            />
+            <span>
+              <strong>Keep running in the {isMac ? 'menu bar' : 'tray'} when the window is closed</strong>
+              <span className="setting-hint">
+                Limit alerts and usage history keep working, and the {isMac ? 'menu-bar' : 'tray'} icon
+                shows every account's usage with Launch, Show and Close.{' '}
+                {isMac ? 'Quit from the menu-bar icon.' : 'Right-click the icon to quit.'}
               </span>
             </span>
           </label>

@@ -96,6 +96,26 @@ unlike the install script, Multi-Claude never runs `claude install`, so your PAT
 folder are not changed. Claude Code is not bundled with Multi-Claude; it only ever comes
 from Anthropic's server, and only when you click.
 
+### Tray icon
+
+Multi-Claude has an icon in the Windows tray (the Mac menu bar).
+
+- **Closing the window keeps Multi-Claude running there**, so limit alerts and usage
+  history keep working. The first time, a notification says where it went. Turn this
+  off on the **Accounts** page (*Keep running in the tray when the window is closed*),
+  and closing the window quits again.
+- **Windows:** click the icon to open the window, and right-click it for the menu.
+  **Mac:** click it for the menu.
+- **The menu** lists every account with a running dot (● running, ○ not) and its figures,
+  for example `● Work  S 37% · W 66%`. Each account has **Launch**, or **Show** and
+  **Close** while it runs, and **Open its page**. Then come **Open Multi-Claude**,
+  **Check for updates** (or *Update to x.y.z…*), and **Quit Multi-Claude**, which really
+  quits.
+- **Hovering the icon** shows every account's figures. **Close** from the tray asks first,
+  as it does in the window.
+- A new tray icon starts in Windows' hidden icons (**^**). Drag it onto the taskbar to keep
+  it in view.
+
 ### Limit alerts
 
 Multi-Claude shows a notification when an account's **Session** or **Weekly** usage passes
@@ -110,8 +130,8 @@ launches or closes anything.
   alert, for the highest. What was already shown is saved (`alert-state.json`), so
   restarting Multi-Claude doesn't repeat it.
 - **When it checks:** whenever the screen refreshes limits, and every 5 minutes in the
-  background while Multi-Claude is open, even minimised. **Closing the window quits
-  Multi-Claude, and then there are no alerts.**
+  background while Multi-Claude is running: open, minimised, or in the tray after its
+  window is closed. **Quit** from the tray stops it, and then there are no alerts.
 - **Which figures:** live limits where the account is connected; otherwise what its Claude
   window recorded, if recent enough (a Session figure older than 5 hours has already reset,
   so it is ignored; a Weekly one is used for a day).

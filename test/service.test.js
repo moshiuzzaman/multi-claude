@@ -1389,3 +1389,27 @@ test("usage history without a log still shows Claude's own samples", async () =>
   assert.deepStrictEqual(hist.readings, { claude: 1, own: 0 });
   cleanup(h);
 });
+
+// ---- tray ---------------------------------------------------------------------
+
+test('tray: close-to-tray setting, the one-time notice, and the menu snapshot', async () => {
+  const h = harness({ traySupported: true });
+  await h.svc.init();
+  assert.strictEqual(h.svc.settings().closeToTray, true, 'on by default');
+  assert.strictEqual(h.svc.settings().traySupported, true);
+  assert.strictEqual((await h.svc.setCloseToTray({ on: false })).closeToTray, false);
+  assert.strictEqual(await h.svc.trayNoticeOnce(), true);
+  assert.strictEqual(await h.svc.trayNoticeOnce(), false, 'only once');
+
+  const a = await h.svc.add({ label: 'Work' });
+  let snap = await h.svc.trayData();
+  assert.strictEqual(snap.running, null, 'unknown until a scan works');
+  assert.ok(snap.accounts.some((x) => x.id === a.id && x.label === 'Work' && x.exists === true));
+  assert.ok(snap.rows.has(a.id));
+
+  h.svc._setScannerForTest({ scan: async () => ({ dirs: [a.dir], ok: true }) });
+  await h.svc.backgroundTick();
+  snap = await h.svc.trayData();
+  assert.deepStrictEqual([...snap.running], [a.id], 'the background check scans, so the tray knows what runs');
+  cleanup(h);
+});
