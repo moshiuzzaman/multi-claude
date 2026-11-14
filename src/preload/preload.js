@@ -29,6 +29,16 @@ contextBridge.exposeInMainWorld('multiClaude', {
   saveIcon: call('saveIcon'),
   settings: call('settings'),
   setTaskbarGroups: call('setTaskbarGroups'),
+  setAlerts: call('setAlerts'),
+  setMuteAlerts: call('setMuteAlerts'),
+  testAlert: call('testAlert'),
+  // A clicked limit alert asks for its account's page. Only an account id
+  // comes through; returns a function that stops listening.
+  onOpenAccount: (fn) => {
+    const h = (_e, id) => { if (typeof id === 'string') fn(id); };
+    ipcRenderer.on('mc:open-account', h);
+    return () => ipcRenderer.removeListener('mc:open-account', h);
+  },
   loginStatus: call('loginStatus'),
   loginSubmit: call('loginSubmit'),
   loginCancel: call('loginCancel'),

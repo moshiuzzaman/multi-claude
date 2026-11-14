@@ -96,6 +96,30 @@ unlike the install script, Multi-Claude never runs `claude install`, so your PAT
 folder are not changed. Claude Code is not bundled with Multi-Claude; it only ever comes
 from Anthropic's server, and only when you click.
 
+### Limit alerts
+
+Multi-Claude shows a notification when an account's **Session** or **Weekly** usage passes
+a level you pick, for example *Work: Weekly at 82% · Resets Mon 09:00*, and when it reaches
+its limit. Clicking it opens that account's page. Information only: it never switches,
+launches or closes anything.
+
+- **Levels:** 80% and 95% by default; pick any of 50–95% under **Limit alerts** on the
+  **Accounts** page. 100% ("limit reached") is always on while alerts are on.
+- **Once per window:** each level alerts once, then again only after usage drops back
+  below it (the limit reset) and climbs past it again. A jump past several levels shows one
+  alert, for the highest. What was already shown is saved (`alert-state.json`), so
+  restarting Multi-Claude doesn't repeat it.
+- **When it checks:** whenever the screen refreshes limits, and every 5 minutes in the
+  background while Multi-Claude is open, even minimised. **Closing the window quits
+  Multi-Claude, and then there are no alerts.**
+- **Which figures:** live limits where the account is connected; otherwise what its Claude
+  window recorded, if recent enough (a Session figure older than 5 hours has already reset,
+  so it is ignored; a Weekly one is used for a day).
+- **Optional:** *Also tell me when a limit resets after it was reached* (off by default),
+  **Mute limit alerts** on one account's page, and **Send a test alert**.
+- Windows' **Do not disturb** hides the pop-up; the alert still lands in the notification
+  centre.
+
 ## Activity and storage
 
 **History** is observed by Multi-Claude itself, so it is exact per account. The limit is
@@ -309,6 +333,7 @@ version after it arrives through the button.
 | App config | `%APPDATA%\multi-claude\accounts.json` |
 | Storage cache | `%APPDATA%\multi-claude\storage-cache.json` |
 | Launch history | `%APPDATA%\multi-claude\activity.jsonl` |
+| Limit alerts already shown (percentages and levels only) | `%APPDATA%\multi-claude\alert-state.json` |
 | Each account's Claude Code sign-in (for usage limits) | `%APPDATA%\multi-claude\cc\<account id>` |
 | VS Code's active account | `%APPDATA%\Code\User\settings.json` (a managed block) |
 | Claude Code downloaded by Multi-Claude (only if you clicked *Set up usage limits*) | `%APPDATA%\multi-claude\claude-code\<version>\claude.exe` |

@@ -9,7 +9,7 @@
 // because ES modules are blocked by CORS on file:// and because a real origin
 // lets the Content-Security-Policy stay at 'self'.
 
-const { app, BrowserWindow, shell, protocol } = require('electron');
+const { app, BrowserWindow, shell, protocol, Notification, nativeImage } = require('electron');
 const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs');
@@ -54,6 +54,36 @@ if (!app.requestSingleInstanceLock()) {
   let service = null;
   let updater = null;
 
+  // Limit alerts (alerts.js). Shown notifications are kept referenced so their
+  // click still works after a while; Windows keeps them in its notification centre.
+  const shownAlerts = new Set();
+  const ALERT_EVERY_MS = 5 * 60 * 1000;
+  const ALERT_FIRST_MS = 30 * 1000;
+
+  function showWindow() {
+    if (!win) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  }
+
+  function notify({ id, title, body, icon }) {
+    if (!Notification.isSupported()) return;
+    const img = icon && process.platform === 'win32' ? nativeImage.createFromPath(icon) : null;
+    const n = new Notification({ title, body, ...(img && !img.isEmpty() ? { icon: img } : {}) });
+    const forget = () => shownAlerts.delete(n);
+    n.on('click', () => {
+      forget();
+      showWindow();
+      // Open that account's page.
+      if (id && win) win.webContents.send('mc:open-account', id);
+    });
+    n.on('close', forget);
+    shownAlerts.add(n);
+    if (shownAlerts.size > 30) shownAlerts.delete(shownAlerts.values().next().value);
+    n.show();
+  }
+
   async function buildService() {
     const userProfile = os.homedir();
     const defaultProfileDir = await os_.resolveDefaultProfileDir();
@@ -88,6 +118,9 @@ if (!app.requestSingleInstanceLock()) {
       recordStatusLine: os_.recordStatusLine,
       recorderFile: path.join(appDir, 'limits-recorder.ps1'),
       activityFile: path.join(appDir, 'activity.jsonl'),
+      // Which limit alerts were already shown, so a restart doesn't repeat them.
+      alertStateFile: path.join(appDir, 'alert-state.json'),
+      notify,
       // Claude Code's session logs. Home-based, so shared by every profile.
       claudeProjectsRoot: path.join(userProfile, '.claude', 'projects'),
       claudeConfigFile: path.join(userProfile, '.claude.json'),
@@ -372,10 +405,7 @@ if (!app.requestSingleInstanceLock()) {
       await launchById(id);
       return;
     }
-    if (win) {
-      if (win.isMinimized()) win.restore();
-      win.focus();
-    }
+    showWindow();
   });
 
   app.whenReady().then(async () => {
@@ -396,6 +426,10 @@ if (!app.requestSingleInstanceLock()) {
     createWindow();
     // Once per launch. Never downloads; the footer shows what it found.
     updater.check();
+    // Limit alerts: checked in the background while Multi-Claude is open, even
+    // minimised. The screen's own refreshes are checked too (service.limits).
+    const tick = () => { service.alertTick().catch(() => {}); };
+    setTimeout(() => { tick(); setInterval(tick, ALERT_EVERY_MS); }, ALERT_FIRST_MS);
   });
 
   // Close any open activity session and flush the usage cache before exiting.

@@ -164,6 +164,9 @@ export default function App() {
 
   const openAccount = (id) => { setDetailId(id); setView('detail'); };
 
+  // A clicked limit alert opens its account's page.
+  useEffect(() => api.onOpenAccount((id) => { setDetailId(id); setView('detail'); }), []);
+
   // Limits are shown on the Dashboard cards and on each account's page. While
   // either is open and focused, re-read every 20 s; the main process caches the
   // real /usage fetch for 90 s, so this rarely starts Claude Code.
@@ -298,6 +301,22 @@ export default function App() {
         say(on
           ? 'Each added account now gets its own taskbar button.'
           : 'Added accounts go back into Claude\'s taskbar button the next time each window is shown.');
+      } catch (e) { fail(e); }
+    },
+    setAlerts: async (opts) => {
+      try { setSettings(await api.setAlerts(opts)); } catch (e) { fail(e); }
+    },
+    setMuteAlerts: async (a, mute) => {
+      try {
+        await api.setMuteAlerts(a.id, mute);
+        await loadAccounts();
+        say(mute ? `Limit alerts muted for ${a.label}.` : `Limit alerts on for ${a.label}.`);
+      } catch (e) { fail(e); }
+    },
+    testAlert: async () => {
+      try {
+        await api.testAlert();
+        say('Test alert sent. If nothing appeared, check that notifications and Do not disturb allow Multi-Claude.');
       } catch (e) { fail(e); }
     },
     setColor: async (a, color) => {
