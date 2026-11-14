@@ -92,6 +92,7 @@ function createService(deps) {
   const taskbarPending = new Set();
   let taskbarQueue = Promise.resolve();
   let lastRunning = new Set();
+  let runningKnown = false; // true once a scan has succeeded
   let lastTaskbarRun = null;
   const planCache = new Map(); // account id -> { at, value } from /usage
   // Accounts whose /usage fetch ever reached a model. Auto-refresh stops for
@@ -538,7 +539,40 @@ function createService(deps) {
         taskbarGroups: data.taskbarGroups !== false,
         taskbarSupported: !!deps.taskbar,
         alerts: alertsMod.normaliseSettings(data.alerts),
-        alertsSupported: !!deps.notify
+        alertsSupported: !!deps.notify,
+        closeToTray: data.closeToTray !== false,
+        traySupported: deps.traySupported === true
+      };
+    },
+
+    /** Keep Multi-Claude running in the tray when its window is closed. */
+    async setCloseToTray({ on }) {
+      data.closeToTray = !!on;
+      await persist();
+      return this.settings();
+    },
+
+    /**
+     * True the first time only: the window was closed to the tray, so the user
+     * is told once where Multi-Claude went.
+     */
+    async trayNoticeOnce() {
+      if (data.trayNoticeShown === true) return false;
+      data.trayNoticeShown = true;
+      await persist();
+      return true;
+    },
+
+    /**
+     * What the tray menu shows: the accounts, which are running (null until a
+     * scan has worked), and the figures already known. Starts no process.
+     */
+    async trayData() {
+      const res = await this.limits({ cachedOnly: true });
+      return {
+        accounts: data.accounts.map((a) => ({ id: a.id, label: a.label, kind: a.kind, exists: fs.existsSync(a.dir) })),
+        running: runningKnown ? new Set(lastRunning) : null,
+        rows: new Map(res.accounts.map((r) => [r.id, r]))
       };
     },
 
@@ -571,11 +605,15 @@ function createService(deps) {
     },
 
     /**
-     * The background check, run on a timer while Multi-Claude is open: limit
-     * alerts and usage history readings. Skipped when the screen just fetched
-     * limits anyway.
+     * The background check, run on a timer while Multi-Claude is open (also
+     * in the tray): which accounts are running, then limit alerts and usage
+     * history readings. The limits part is skipped when the screen just
+     * fetched them anyway.
      */
     async backgroundTick() {
+      // Which accounts are running, for the tray and the activity history:
+      // the screen's own scans stop while the window is hidden.
+      try { await this.scan(); } catch { /* the next tick tries again */ }
       if (Date.now() - lastLimitsAt < ALERT_FRESH_MS) return { ran: false };
       await this.limits({});
       return { ran: true };
@@ -791,6 +829,7 @@ function createService(deps) {
       }
 
       if (ok) {
+        runningKnown = true;
         lastRunning = new Set(running);
         for (const id of [...taskbarDone]) if (!lastRunning.has(id)) taskbarDone.delete(id);
         // Accounts started outside Multi-Claude (a shortcut, a .bat), or whose

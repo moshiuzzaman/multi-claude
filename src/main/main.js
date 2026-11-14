@@ -9,7 +9,7 @@
 // because ES modules are blocked by CORS on file:// and because a real origin
 // lets the Content-Security-Policy stay at 'self'.
 
-const { app, BrowserWindow, shell, protocol, Notification, nativeImage } = require('electron');
+const { app, BrowserWindow, shell, protocol, Notification, nativeImage, Tray, Menu, dialog } = require('electron');
 const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs');
@@ -25,6 +25,7 @@ const updateHttp = require('./update-http.js');
 const updateConfig = require('./update-config.js');
 const { createCcInstaller } = require('./cc-install.js');
 const { APP_USER_MODEL_ID } = require('./shortcuts.js');
+const trayMod = require('./tray.js');
 
 if (process.platform !== 'win32' && process.platform !== 'darwin') {
   console.error('Multi-Claude runs on Windows and macOS.');
@@ -65,6 +66,104 @@ if (!app.requestSingleInstanceLock()) {
     if (win.isMinimized()) win.restore();
     win.show();
     win.focus();
+  }
+
+  // ---- tray (tray.js) --------------------------------------------------------
+  // Closing the window keeps Multi-Claude running here, so limit alerts and
+  // usage history keep going. Windows: click opens the window, right-click
+  // shows the menu. Mac: either click shows the menu.
+  let tray = null;
+  let quitting = false;
+  let trayScanAt = 0;
+  const TRAY_SCAN_MS = 15 * 1000;
+
+  async function trayMenu() {
+    const snap = await service.trayData();
+    const model = trayMod.buildTrayModel({ ...snap, update: updater ? updater.status() : null });
+    return Menu.buildFromTemplate(trayMod.toTemplate(model, (action, id) => {
+      runTrayAction(action, id).catch((e) => console.error('tray action failed:', e.message));
+    }));
+  }
+
+  async function refreshTrayTip() {
+    if (!tray || !service) return;
+    try { tray.setToolTip(trayMod.tooltip(await service.trayData())); } catch { /* keep the old text */ }
+  }
+
+  async function popTrayMenu() {
+    if (!tray || !service) return;
+    tray.popUpContextMenu(await trayMenu());
+  }
+
+  // Closing a Claude window from the tray ends its whole process, as the
+  // window's own Close does, so it asks first in the same words.
+  async function confirmClose(id) {
+    const a = (await service.list()).find((x) => x.id === id);
+    if (!a) return false;
+    const r = await dialog.showMessageBox({
+      type: 'question',
+      buttons: ['Quit Claude', 'Cancel'],
+      defaultId: 1,
+      cancelId: 1,
+      title: 'Multi-Claude',
+      message: `Quit "${a.label}"?`,
+      detail: 'Claude stays running in the system tray when its window is closed, so this ends the whole '
+        + 'process to fully stop it. Anything running in that profile stops with it, including an active '
+        + 'chat or a Claude Code session. You stay signed in, and nothing is deleted.'
+    });
+    return r.response === 0;
+  }
+
+  async function runTrayAction(action, id) {
+    switch (action) {
+      case 'open': showWindow(); break;
+      case 'open-account':
+        showWindow();
+        if (win) win.webContents.send('mc:open-account', id);
+        break;
+      case 'launch': await service.launch({ id }); break;
+      case 'show': await service.show({ id }); break;
+      case 'close':
+        if (await confirmClose(id)) await service.closeAccount({ id });
+        break;
+      case 'check-updates': {
+        const st = await updater.check();
+        if (st && st.state === 'available') {
+          notify({ id: null, title: `Multi-Claude ${st.latest} is available`, body: 'Open Multi-Claude to update.' });
+        } else if (st && st.state === 'current') {
+          notify({ id: null, title: 'Multi-Claude is up to date', body: `Version ${app.getVersion()}.` });
+        } else {
+          showWindow();
+        }
+        break;
+      }
+      case 'quit': quitting = true; app.quit(); break;
+      default: break;
+    }
+    if (action !== 'quit') {
+      // What changed (launched, closed) shows next time the menu opens.
+      service.scan().then(refreshTrayTip).catch(() => {});
+    }
+  }
+
+  function createTray() {
+    const file = process.platform === 'win32' ? 'tray.ico' : 'tray.png';
+    tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', file)));
+    tray.setToolTip('Multi-Claude');
+    if (process.platform === 'win32') {
+      tray.on('click', showWindow);
+      tray.on('right-click', () => { popTrayMenu().catch(() => {}); });
+    } else {
+      tray.on('click', () => { popTrayMenu().catch(() => {}); });
+      tray.on('right-click', () => { popTrayMenu().catch(() => {}); });
+    }
+    // Hovering refreshes which accounts run, so the menu that follows is current.
+    tray.on('mouse-enter', () => {
+      if (Date.now() - trayScanAt < TRAY_SCAN_MS) return;
+      trayScanAt = Date.now();
+      service.scan().then(refreshTrayTip).catch(() => {});
+    });
+    refreshTrayTip();
   }
 
   function notify({ id, title, body, icon }) {
@@ -121,6 +220,8 @@ if (!app.requestSingleInstanceLock()) {
       // Which limit alerts were already shown, so a restart doesn't repeat them.
       alertStateFile: path.join(appDir, 'alert-state.json'),
       notify,
+      // The tray icon and close-to-tray (tray.js).
+      traySupported: true,
       // Each account's Session / Weekly percentages over time (90 days), for its chart.
       historyFile: path.join(appDir, 'usage-history.jsonl'),
       // Claude Code's session logs. Home-based, so shared by every profile.
@@ -252,6 +353,24 @@ if (!app.requestSingleInstanceLock()) {
 
     win.removeMenu();
     win.once('ready-to-show', () => win.show());
+
+    // Close keeps Multi-Claude in the tray (a setting, on by default). The
+    // first time, a notification says where it went.
+    win.on('close', (e) => {
+      if (quitting || !tray || !service || !service.settings().closeToTray) return;
+      e.preventDefault();
+      win.hide();
+      service.trayNoticeOnce().then((first) => {
+        if (!first) return;
+        notify({
+          id: null,
+          title: 'Multi-Claude is still running',
+          body: process.platform === 'darwin'
+            ? 'It stays in the menu bar so limit alerts and usage history keep working. Quit it from there.'
+            : 'It stays in the tray so limit alerts and usage history keep working. Right-click its icon to quit.'
+        });
+      }).catch(() => {});
+    });
 
     // The window only ever shows our own bundled UI.
     win.webContents.on('will-navigate', (e) => e.preventDefault());
@@ -426,23 +545,31 @@ if (!app.requestSingleInstanceLock()) {
     updater = buildUpdater();
     ipc.register(service, updater, { exeLabel: os_.exeLabel, exeFilter: os_.exeFilter });
     createWindow();
+    createTray();
     // Once per launch. Never downloads; the footer shows what it found.
     updater.check();
     // Limit alerts and usage history: checked in the background while
     // Multi-Claude is open, even minimised. The screen's own refreshes count too.
-    const tick = () => { service.backgroundTick().catch(() => {}); };
+    const tick = () => { service.backgroundTick().then(refreshTrayTip).catch(() => {}); };
     setTimeout(() => { tick(); setInterval(tick, ALERT_EVERY_MS); }, ALERT_FIRST_MS);
   });
 
   // Close any open activity session and flush the usage cache before exiting.
   let shuttingDown = false;
   app.on('before-quit', async (e) => {
+    // Any quit (the tray, an update, the OS) really quits: no hiding to the tray.
+    quitting = true;
     if (shuttingDown || !service) return;
     shuttingDown = true;
     e.preventDefault();
     try { await service.shutdown(); } catch { /* best effort */ }
+    if (tray) { tray.destroy(); tray = null; }
     app.quit();
   });
 
+  // Only reached when close-to-tray is off: the window really closed.
   app.on('window-all-closed', () => app.quit());
+
+  // Mac: clicking the Dock icon brings the hidden window back.
+  app.on('activate', showWindow);
 }

@@ -71,7 +71,7 @@ Rejected: <ideas not taken, and why>
 | 4 | Same-account and wrong-account warning | Core | S | Needs decision |
 | 5 | Folder-to-account link for VS Code | Core | M | Analysed (needs your decision: planned approach doesn't work) |
 | 6 | Guided Google sign-in (Mac) | Core | M | To do |
-| 7 | Tray / menu-bar icon | High | M | To do |
+| 7 | Tray / menu-bar icon | High | M | Done (Mac untested) |
 | 8 | Limit alerts | High | S | Done (click-to-open and Mac untested) |
 | 9 | Usage history chart | High | M | Done (30-day view and Mac untested) |
 | 10 | Claude status (outage) badge | High | S | To do |
@@ -668,9 +668,45 @@ keeps the app in the tray (optional setting).
   what goes in submenus, how many accounts fit before it gets long?
 - How does each handle "close window" vs "quit"? What do their issues say about it?
 
-**Analysis notes:** _Not analysed yet._
+**Analysis notes (2026-11-14):**
+- *cc-switch* (`src-tauri/src/tray.rs`):
+  - Three layers: read a snapshot, `build_menu_model` turns it into plain data (unit
+    tested), then attach it to the native menu. Take this.
+  - On Windows, left-click opens the main window and right-click shows the menu. On a
+    Mac, a click shows the menu. Take this.
+  - Usage is refreshed when the mouse hovers the icon. Take this (as a running-state scan).
+  - `minimize_to_tray_on_close` is on by default. Take this.
+- *claude-swap:* a Mac menu bar app with every account's 5h/7d usage, and "Quit" in the
+  menu really stops it. Take the clear Quit.
+- *CodexBar:* a two-bar meter drawn as the icon itself. **Not now:** a 16 px Windows icon
+  can't show two readable bars for several accounts. The tooltip carries the figures
+  instead.
+- *Multi-Claude specifics:*
+  - The renderer stops scanning while hidden, so the 5-minute background check now scans
+    which accounts are running (this also keeps the activity history right).
+  - Close from the tray asks first, with the same words as the window's own Close.
 
-**Where in Multi-Claude:** new `src/main/tray.js`, created from `src/main/main.js`;
+**Built (2026-11-14):**
+- `src/main/tray.js` holds the model, tooltip and template.
+- `main.js`:
+  - creates the tray (`src/main/assets/tray.ico` / `tray.png`, `tray@2x.png`);
+  - close keeps it in the tray (setting, on by default) and shows a one-time "still
+    running" notification;
+  - any quit really quits;
+  - on a Mac, `activate` shows the window again.
+- `service`: `trayData()`, `setCloseToTray()`, `trayNoticeOnce()`; `backgroundTick`
+  scans.
+- Setting on the Accounts page.
+
+**Verification**
+
+| Check | Result |
+|---|---|
+| Unit tests: menu model, figures, tooltip length, actions, settings, snapshot, background scan | ✅ 412 pass |
+| Tray icon, right-click menu, close-to-tray, Quit on your PC | ✅ (checked by you) |
+| Mac menu bar | ⏳ untested |
+
+**Where in Multi-Claude (as planned):** new `src/main/tray.js`, created from `src/main/main.js`;
 menu built from `service.list()` and `service.limits()`; rebuild the menu when
 either changes.
 

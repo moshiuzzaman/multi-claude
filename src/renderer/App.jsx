@@ -303,6 +303,14 @@ export default function App() {
           : 'Added accounts go back into Claude\'s taskbar button the next time each window is shown.');
       } catch (e) { fail(e); }
     },
+    setCloseToTray: async (on) => {
+      try {
+        setSettings(await api.setCloseToTray(on));
+        say(on
+          ? `Closing the window now keeps Multi-Claude running in the ${isMac ? 'menu bar' : 'tray'}.`
+          : 'Closing the window now quits Multi-Claude.');
+      } catch (e) { fail(e); }
+    },
     setAlerts: async (opts) => {
       try { setSettings(await api.setAlerts(opts)); } catch (e) { fail(e); }
     },

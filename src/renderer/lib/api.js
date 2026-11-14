@@ -50,6 +50,7 @@ export const api = {
   setMuteAlerts: (id, mute) => call('setMuteAlerts', { id, mute }),
   testAlert: () => call('testAlert'),
   usageHistory: (id, days) => call('usageHistory', { id, days }),
+  setCloseToTray: (on) => call('setCloseToTray', { on }),
   /** Run fn(id) when a clicked limit alert asks for an account's page. */
   onOpenAccount: (fn) => (bridge && bridge.onOpenAccount ? bridge.onOpenAccount(fn) : () => {}),
   locateExe: () => call('locateExe'),
