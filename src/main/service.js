@@ -359,11 +359,15 @@ function createService(deps) {
     return !!deps.taskbar && data.taskbarGroups !== false;
   }
 
-  /** What to set on the account's windows, or null (default account, no icon yet). */
+  /**
+   * What to set on the account's windows and tray icon, or null (no icon
+   * yet). The default account gets its tray icon only.
+   */
   function taskbarItem(a) {
-    if (!a || a.kind === 'default') return null;
+    if (!a) return null;
     const iconFile = iconFileFor(a);
     if (!iconFile) return null;
+    if (a.kind === 'default') return taskbarMod.trayItemFor(a, { iconFile });
     return taskbarMod.itemFor(a, {
       exePath: deps.appExePath, argsPrefix: deps.shortcutArgsPrefix || '', iconFile
     });
@@ -384,7 +388,8 @@ function createService(deps) {
       for (const a of list) {
         taskbarPending.delete(a.id);
         const res = r.results.find((x) => P.samePath(x.dir, a.dir));
-        if (res && res.windows > 0) { taskbarDone.add(a.id); found.push(a.id); } else taskbarDone.delete(a.id);
+        const done = res && (a.kind === 'default' ? res.tray > 0 : res.windows > 0);
+        if (done) { taskbarDone.add(a.id); found.push(a.id); } else taskbarDone.delete(a.id);
       }
       return found;
     }).catch(() => {
@@ -548,8 +553,8 @@ function createService(deps) {
     async launch({ id }) {
       const account = find(id);
       deps.launcher.launch(await exe(), account);
-      // Its own taskbar button once its window is up (not awaited).
-      if (taskbarOn() && account.kind !== 'default') {
+      // Its own taskbar button and tray icon once its window is up (not awaited).
+      if (taskbarOn()) {
         taskbarDone.delete(account.id);
         lastTaskbarRun = applyTaskbarSoon(account, deps.taskbarDelays || [1500, 4000, 9000, 20000]);
       }
@@ -564,7 +569,7 @@ function createService(deps) {
       const account = find(id);
       const launcher = deps.launcher;
       (launcher.show || launcher.launch)(await exe(), account);
-      if (taskbarOn() && account.kind !== 'default' && !taskbarDone.has(account.id)) {
+      if (taskbarOn() && !taskbarDone.has(account.id)) {
         lastTaskbarRun = applyTaskbarSoon(account, deps.taskbarDelays || [0, 1500, 5000]);
       }
       return { ok: true };
@@ -651,6 +656,12 @@ function createService(deps) {
       // Which accounts are running, for the tray and the activity history:
       // the screen's own scans stop while the window is hidden.
       try { await this.scan(); } catch { /* the next tick tries again */ }
+      // Claude can set its tray icon again (and Explorer restarts reset it):
+      // put the account icons back on every running account.
+      if (taskbarOn()) {
+        const running = data.accounts.filter((a) => lastRunning.has(a.id) && !taskbarPending.has(a.id));
+        if (running.length > 0) lastTaskbarRun = applyTaskbar(running);
+      }
       if (Date.now() - lastLimitsAt < ALERT_FRESH_MS) return { ran: false };
       await this.limits({});
       return { ran: true };
@@ -676,12 +687,13 @@ function createService(deps) {
     async setTaskbarGroups({ on }) {
       data.taskbarGroups = !!on;
       await persist();
-      const running = data.accounts.filter((a) => lastRunning.has(a.id) && a.kind !== 'default');
+      const running = data.accounts.filter((a) => lastRunning.has(a.id));
       taskbarDone.clear();
       if (deps.taskbar && running.length > 0) {
         if (on) lastTaskbarRun = applyTaskbar(running);
         else {
-          lastTaskbarRun = taskbarQueue = taskbarQueue.then(() => deps.taskbar.clear(running.map((a) => a.dir))).catch(() => null);
+          const list = running.map((a) => ({ dir: a.dir, isDefault: a.kind === 'default' }));
+          lastTaskbarRun = taskbarQueue = taskbarQueue.then(() => deps.taskbar.clear(list)).catch(() => null);
         }
       }
       return this.settings();
@@ -871,7 +883,7 @@ function createService(deps) {
         for (const id of [...taskbarDone]) if (!lastRunning.has(id)) taskbarDone.delete(id);
         // Accounts started outside Multi-Claude (a shortcut, a .bat), or whose
         // window wasn't up yet last time, get their taskbar button now.
-        const todo = data.accounts.filter((a) => lastRunning.has(a.id) && a.kind !== 'default'
+        const todo = data.accounts.filter((a) => lastRunning.has(a.id)
           && !taskbarDone.has(a.id) && !taskbarPending.has(a.id));
         if (taskbarOn() && todo.length > 0) lastTaskbarRun = applyTaskbar(todo);
       }

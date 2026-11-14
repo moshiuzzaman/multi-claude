@@ -226,10 +226,18 @@ name and command), after Launch or Show and when it sees an account running that
 doesn't have them yet. Nothing in Claude is changed or read. Right-clicking such a
 button shows Multi-Claude's pin rather than Claude's own menu.
 
-Turn it off on the **Accounts** page (**Separate taskbar button for each added
-account**); the windows go back onto Claude's button the next time each is shown.
-Not available on a Mac, where the Dock can't be split per window without copying
-Claude.
+**Tray icons too.** Every Claude window also puts the same Claude icon in the tray.
+Multi-Claude gives each of those, the default account's included, the account's letter
+icon. Only the icon changes: Claude's own hover text, with its usage, stays as Claude sets
+it. It uses the shell's own notification-icon call (`Shell_NotifyIcon`, modify) on Claude's
+tray window. Claude may set its icon again, and
+restarting Explorer resets it, so the 5-minute background check puts the account icons
+back.
+
+Turn both off on the **Accounts** page (**Account icons on the taskbar and in the tray**).
+The windows go back onto Claude's button the next time each is shown, and the tray icons
+go back to Claude's own. This isn't available on a Mac, where the Dock can't be split per
+window without copying Claude.
 
 ## What it will not do, on purpose
 

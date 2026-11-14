@@ -780,7 +780,7 @@ function taskbarHarness() {
   const taskbar = {
     apply: async (items) => {
       runs.push({ mode: 'apply', items });
-      return { ok: true, results: items.map((i) => ({ dir: i.dir, pid: 9, windows: windowsFor.value, changed: 1 })) };
+      return { ok: true, results: items.map((i) => ({ dir: i.dir, pid: 9, windows: i.taskbar === false ? 0 : windowsFor.value, changed: 1, tray: 1 })) };
     },
     clear: async (dirs) => { runs.push({ mode: 'clear', dirs }); return { ok: true, results: [] }; }
   };
@@ -831,16 +831,36 @@ test('launching an added account gives its window its own taskbar button', async
   done();
 });
 
-test('the default account is never moved off Claude\'s taskbar button', async () => {
+test('the default account keeps Claude\'s taskbar button but gets its tray icon', async () => {
   const { h, runs, running, done } = taskbarHarness();
   await h.svc.init();
   const def = (await h.svc.list())[0];
   await h.svc.saveIcon({ id: def.id, iconPng: fakeIconUrl(1) });
   await h.svc.launch({ id: def.id });
+  await h.svc._taskbarIdle();
   running.dirs = [def.dir];
   await h.svc.scan();
   await h.svc._taskbarIdle();
-  assert.strictEqual(runs.length, 0);
+  assert.strictEqual(runs.length, 1, 'once: after launch; the scan sees it is done');
+  const it = runs[0].items[0];
+  assert.strictEqual(it.taskbar, false, 'no window properties');
+  assert.strictEqual(it.isDefault, true);
+  assert.ok(it.trayIcon && it.trayIcon.endsWith('.ico'));
+  assert.ok(!('trayTip' in it), "Claude's own hover text is left alone");
+  assert.ok(!('id' in it), 'no taskbar id for the default account');
+  done();
+});
+
+test('the background check puts the tray icons back on every running account', async () => {
+  const { h, runs, running, done } = taskbarHarness();
+  await h.svc.init();
+  const a = await addedWithIcon(h);
+  running.dirs = [a.dir];
+  await h.svc.scan(); await h.svc._taskbarIdle();
+  const before = runs.length;
+  await h.svc.backgroundTick(); await h.svc._taskbarIdle();
+  assert.strictEqual(runs.length, before + 1);
+  assert.strictEqual(runs.at(-1).items[0].trayIcon.endsWith('.ico'), true);
   done();
 });
 
@@ -896,7 +916,7 @@ test('turning the setting off clears running windows and stops applying; on appl
 
   assert.deepStrictEqual(tb(await h.svc.setTaskbarGroups({ on: false })), { taskbarGroups: false, taskbarSupported: true });
   await h.svc._taskbarIdle();
-  assert.deepStrictEqual(runs[runs.length - 1], { mode: 'clear', dirs: [a.dir] });
+  assert.deepStrictEqual(runs[runs.length - 1], { mode: 'clear', dirs: [{ dir: a.dir, isDefault: false }] });
   const before = runs.length;
   await h.svc.scan(); await h.svc._taskbarIdle();
   await h.svc.launch({ id: a.id }); await h.svc._taskbarIdle();
