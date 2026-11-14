@@ -12,7 +12,7 @@ import { bytes, duration, relativeTime, clockTime } from '../lib/format.js';
  * limits, its state and actions, its disk usage, and its launch history.
  */
 export default function AccountDetail({
-  accountId, accounts, running, scanOk, limits, limitsLoading, storage, activity, actions, setView
+  accountId, accounts, running, scanOk, limits, limitsLoading, storage, activity, settings, actions, setView
 }) {
   const account = accounts.find((a) => a.id === accountId);
 
@@ -100,6 +100,17 @@ export default function AccountDetail({
         <span className="color-row-label">Colour</span>
         <ColorPicker value={colorOf(account)} onChange={(hex) => actions.setColor(account, hex)} />
         <span className="color-row-name">{colorName(colorOf(account))}</span>
+        {settings && settings.alertsSupported && (
+          <label className="mute-row" title="This account's usage is still followed; it just shows no notifications.">
+            <input
+              type="checkbox"
+              checked={account.muteAlerts === true}
+              onChange={(e) => actions.setMuteAlerts(account, e.target.checked)}
+            />
+            Mute limit alerts
+            {settings.alerts && !settings.alerts.on && <span className="color-row-name">(alerts are off on the Accounts page)</span>}
+          </label>
+        )}
       </div>
 
       <div className="stack">

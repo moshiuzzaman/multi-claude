@@ -769,6 +769,9 @@ test('setColor rewrites an existing shortcut with a new icon and drops the old o
 // ------------------------------------------------------- taskbar buttons --
 
 /** A service with a fake taskbar and scanner; nothing sleeps. */
+/** Just the taskbar part of settings(). */
+const tb = ({ taskbarGroups, taskbarSupported }) => ({ taskbarGroups, taskbarSupported });
+
 function taskbarHarness() {
   const runs = [];
   const running = { dirs: [] };
@@ -886,12 +889,12 @@ test('without an icon yet, nothing is applied', async () => {
 test('turning the setting off clears running windows and stops applying; on applies again', async () => {
   const { h, runs, running, done } = taskbarHarness();
   await h.svc.init();
-  assert.deepStrictEqual(h.svc.settings(), { taskbarGroups: true, taskbarSupported: true });
+  assert.deepStrictEqual(tb(h.svc.settings()), { taskbarGroups: true, taskbarSupported: true });
   const a = await addedWithIcon(h);
   running.dirs = [a.dir];
   await h.svc.scan(); await h.svc._taskbarIdle();
 
-  assert.deepStrictEqual(await h.svc.setTaskbarGroups({ on: false }), { taskbarGroups: false, taskbarSupported: true });
+  assert.deepStrictEqual(tb(await h.svc.setTaskbarGroups({ on: false })), { taskbarGroups: false, taskbarSupported: true });
   await h.svc._taskbarIdle();
   assert.deepStrictEqual(runs[runs.length - 1], { mode: 'clear', dirs: [a.dir] });
   const before = runs.length;
@@ -923,7 +926,7 @@ test('a new colour re-applies the running window\'s button with the new icon', a
 test('with no taskbar (a Mac), the setting is unsupported and nothing runs', async () => {
   const h = harness();
   await h.svc.init();
-  assert.deepStrictEqual(h.svc.settings(), { taskbarGroups: true, taskbarSupported: false });
+  assert.deepStrictEqual(tb(h.svc.settings()), { taskbarGroups: true, taskbarSupported: false });
   cleanup(h);
 });
 
@@ -1224,5 +1227,127 @@ test('limits carry what each account\'s Claude window recorded, with no sign-in'
   assert.deepStrictEqual(row(work.id).desktop, { recordedAt: 1, session: 12, weekly: 34, extra: null });
   assert.strictEqual(row(home.id).desktop, null);
   assert.strictEqual(row(work.id).connected, false, 'no Claude Code sign-in was needed');
+  cleanup(h);
+});
+
+// ---- limit alerts -----------------------------------------------------------
+
+function alertHarness(extra = {}) {
+  const notes = [];
+  const h = harness({
+    alertStateFile: path.join(os.tmpdir(), `mc-alerts-${process.pid}-${Math.random().toString(36).slice(2)}.json`),
+    notify: (n) => notes.push(n),
+    ...extra
+  });
+  h.notes = notes;
+  return h;
+}
+
+async function connectedAccount(h, label = 'Work') {
+  const a = await h.svc.add({ label });
+  await h.svc.connectAccount({ id: a.id });
+  h.authReply.value = { loggedIn: true };
+  return a;
+}
+
+const sessionAt = (percent) => ({ ok: true, reachedModel: false, extraUsage: null, meters: [
+  { kind: 'session', group: 'session', percent, resetsAt: null, severity: 'normal', isActive: true, title: 'Session (5hr)' }
+] });
+
+test('alerts: a crossed threshold notifies once, labelled, from a real fetch only', async () => {
+  const h = alertHarness();
+  await h.svc.init();
+  const a = await connectedAccount(h);
+  h.usageReply.value = sessionAt(85);
+  await h.svc.limits({ cachedOnly: true });
+  assert.strictEqual(h.notes.length, 0, 'the instant first paint never alerts');
+  await h.svc.limits({ force: true });
+  assert.deepStrictEqual(h.notes.map((n) => [n.id, n.title]), [[a.id, 'Work: Session at 85%']]);
+  await h.svc.limits({ force: true });
+  assert.strictEqual(h.notes.length, 1, 'no repeat on the next refresh');
+  h.usageReply.value = sessionAt(96);
+  await h.svc.limits({ force: true });
+  assert.strictEqual(h.notes[1].title, 'Work: Session at 96%');
+  await h.svc._alertSaved();
+  fs.rmSync(h.svc._alertStateFileForTest(), { force: true });
+  cleanup(h);
+});
+
+test('alerts: what was shown is remembered across a restart', async () => {
+  const h = alertHarness();
+  await h.svc.init();
+  await connectedAccount(h);
+  h.usageReply.value = sessionAt(85);
+  await h.svc.limits({ force: true });
+  assert.strictEqual(h.notes.length, 1);
+  await h.svc._alertSaved();
+
+  // A second service on the same files: the same 85% must not alert again.
+  const notes2 = [];
+  const h2 = harness({
+    configFile: path.join(h.base, 'cfg', 'accounts.json'),
+    ccRoot: path.join(h.base, 'cfg', 'cc'),
+    alertStateFile: h.svc._alertStateFileForTest(),
+    notify: (n) => notes2.push(n)
+  });
+  h2.usageReply.value = sessionAt(86);
+  h2.authReply.value = { loggedIn: true };
+  await h2.svc.init();
+  await h2.svc.limits({ force: true });
+  assert.strictEqual(notes2.length, 0);
+  fs.rmSync(h.svc._alertStateFileForTest(), { force: true });
+  cleanup(h);
+  cleanup(h2);
+});
+
+test('alerts: off, muted, and the settings round-trip', async () => {
+  const h = alertHarness();
+  await h.svc.init();
+  const a = await connectedAccount(h);
+  assert.deepStrictEqual(h.svc.settings().alerts, { on: true, thresholds: [80, 95], reset: false });
+  assert.strictEqual(h.svc.settings().alertsSupported, true);
+
+  await h.svc.setMuteAlerts({ id: a.id, mute: true });
+  assert.strictEqual((await h.svc.list()).find((x) => x.id === a.id).muteAlerts, true);
+  h.usageReply.value = sessionAt(85);
+  await h.svc.limits({ force: true });
+  assert.strictEqual(h.notes.length, 0, 'muted');
+  await h.svc.setMuteAlerts({ id: a.id, mute: false });
+  await h.svc.limits({ force: true });
+  assert.strictEqual(h.notes.length, 0, 'unmuting does not replay the alert already passed');
+
+  const s = await h.svc.setAlerts({ on: false, thresholds: [90, 50, 7], reset: true });
+  assert.deepStrictEqual(s.alerts, { on: false, thresholds: [50, 90], reset: true });
+  h.usageReply.value = sessionAt(95);
+  await h.svc.limits({ force: true });
+  assert.strictEqual(h.notes.length, 0, 'alerts off');
+  assert.deepStrictEqual((await h.svc.setAlerts({ on: true })).alerts, { on: true, thresholds: [50, 90], reset: true }, 'other choices kept');
+
+  await h.svc.testAlert();
+  assert.strictEqual(h.notes.at(-1).title, 'Multi-Claude: test alert');
+  await h.svc._alertSaved();
+  fs.rmSync(h.svc._alertStateFileForTest(), { force: true });
+  cleanup(h);
+});
+
+test('alerts: the background check skips when off or just refreshed', async () => {
+  const h = alertHarness();
+  await h.svc.init();
+  await connectedAccount(h);
+  assert.deepStrictEqual(await h.svc.alertTick(), { ran: true });
+  assert.deepStrictEqual(await h.svc.alertTick(), { ran: false }, 'limits were fetched moments ago');
+  await h.svc.setAlerts({ on: false });
+  h.svc._expireAlertTickForTest();
+  assert.deepStrictEqual(await h.svc.alertTick(), { ran: false });
+  await h.svc._alertSaved();
+  fs.rmSync(h.svc._alertStateFileForTest(), { force: true });
+  cleanup(h);
+});
+
+test('alerts: without a notifier the settings say so and testAlert refuses', async () => {
+  const h = harness();
+  await h.svc.init();
+  assert.strictEqual(h.svc.settings().alertsSupported, false);
+  assert.throws(() => h.svc.testAlert(), /not available/);
   cleanup(h);
 });

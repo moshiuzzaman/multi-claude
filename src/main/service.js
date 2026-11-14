@@ -31,12 +31,15 @@ const { createLoginManager } = require('./cc-login.js');
 const ccUsageMod = require('./cc-usage.js');
 const vscodeMod = require('./vscode.js');
 const vscodeSettings = require('./vscode-settings.js');
+const alertsMod = require('./alerts.js');
 
 const LIMITS_FILE = 'multi-claude-limits.json';
 const GMAIL_URL = 'https://mail.google.com/';
 const AUTH_TTL_MS = 2 * 60 * 1000;
 // How long a fetched /usage report is reused before Claude Code is asked again.
 const PLAN_TTL_MS = 90 * 1000;
+// The background alert check skips a run when the screen fetched limits this recently.
+const ALERT_FRESH_MS = 4 * 60 * 1000;
 
 function err(code, message) {
   const e = new Error(message);
@@ -198,6 +201,49 @@ function createService(deps) {
     } catch {
       usageCache = {}; // a missing or unreadable cache just means a cold scan
     }
+  }
+
+  // Limit alerts (alerts.js): what each account's windows last showed and which
+  // thresholds already alerted, saved so a restart doesn't repeat them.
+  let alertState = {};
+  let alertSave = Promise.resolve();
+  let lastLimitsAt = 0;
+
+  async function loadAlertState() {
+    if (!deps.alertStateFile) return;
+    try {
+      const raw = JSON.parse(await fsp.readFile(deps.alertStateFile, 'utf8'));
+      alertState = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    } catch {
+      alertState = {};
+    }
+  }
+
+  function saveAlertState() {
+    if (!deps.alertStateFile) return alertSave;
+    const text = JSON.stringify(alertState);
+    alertSave = alertSave.then(async () => {
+      await fsp.mkdir(path.dirname(deps.alertStateFile), { recursive: true });
+      const tmp = deps.alertStateFile + '.tmp';
+      await fsp.writeFile(tmp, text, 'utf8');
+      await fsp.rename(tmp, deps.alertStateFile);
+    }).catch(() => {});
+    return alertSave;
+  }
+
+  /** Check a limits() result for crossed thresholds and show what it finds. */
+  function runAlerts(rows) {
+    const r = alertsMod.evaluate(alertState, rows, data.accounts, data.alerts, Date.now());
+    alertState = r.state;
+    if (r.changed) saveAlertState();
+    if (!deps.notify) return r.alerts;
+    for (const a of r.alerts) {
+      const account = data.accounts.find((x) => x.id === a.id);
+      try {
+        deps.notify({ id: a.id, ...alertsMod.alertText(a, Date.now()), icon: account ? iconFileFor(account) : null });
+      } catch { /* a notification that can't be shown is not an error */ }
+    }
+    return r.alerts;
   }
 
   async function loadStorageCache() {
@@ -395,6 +441,7 @@ function createService(deps) {
       await fsp.mkdir(deps.profilesRoot, { recursive: true });
       await loadUsageCache();
       await loadStorageCache();
+      await loadAlertState();
       return { recoveredFrom };
     },
 
@@ -482,7 +529,51 @@ function createService(deps) {
 
     /** Settings that aren't about one account. */
     settings() {
-      return { taskbarGroups: data.taskbarGroups !== false, taskbarSupported: !!deps.taskbar };
+      return {
+        taskbarGroups: data.taskbarGroups !== false,
+        taskbarSupported: !!deps.taskbar,
+        alerts: alertsMod.normaliseSettings(data.alerts),
+        alertsSupported: !!deps.notify
+      };
+    },
+
+    /** Limit alerts on or off, which thresholds, and the reset alert. */
+    async setAlerts(p = {}) {
+      const cur = alertsMod.normaliseSettings(data.alerts);
+      data.alerts = alertsMod.normaliseSettings({
+        on: 'on' in p ? !!p.on : cur.on,
+        thresholds: Array.isArray(p.thresholds) ? p.thresholds : cur.thresholds,
+        reset: 'reset' in p ? !!p.reset : cur.reset
+      });
+      await persist();
+      return this.settings();
+    },
+
+    /** Keep one account quiet. Its figures are still followed. */
+    async setMuteAlerts({ id, mute }) {
+      const a = find(id);
+      if (mute) a.muteAlerts = true;
+      else delete a.muteAlerts;
+      await persist();
+      return { ok: true, muteAlerts: a.muteAlerts === true };
+    },
+
+    /** Show a sample notification, so the user can see alerts reach them. */
+    testAlert() {
+      if (!deps.notify) throw err('unsupported', 'Notifications are not available here.');
+      deps.notify({ id: null, title: 'Multi-Claude: test alert', body: 'Limit alerts will look like this.', icon: null });
+      return { ok: true };
+    },
+
+    /**
+     * The background check, run on a timer while Multi-Claude is open. Skipped
+     * when alerts are off or the screen just fetched limits anyway.
+     */
+    async alertTick() {
+      if (!alertsMod.normaliseSettings(data.alerts).on) return { ran: false };
+      if (Date.now() - lastLimitsAt < ALERT_FRESH_MS) return { ran: false };
+      await this.limits({});
+      return { ran: true };
     },
 
     /**
@@ -780,6 +871,12 @@ function createService(deps) {
         return { id: a.id, label: a.label, connected, auth, plan, limits: lim, desktop };
       }));
 
+      // A real fetch (not the instant first paint) is checked for alerts.
+      if (!cachedOnly) {
+        lastLimitsAt = Date.now();
+        try { runAlerts(rows); } catch { /* alerts never break the limits view */ }
+      }
+
       return {
         cli: found ? { version: found.version.join('.') } : null,
         accounts: rows
@@ -949,6 +1046,7 @@ function createService(deps) {
         try { await activity.closeAll(); } catch { /* best effort */ }
       }
       await saveUsageCache(); // no-ops unless a scan actually changed it
+      await alertSave;
     },
 
     async sizes() {
@@ -962,6 +1060,9 @@ function createService(deps) {
     _setSleepForTest(f) { deps.sleep = f; },
     _expirePlanCacheForTest() { for (const v of planCache.values()) v.at = 0; },
     _setLocatorForTest(l) { locator = l; },
+    _alertSaved() { return alertSave; },
+    _alertStateFileForTest() { return deps.alertStateFile; },
+    _expireAlertTickForTest() { lastLimitsAt = 0; },
     /** Resolves when the last taskbar run started by a call has finished. */
     _taskbarIdle() { return Promise.resolve(lastTaskbarRun).then(() => taskbarQueue); }
   };

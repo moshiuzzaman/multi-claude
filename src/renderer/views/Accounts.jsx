@@ -1,5 +1,6 @@
 import React from 'react';
 import AccountRow from '../components/AccountRow.jsx';
+import AlertSettings from '../components/AlertSettings.jsx';
 
 export default function Accounts({ accounts, running, scanOk, sizes, activity, settings, actions, onAdd, openAccount }) {
   const lastUsed = {};
@@ -47,6 +48,8 @@ export default function Accounts({ accounts, running, scanOk, sizes, activity, s
             </span>
           </label>
         )}
+
+        <AlertSettings settings={settings} actions={actions} />
 
         <div className="note">
           Deleting an account erases its profile folder on this PC — the local login and

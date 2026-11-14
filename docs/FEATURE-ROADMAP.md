@@ -72,7 +72,7 @@ Rejected: <ideas not taken, and why>
 | 5 | Folder-to-account link for VS Code | Core | M | Analysed (needs your decision: planned approach doesn't work) |
 | 6 | Guided Google sign-in (Mac) | Core | M | To do |
 | 7 | Tray / menu-bar icon | High | M | To do |
-| 8 | Limit alerts | High | S | To do |
+| 8 | Limit alerts | High | S | Done (click-to-open and Mac untested) |
 | 9 | Usage history chart | High | M | To do |
 | 10 | Claude status (outage) badge | High | S | To do |
 | 11 | Memory per account and idle sleep | Mid | M | To do |
@@ -699,7 +699,29 @@ it never switches or launches anything.
 - What thresholds do the references use by default? Does any offer snooze or quiet hours?
 - Search their issues for "notification" / "spam" / "too many alerts".
 
-**Analysis notes:** _Not analysed yet._
+**Analysis notes (2026-11-14):**
+- *Claude-Code-Usage-Monitor:* no notifications at all. It only colours its bars and
+  gives exit codes (10 near limit, 11 limit hit) for scripts. Nothing to take.
+- *CodexBar* (`UsageStore+QuotaWarnings.swift`, `SessionQuotaNotifications.swift`) is
+  the model to follow:
+  - State is kept **per account and per window** (Session, Weekly): last figure plus the
+    set of thresholds already fired.
+  - A threshold fires only on an **upward crossing** (last figure below, new figure at
+    or above).
+  - If one refresh jumps past several thresholds, it shows **one** notification for the
+    highest and marks the lower ones as fired too.
+  - A fired threshold is cleared when usage drops back below it (after a reset), so it
+    can fire again next window.
+  - Separate optional alerts for "limit reached" and "limit reset".
+- *Take:* the crossing, one-for-the-highest and clear-on-drop rules.
+- *Do differently:*
+  - Save the fired state to disk, so restarting Multi-Claude doesn't repeat alerts.
+  - Ignore stale figures. The Claude window's own record can be hours old: a Session
+    figure older than 5 hours has already reset.
+  - Multi-Claude quits when its window closes, so alerts only work while it's open
+    (minimised is fine). Feature 7 (tray) lets it keep running.
+- *Today's refresh:* the screen refreshes limits every 20 s, but only while the window
+  has focus. Alerts need their own check in the main process, every 5 minutes.
 
 **Where in Multi-Claude:** new `src/main/alerts.js` (pure: previous figures + new
 figures + thresholds → alerts to show), called after each limits refresh; thresholds
@@ -708,6 +730,30 @@ saved per account in `src/main/store.js`; settings on the account page
 
 **Done when:** crossing a threshold shows one notification; it doesn't repeat until
 usage drops below and crosses again; unit tests cover the crossing logic.
+
+**Built (2026-11-14):**
+- `src/main/alerts.js` holds the rules.
+- `service.limits()` checks every real fetch.
+- `alertTick()` runs every 5 minutes from `main.js`, skipped when alerts are off or the
+  screen fetched limits in the last 4 minutes.
+- What was shown is kept in `alert-state.json`.
+- Settings:
+  - On the Accounts page: on/off, levels 50–95% (default 80 and 95; 100% always on), the
+    reset alert (off by default), and Send a test alert.
+  - On each account's page: Mute limit alerts.
+- Clicking an alert opens the account's page.
+
+**Verification**
+
+| Check | Result |
+|---|---|
+| Unit tests: crossing, one alert for the highest, re-arm on drop, stale figure ignored, reset alert, mute, off, restart (`test/alerts.test.js`, service tests) | ✅ 395 pass |
+| Test copy on Windows: Anika at Weekly 100% gave exactly one "Anika: Weekly limit reached · Resets in 5h 19m" | ✅ (read back from Windows' notification list) |
+| Test alert reaches Windows, grouped under Multi-Claude with its logo | ✅ (Do not disturb was on, so it went straight to the notification centre) |
+| Settings and mute look right on the Accounts and account pages | ✅ |
+| Clicking an alert opens that account's page | ⏳ needs you to click one |
+| Installed build shows the pop-up | ⏳ after the next release |
+| Mac | ⏳ untested |
 
 ---
 
