@@ -5,6 +5,15 @@
   "private": true,
   "description": "Launch and manage separate Claude Desktop profiles. Not affiliated with Anthropic.",
   "main": "src/main/main.js",
+  "license": "MIT",
+  "homepage": "https://github.com/moshiuzzaman/multi-claude",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/moshiuzzaman/multi-claude.git"
+  },
+  "bugs": {
+    "url": "https://github.com/moshiuzzaman/multi-claude/issues"
+  },
   "scripts": {
     "build:renderer": "vite build",
     "start": "npm run build:renderer && electron .",
