@@ -1,70 +1,87 @@
 # Multi-Claude feature roadmap
 
-Features to build one at a time, in order. Each one comes from a feature seen in a
-similar tool (researched November 2026), with a link to that tool's code or docs.
+What's built, what's next, and why. Every feature here comes from something seen in a
+similar tool (researched November 2026), with links to that tool's code or docs.
 
-**Priority:**
-- **Core** = what a multi-account manager must get right: telling accounts apart,
-  reaching the right window, keeping each profile one account, signing in, and using
-  each account in Claude Code. Build these first.
-- **High** = most value for the work after Core.
-- **Mid** = useful, more work or a decision needed.
-- **Low** = polish and distribution.
-**Effort:** S = a day or less, M = a few days, L = a week or more, or needs a prototype.
+## At a glance
 
-**Rules every feature must keep** (from the README, "What it will not do"):
-no automatic switching, no pooled or "next available" launching, no copying or
-exporting sign-ins, and no reading files inside a profile beyond what already
-happens (`config.json` setting names, `plan-usage-history.json` percentages).
+| ✅ Done | 🔨 Building | 🟡 Analysed | ⬜ To do | Total |
+|:---:|:---:|:---:|:---:|:---:|
+| 7 | 1 | 1 | 11 | 20 |
 
-**One narrow exception (feature 20):** a Claude Code chat that was started in the
-wrong account may be copied, by hand, to another account the user owns. To do that,
-Multi-Claude may read the chat list (title, project folder, last used, size) and copy
-the chat's own files inside its own `cc\` folders, and, for the Default account, from
-`~\.claude` (where plain `claude` and Claude Desktop's Code tab keep chats; agreed
-2026-11-17). Copies always land in the target account's own `cc\` folder.
-Phase 2 (agreed 2026-11-17): so a copied chat also shows in the target's Claude Desktop
-Code tab, Multi-Claude may copy the transcript inside `~\.claude` under a new chat id and
-add **one** chat-list entry to the target profile's `claude-code-sessions` folder, only
-while that account's Claude window is closed, and only when the entry matches the shape
-of the profile's own entries. Nothing else in a profile is ever written. Nothing about it may be tied to
-usage limits: no usage figures in its dialog, no "account with room" suggestion, no
-prompt or button when a limit is reached. Moving a chat to keep working past a limit
-stays banned (see "Not doing").
+**Status:** ⬜ To do → 🟡 Analysed (approach chosen and agreed) → 🔨 Building → ✅ Done
+(every "Done when" check passed in the real app). "Still open" names what hasn't been checked yet.
 
-## How to build each feature: analyse first, then build
+**Priority:** **Core** = what a multi-account manager must get right (telling accounts apart,
+reaching the right window, one account per profile, signing in, Claude Code per account).
+**High** = most value after Core. **Mid** = useful, more work or a decision needed.
+**Low** = polish and distribution.
+**Effort:** **S** = a day or less · **M** = a few days · **L** = a week or more, or needs a prototype.
 
-No feature starts with code. Every feature goes through these steps, in order:
+## Feature list
+
+| # | Feature | Priority | Effort | Status | Still open |
+|---|---|:---:|:---:|---|---|
+| 1 | [Bring a running account to the front](#1-bring-a-running-account-to-the-front) | Core | S | ✅ Done | Mac untested |
+| 2 | [Per-account colour](#2-per-account-colour) | Core | M | ✅ Done | Mac and installed build untested |
+| 3 | [Own taskbar group per account (Windows)](#3-own-taskbar-group-per-account-windows) | Core | L | ✅ Done | Installed build and pinning untested |
+| 4 | [Same-account and wrong-account warning](#4-same-account-and-wrong-account-warning) | Core | S | ✅ Done | Warning not yet seen on a real duplicate |
+| 5 | [Folder-to-account link for VS Code](#5-folder-to-account-link-for-vs-code) | Core | M | 🟡 Analysed | Your decision: the planned approach doesn't work |
+| 6 | [Guided Google sign-in (Mac)](#6-guided-google-sign-in-mac) | Core | M | ⬜ To do | — |
+| 7 | [Tray / menu-bar icon](#7-tray--menu-bar-icon) | High | M | ✅ Done | Mac untested |
+| 8 | [Limit alerts](#8-limit-alerts) | High | S | ✅ Done | Click-to-open and Mac untested |
+| 9 | [Usage history chart](#9-usage-history-chart) | High | M | ✅ Done | 30-day view and Mac untested |
+| 10 | [Claude status (outage) badge](#10-claude-status-outage-badge) | High | S | ⬜ To do | — |
+| 11 | [Memory per account and idle sleep](#11-memory-per-account-and-idle-sleep) | Mid | M | ⬜ To do | — |
+| 12 | [Pace, burn rate and offline cache](#12-pace-burn-rate-and-offline-cache) | Mid | S | ⬜ To do | — |
+| 13 | [Start with the computer](#13-start-with-the-computer) | Mid | S | ⬜ To do | — |
+| 14 | [Settings backup, export and import](#14-settings-backup-export-and-import) | Mid | S | ⬜ To do | — |
+| 20 | [Copy a chat started in the wrong account](#20-copy-a-chat-started-in-the-wrong-account) | Mid | L | 🔨 Building | Code-tab copy not yet confirmed in Claude Desktop |
+| 15 | [More languages (Bangla first)](#15-more-languages-bangla-first) | Low | M | ⬜ To do | — |
+| 16 | [PIN lock](#16-pin-lock) | Low | S | ⬜ To do | — |
+| 17 | [`multi-claude://` links and launcher support](#17-multi-claude-links-and-launcher-support) | Low | S | ⬜ To do | — |
+| 18 | [Command-line status (`--status --json`)](#18-command-line-status---status---json) | Low | S | ⬜ To do | — |
+| 19 | [winget, Homebrew and code signing](#19-winget-homebrew-and-code-signing) | Low | M | ⬜ To do | — |
+
+Click a feature to jump to it. Each one shows **what** it is and **when it's done**; open
+**Research, decisions and checks** under it for the full analysis.
+
+## Rules every feature must keep
+
+The full list, with the reason for each, is in
+[CONTRIBUTING.md → Project rules](../CONTRIBUTING.md#project-rules). In short: no automatic
+switching, no pooled or "next available" launching, no moving work to get around a limit,
+no copying or exporting sign-ins, and no reading files inside a profile beyond what's listed
+there. The one narrow exception is [feature 20](#20-copy-a-chat-started-in-the-wrong-account): copying, by hand, a chat
+started in the wrong account. See also [Not doing](#not-doing-breaks-the-rules).
+
+## How to build each feature
+
+No feature starts with code.
 
 1. **Read the spec** for the feature below.
-2. **Study every reference link.** Read the README or docs, and for open-source repos
-   read the code that does this feature (search the repo for it). Note how they do it,
-   what the user sees, and the edge cases they handle.
-3. **Read their issues.** Search each reference repo's Issues for the feature: bugs,
-   complaints and requests show what went wrong and what users really want.
-4. **Answer the feature's "Analyse first" questions** (listed under each feature).
-5. **Compare the ideas** in a short table: each reference's approach, pros, cons, and
-   whether it fits the rules below.
-6. **Take the better idea.** Pick the best approach, or combine the best parts, and
-   note anything Multi-Claude can do better than all of them.
-7. **Write the decision** into the feature's **Analysis notes** (approach chosen, why,
-   what was rejected), set its status to **Analysed**, and get it agreed.
-8. **Then build it**, with tests, and set the status to **Building**.
-9. **Verify it is really done.** Run every "Done when" check in the real app on the PC
-   (and on a Mac where the feature touches the Mac), not only the unit tests. Write
-   what was checked and the result into the feature's **Verification** notes.
-10. **Update the status in the table**: **Done** only when every check passed;
-    otherwise keep **Building** and name what is still open (for example
-    "Done (Mac untested)").
+2. **Study every reference.** Read its README or docs; for open-source projects, read the
+   code that does this feature. Note how they do it, what the user sees, and the edge cases.
+3. **Read their issues:** bugs, complaints and requests show what went wrong and what users want.
+4. **Answer the feature's "Analyse first" questions.**
+5. **Compare the ideas** in a short table: each reference's approach, pros, cons, and whether
+   it fits the rules.
+6. **Take the better idea**, or combine the best parts, and note what Multi-Claude can do better.
+7. **Write the decision** into the feature's **Analysis notes** (approach, why, what was
+   rejected), set it to 🟡 **Analysed**, and get it agreed.
+8. **Build it**, with tests, and set it to 🔨 **Building**.
+9. **Verify it in the real app** on the PC (and a Mac where it touches the Mac), not only in
+   unit tests. Write what was checked into its **Verification** notes.
+10. **Update the table:** ✅ **Done** only when every check passed; otherwise keep 🔨 Building
+    and name what's still open.
 
-**Learn ideas, don't copy code.** Write Multi-Claude's own code. Code from MIT-licensed
-repos may be reused only with its licence notice kept; never copy from AGPL, unlicensed
-or closed-source projects (several references have no clear licence).
+> [!IMPORTANT]
+> **Learn ideas, don't copy code.** Code from MIT-licensed projects may be reused only with its
+> licence notice kept. Never copy from AGPL, unlicensed or closed-source projects (several
+> references have no clear licence).
 
-**Status values:** To do → Analysed → Building → Done. A feature is never marked Done
-without step 9.
-
-Template for each feature's **Analysis notes**:
+<details>
+<summary>Template for a feature's Analysis notes</summary>
 
 ```
 Analysed on: <date>
@@ -76,30 +93,7 @@ Why it's better: <reason>
 Rejected: <ideas not taken, and why>
 ```
 
-## Feature list
-
-| # | Feature | Priority | Effort | Status |
-|---|---|---|---|---|
-| 1 | Bring a running account to the front | Core | S | Done (Mac untested) |
-| 2 | Per-account colour | Core | M | Done (Mac and installed build untested) |
-| 3 | Own taskbar group per account (Windows) | Core | L | Done (installed build and pinning untested) |
-| 4 | Same-account and wrong-account warning | Core | S | Done (warning not yet seen in a real duplicate) |
-| 5 | Folder-to-account link for VS Code | Core | M | Analysed (needs your decision: planned approach doesn't work) |
-| 6 | Guided Google sign-in (Mac) | Core | M | To do |
-| 7 | Tray / menu-bar icon | High | M | Done (Mac untested) |
-| 8 | Limit alerts | High | S | Done (click-to-open and Mac untested) |
-| 9 | Usage history chart | High | M | Done (30-day view and Mac untested) |
-| 10 | Claude status (outage) badge | High | S | To do |
-| 11 | Memory per account and idle sleep | Mid | M | To do |
-| 12 | Pace, burn rate and offline cache | Mid | S | To do |
-| 13 | Start with the computer | Mid | S | To do |
-| 14 | Settings backup, export and import | Mid | S | To do |
-| 15 | More languages (Bangla first) | Low | M | To do |
-| 16 | PIN lock | Low | S | To do |
-| 17 | `multi-claude://` links and launcher support | Low | S | To do |
-| 18 | Command-line status (`--status --json`) | Low | S | To do |
-| 19 | winget, Homebrew and code signing | Low | M | To do |
-| 20 | Copy a chat started in the wrong account | Mid | L | Building (real copy between two own accounts untested) |
+</details>
 
 ---
 
@@ -107,8 +101,19 @@ Rejected: <ideas not taken, and why>
 
 ### 1. Bring a running account to the front
 
+> **Status:** ✅ Done · Mac untested · **Priority:** Core · **Effort:** S
+
 **What:** When an account is already running, the Launch button becomes "Show" and
 brings its window to the front instead of doing nothing.
+
+**Done when:** on this PC, Show brings forward each account's window from hidden in
+the tray, minimised, and behind other windows, never another account's; the default
+account works through the Store app; no second Claude process is ever started.
+Real-Mac check stays open until someone tests it on a Mac.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - KeyboardCowboy/multi-claude — "Focus instead of duplicate":
@@ -183,11 +188,6 @@ needs native code), E as the main path (needs an extra macOS permission).
 - Tests: `service.show` picks Store activation for the default account and the
   launcher for the others.
 
-**Done when:** on this PC, Show brings forward each account's window from hidden in
-the tray, minimised, and behind other windows, never another account's; the default
-account works through the Store app; no second Claude process is ever started.
-Real-Mac check stays open until someone tests it on a Mac.
-
 **Verification** (2026-11-13, branch `feat/show-window`, test copy of Multi-Claude on
 this PC, Claude Store build 5.11492.2.0; the Show button was clicked in the app)
 
@@ -203,12 +203,26 @@ this PC, Claude Store build 5.11492.2.0; the Show button was clicked in the app)
 | Never another account's window | ✅ each Show put only its own account in front |
 | Real Mac | ⬜ not tested (no Mac available) |
 
+</details>
+
+[↑ Feature list](#feature-list)
+
 ---
 
 ### 2. Per-account colour
 
+> **Status:** ✅ Done · Mac and installed build untested · **Priority:** Core · **Effort:** M
+
 **What:** Pick a colour per account. Shown on its card, row and page, and as a coloured
 badge (first letter) on its desktop shortcut icon, so shortcuts are told apart.
+
+**Done when:** the colour shows everywhere the account appears; new shortcuts get a
+coloured icon; changing the colour updates an existing shortcut; old stores load and
+get a colour; an older version can still read the store.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - KeyboardCowboy/multi-claude — name and colour per profile:
@@ -290,10 +304,6 @@ outline (too subtle on the dark UI); copying Claude per account for its own Dock
 - Renderer: `lib/colors.js` (palette, letter, text colour), `lib/accountIcon.js` (canvas
   drawing), an `Avatar` component, the Colour picker on the account page.
 
-**Done when:** the colour shows everywhere the account appears; new shortcuts get a
-coloured icon; changing the colour updates an existing shortcut; old stores load and
-get a colour; an older version can still read the store.
-
 **Verification** (2026-11-13, branch `feat/account-colour`, test copy of Multi-Claude on
 this PC, buttons clicked in the app)
 
@@ -316,9 +326,15 @@ One colour change during testing (m set to Terracotta at 23:51:56) didn't come f
 scripted click and didn't happen again in three repeats of the same steps; most likely
 a click on the visible test window.
 
+</details>
+
+[↑ Feature list](#feature-list)
+
 ---
 
 ### 3. Own taskbar group per account (Windows)
+
+> **Status:** ✅ Done · Installed build and pinning untested · **Priority:** Core · **Effort:** L
 
 **What:** Today every account's window groups under one Claude taskbar icon. Give each
 account's window its own taskbar group, name and icon.
@@ -326,6 +342,15 @@ account's window its own taskbar group, name and icon.
 **Must keep:** Multi-Claude's own taskbar button always shows its real app icon (the
 Multi-Claude logo). This feature changes only the Claude windows of each account, never
 Multi-Claude's own window or its installed app icon.
+
+**Done when:** two running added accounts show as two taskbar buttons with their own
+coloured icons and names, next to Claude's own button for the default account; they
+survive tray, Show and minimise; Multi-Claude's own button keeps its logo; turning the
+setting off puts them back in Claude's group.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **Open question for the analysis:** what each account's Claude window shows in the
 taskbar: Claude's icon with a small badge in the account's colour, or the account's
@@ -396,6 +421,7 @@ user's request:** the icon is drawn on Multi-Claude's own dark rounded tile (the
 background of `build/icon`), with the account's letter in the account's colour, so every
 account button still reads as Multi-Claude. The Multi-Claude badge was dropped; the tile
 is the brand. The desktop shortcut uses the same icon.
+
 **Changed again (user's choice from three previews):** Multi-Claude's real Windows icon
 (the M logo from `build/icon.ico`, copied to `src/renderer/assets/app-icon-*.png`) with a
 round badge at the bottom right in the account's own colour, glossy like the in-app
@@ -434,11 +460,6 @@ they'd be updated. Proposed safeguard: a setting **Separate taskbar button per a
   accounts; needs each account's icon file to exist (drawn by the renderer on start).
 - `src/renderer/lib/accountIcon.js` + `src/main/icons.js`: multi-size `.ico`.
 - Setting in the UI; README "How it works" updated.
-
-**Done when:** two running added accounts show as two taskbar buttons with their own
-coloured icons and names, next to Claude's own button for the default account; they
-survive tray, Show and minimise; Multi-Claude's own button keeps its logo; turning the
-setting off puts them back in Claude's group.
 
 **Verification** (2026-11-14, branch `feat/taskbar-groups`, test copy of Multi-Claude on
 this PC, buttons clicked in the app, taskbar captured after each step)
@@ -484,14 +505,27 @@ tray icons all looked the same.
 | Unit tests: tray item, script parts, default account, refresh on the background check | ✅ 420 pass |
 | Real run on your PC: Default and Anika tray icons changed (tray 1 each) | ✅ (please confirm by eye) |
 
+</details>
+
+[↑ Feature list](#feature-list)
+
 ---
 
 ### 4. Same-account and wrong-account warning
+
+> **Status:** ✅ Done · Warning not yet seen on a real duplicate · **Priority:** Core · **Effort:** S
 
 **What:** Warn when two profiles are signed in to the same Claude account ("Work and
 Work 2 are the same account"), and when a profile is now signed in to a different
 account than the one it was set up with ("Work is signed in to another account").
 Each profile must stay one account, or the whole side-by-side setup breaks.
+
+**Done when:** a warning pill shows on both accounts when they match, and on an account
+whose sign-in changed, with a choice to accept the new account.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - KeyboardCowboy/multi-claude — account warnings and duplicate-account protection:
@@ -547,16 +581,27 @@ later means it changed accounts.
 **Decision first:** this widens what Multi-Claude reads from a profile. Update the
 README's "How it works" if you build it.
 
-**Done when:** a warning pill shows on both accounts when they match, and on an account
-whose sign-in changed, with a choice to accept the new account.
+</details>
+
+[↑ Feature list](#feature-list)
 
 ---
 
 ### 5. Folder-to-account link for VS Code
 
+> **Status:** 🟡 Analysed · Your decision: the planned approach doesn't work · **Priority:** Core · **Effort:** M
+
 **What:** "Use this account for this project": writes the setting into that project's
 `.vscode/settings.json` instead of the global one, so different repositories use
 different accounts you own.
+
+**Done when (E):** linking a folder shows it under the account; **Open project** opens
+it in VS Code with that account's Claude Code; a subfolder of a linked folder opens with
+the same account; unlinking removes it; deleting the account removes its links.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - claude-swap — `map` / `unmap` folders to accounts: https://github.com/realiti4/claude-swap
@@ -677,19 +722,28 @@ Claude Code process's `CLAUDE_CONFIG_DIR` again.
 
 **Decision (yours):** prototype W, build E + T, or skip feature 5 for now.
 
-**Done when (E):** linking a folder shows it under the account; **Open project** opens
-it in VS Code with that account's Claude Code; a subfolder of a linked folder opens with
-the same account; unlinking removes it; deleting the account removes its links.
+</details>
+
+[↑ Feature list](#feature-list)
 
 ---
 
 ### 6. Guided Google sign-in (Mac)
+
+> **Status:** ⬜ To do · **Priority:** Core · **Effort:** M
 
 **What:** On a Mac, if only one Claude window is open, the `claude://` sign-in link
 goes to it. So: close the other Claude windows (with permission), open only this
 account, sign in with Google, then offer to reopen what was closed.
 This does not help on Windows, where the Store version always sends the link to the
 default Claude.
+
+**Done when:** tested on a real Mac — a new account signs in with Google and stays
+signed in on the next launch.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - KeyboardCowboy/multi-claude — "Guided sign-in":
@@ -706,8 +760,9 @@ default Claude.
 **Where in Multi-Claude:** `src/renderer/components/ClaudeSignInGuide.jsx` (Mac branch
 using `isMac` from `src/renderer/lib/api.js`); close/reopen through `service.js`.
 
-**Done when:** tested on a real Mac — a new account signs in with Google and stays
-signed in on the next launch.
+</details>
+
+[↑ Feature list](#feature-list)
 
 ---
 
@@ -715,10 +770,19 @@ signed in on the next launch.
 
 ### 7. Tray / menu-bar icon
 
+> **Status:** ✅ Done · Mac untested · **Priority:** High · **Effort:** M
+
 **What:** A tray icon (Windows) or menu-bar item (Mac). Its menu lists each account
 with its Session and Weekly figures, a running dot, and Launch / Close / Bring to
 front. Plus Open Multi-Claude, Check for updates, Quit. Closing the main window
 keeps the app in the tray (optional setting).
+
+**Done when:** the tray menu shows every account with its figures and running state;
+Launch/Close work from it; Quit really quits; works on Windows and Mac.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - CodexBar — two-bar meter icon (session on top, weekly below):
@@ -778,17 +842,27 @@ keeps the app in the tray (optional setting).
 menu built from `service.list()` and `service.limits()`; rebuild the menu when
 either changes.
 
-**Done when:** the tray menu shows every account with its figures and running state;
-Launch/Close work from it; Quit really quits; works on Windows and Mac.
+</details>
+
+[↑ Feature list](#feature-list)
 
 ---
 
 ### 8. Limit alerts
 
+> **Status:** ✅ Done · Click-to-open and Mac untested · **Priority:** High · **Effort:** S
+
 **What:** A system notification when an account crosses a threshold, for example
 "Work: Weekly at 80%". Thresholds set per account (default 80% and 95%, Session and
 Weekly). Each threshold fires once per window, not on every refresh. Information only:
 it never switches or launches anything.
+
+**Done when:** crossing a threshold shows one notification; it doesn't repeat until
+usage drops below and crosses again; unit tests cover the crossing logic.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - Claude-Code-Usage-Monitor — warnings near the limit:
@@ -832,9 +906,6 @@ figures + thresholds → alerts to show), called after each limits refresh; thre
 saved per account in `src/main/store.js`; settings on the account page
 (`src/renderer/views/AccountDetail.jsx`).
 
-**Done when:** crossing a threshold shows one notification; it doesn't repeat until
-usage drops below and crosses again; unit tests cover the crossing logic.
-
 **Built (2026-11-14):**
 - `src/main/alerts.js` holds the rules.
 - `service.limits()` checks every real fetch.
@@ -859,9 +930,27 @@ usage drops below and crosses again; unit tests cover the crossing logic.
 | Installed build shows the pop-up | ⏳ after the next release |
 | Mac | ⏳ untested |
 
+</details>
+
+[↑ Feature list](#feature-list)
+
 ---
 
 ### 9. Usage history chart
+
+> **Status:** ✅ Done · 30-day view and Mac untested · **Priority:** High · **Effort:** M
+
+**What:** On each account page, a line chart of Session and Weekly usage over the
+last 7 / 30 days, from every sample in Claude's own `plan-usage-history.json`. Today
+only the newest sample is used. No new data and no extra sign-in needed.
+
+**Done when:** the chart shows real samples for 7 and 30 days; gaps where Claude wasn't
+running show as gaps, not zero; empty state for a new account; unit tests for the
+history reader.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **Analysis notes (2026-11-14):**
 - *What Claude records is sparse.* It writes a sample only while its window runs, a few
@@ -879,10 +968,6 @@ usage drops below and crosses again; unit tests cover the crossing logic.
   `usage-history.jsonl`, for 90 days, and merge them with Claude's samples.
 - *Where:* a "Usage history" panel on each account's page, under Usage limits, with
   7 days / 30 days. Three tiles: Limit reached (count), Busiest day, Weekly now.
-
-**What:** On each account page, a line chart of Session and Weekly usage over the
-last 7 / 30 days, from every sample in Claude's own `plan-usage-history.json`. Today
-only the newest sample is used. No new data and no extra sign-in needed.
 
 **References**
 - cc-switch — trend charts and a yearly heatmap:
@@ -931,17 +1016,26 @@ expose through `service.js` / `ipc.js` / preload; draw it as a hand-made SVG in 
 `src/renderer/components/UsageChart.jsx` (the app has no chart library), styled with
 the existing glass look.
 
-**Done when:** the chart shows real samples for 7 and 30 days; gaps where Claude wasn't
-running show as gaps, not zero; empty state for a new account; unit tests for the
-history reader.
+</details>
+
+[↑ Feature list](#feature-list)
 
 ---
 
 ### 10. Claude status (outage) badge
 
+> **Status:** ⬜ To do · **Priority:** High · **Effort:** S
+
 **What:** A small badge in the app header (and later the tray) when Claude reports an
 outage: green / amber / red with the description, click to open the status page.
 Checked every few minutes, only while the app is open.
+
+**Done when:** the badge matches `status.indicator` (`none` / `minor` / `major` /
+`critical`); no network error ever shows as an outage; unit tests for the parser.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - CodexBar — outage light on the menu-bar icon:
@@ -963,8 +1057,9 @@ Checked every few minutes, only while the app is open.
 same HTTP helper style as `src/main/update-http.js`); badge in the header of
 `src/renderer/App.jsx`.
 
-**Done when:** the badge matches `status.indicator` (`none` / `minor` / `major` /
-`critical`); no network error ever shows as an outage; unit tests for the parser.
+</details>
+
+[↑ Feature list](#feature-list)
 
 ---
 
@@ -972,8 +1067,17 @@ same HTTP helper style as `src/main/update-http.js`); badge in the header of
 
 ### 11. Memory per account and idle sleep
 
+> **Status:** ⬜ To do · **Priority:** Mid · **Effort:** M
+
 **What:** Show each running account's memory use. Optional: close an account that
 hasn't been in front for X minutes (off by default, per account).
+
+**Done when:** memory shows on running accounts; idle close never closes the window in
+front and is off unless turned on.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - Ferdium — hibernation of unused services: https://ferdium.org/
@@ -994,16 +1098,26 @@ WorkingSet of the process tree) and `src/main/mac.js` (`ps -o rss`); sum per acc
 Idle: poll the foreground window's process every minute; close through the existing
 closer (`src/main/closer.js`), which already asks Claude to close politely.
 
-**Done when:** memory shows on running accounts; idle close never closes the window in
-front and is off unless turned on.
+</details>
+
+[↑ Feature list](#feature-list)
 
 ---
 
 ### 12. Pace, burn rate and offline cache
 
+> **Status:** ⬜ To do · **Priority:** Mid · **Effort:** S
+
 **What:** Next to each limit: "on pace" / "ahead of pace" compared with spending evenly
 to the reset, and how fast it's rising. Keep the last good figures when offline,
 labelled with their age, and label every figure as live or recorded.
+
+**Done when:** pace shows only when reset times are known; offline shows the last
+figures with their age instead of an error.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - CodexBar — pace tracking: https://github.com/steipete/CodexBar
@@ -1023,15 +1137,25 @@ labelled with their age, and label every figure as live or recorded.
 times, so live limits only; burn rate can use the history from feature 9); display in
 `src/renderer/components/AccountLimits.jsx`.
 
-**Done when:** pace shows only when reset times are known; offline shows the last
-figures with their age instead of an error.
+</details>
+
+[↑ Feature list](#feature-list)
 
 ---
 
 ### 13. Start with the computer
 
+> **Status:** ⬜ To do · **Priority:** Mid · **Effort:** S
+
 **What:** Setting "Start Multi-Claude when I sign in", opening quietly in the tray.
 It does not launch any Claude accounts by itself.
+
+**Done when:** after signing in to the computer, Multi-Claude is in the tray with no
+window and no Claude launched.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - cc-switch — auto-launch: https://github.com/farion1231/cc-switch
@@ -1050,16 +1174,25 @@ It does not launch any Claude accounts by itself.
 **Where in Multi-Claude:** settings toggle; `src/main/main.js` reads a `--hidden`
 argument (`src/main/argv.js`) to start without the window. Needs feature 7.
 
-**Done when:** after signing in to the computer, Multi-Claude is in the tray with no
-window and no Claude launched.
+</details>
+
+[↑ Feature list](#feature-list)
 
 ---
 
 ### 14. Settings backup, export and import
 
+> **Status:** ⬜ To do · **Priority:** Mid · **Effort:** S
+
 **What:** Automatic daily backup of Multi-Claude's own store (account names, colours,
 folder paths, thresholds), keeping the last 10; Export / Import to move to a new PC.
 Never anything inside a profile, never a sign-in.
+
+**Done when:** a bad store can be restored from a backup; import refuses invalid files.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - cc-switch — backups every 24 hours, keeps 10:
@@ -1078,11 +1211,15 @@ Never anything inside a profile, never a sign-in.
 **Where in Multi-Claude:** `src/main/store.js` (`save` writes a dated copy to a
 `backups` folder; import runs `validate`); buttons on the Storage view.
 
-**Done when:** a bad store can be restored from a backup; import refuses invalid files.
+</details>
+
+[↑ Feature list](#feature-list)
 
 ---
 
 ### 20. Copy a chat started in the wrong account
+
+> **Status:** 🔨 Building · Code-tab copy not yet confirmed in Claude Desktop · **Priority:** Mid · **Effort:** L
 
 **What:** On an account's page, a **Chats** section lists that account's Claude Code
 chats (Terminal and VS Code). A chat that was started in the wrong account (for
@@ -1099,6 +1236,15 @@ account (billing, data, employer policy), never for working past a usage limit.
 - The dialog says: "For a chat started in the wrong account. Only move chats between
   accounts you own."
 - One chat at a time, by hand. No bulk copy, no "copy all", no syncing.
+
+**Done when:** a real chat copied from one account resumes in the other with its
+history; Move removes the source only after a good copy; a failed copy leaves no
+partial files; running chats are refused; the dialog shows no usage figures; unit
+tests for listing, copying, rollback and the guards.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **User journey**
 1. Account page → **Chats** section: title, project folder, last used, size, a
@@ -1210,11 +1356,11 @@ Prototype (2026-11-17, Claude Code 2.1.224 and 2.1.325, haiku, test chats delete
 | Copy dialog: wording, no usage figures, Copy / Move, cost note | ✅ (first build drew it under the panels below; fixed by rendering at page level) |
 | Target not signed in to Claude Code is refused, nothing copied | ✅ and since the fix, no folder is created for it either |
 | Target account is never pre-selected | ✅ (changed after the first run picked the only other account) |
-| A real chat copied between two of the user's own accounts resumes | ❌ not yet: no second account the user owns is signed in to Claude Code here |
+| A real chat copied to another account resumes there (Terminal & VS Code) | ✅ the user copied 3 chats from Default to Anika: all listed in Anika's Chats panel, and each opened in a terminal as Anika (2026-11-17) |
 | Move removes the original; failed copy leaves nothing | ✅ unit tests only |
 | Default lists the real `~/.claude` chats, tagged, with open ones marked and their buttons off | ✅ 92 chats; the 4 open Desktop Code-tab chats (this one included) shown running |
 | Titles: Desktop's "New session" placeholder and interrupt markers skipped | ✅ falls back to the first real prompt |
-| Phase 2: copy shows in the target's Claude Desktop Code tab and opens there | ⏳ unit tests pass; waiting on the user's try with Anika's window closed |
+| Phase 2: copy shows in the target's Claude Desktop Code tab and opens there | ⏳ unit tests pass; not yet confirmed in Claude Desktop |
 | Open chat shows **Close** (user's request): confirm, end its Claude Code process, then Continue / Copy unlock | ✅ unit tests; the name check returns `claude` for real open chats; not clicked on a real chat |
 
 Decided (2026-11-17): the user's everyday chats are in plain `~/.claude`, which no
@@ -1229,10 +1375,9 @@ injected fs for tests); `service.listChats` / `service.copyChat`; IPC in `src/ma
 and `src/preload/preload.js`; resume through the Terminal launcher; a Chats panel and
 `CopyChatDialog.jsx` on `src/renderer/views/AccountDetail.jsx`.
 
-**Done when:** a real chat copied from one account resumes in the other with its
-history; Move removes the source only after a good copy; a failed copy leaves no
-partial files; running chats are refused; the dialog shows no usage figures; unit
-tests for listing, copying, rollback and the guards.
+</details>
+
+[↑ Feature list](#feature-list)
 
 ---
 
@@ -1240,8 +1385,17 @@ tests for listing, copying, rollback and the guards.
 
 ### 15. More languages (Bangla first)
 
+> **Status:** ⬜ To do · **Priority:** Low · **Effort:** M
+
 **What:** Translate the interface; Bangla and English first, then others. Language
 setting, defaulting to the system language.
+
+**Done when:** every visible string comes from a locale file; switching language needs
+no restart.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - cc-switch — 8 languages: https://github.com/farion1231/cc-switch
@@ -1258,15 +1412,24 @@ setting, defaulting to the system language.
 **Where in Multi-Claude:** move strings from `src/renderer/**` into
 `src/renderer/locales/<lang>.json`.
 
-**Done when:** every visible string comes from a locale file; switching language needs
-no restart.
+</details>
+
+[↑ Feature list](#feature-list)
 
 ---
 
 ### 16. PIN lock
 
+> **Status:** ⬜ To do · **Priority:** Low · **Effort:** S
+
 **What:** Optional PIN to open Multi-Claude, for shared PCs. Hashed with a salt, never
 stored plainly. It locks only Multi-Claude, not the Claude windows.
+
+**Done when:** the app opens to the lock screen; a wrong PIN shows nothing else.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - Ferdium (inherited from Franz/Ferdi) — app lock: https://ferdium.org/
@@ -1281,14 +1444,25 @@ stored plainly. It locks only Multi-Claude, not the Claude windows.
 **Where in Multi-Claude:** lock screen in `src/renderer/App.jsx`; hash with Node
 `crypto.scrypt` in the main process; tray actions also check the lock.
 
-**Done when:** the app opens to the lock screen; a wrong PIN shows nothing else.
+</details>
+
+[↑ Feature list](#feature-list)
 
 ---
 
 ### 17. `multi-claude://` links and launcher support
 
+> **Status:** ⬜ To do · **Priority:** Low · **Effort:** S
+
 **What:** `multi-claude://launch/<account>` and `multi-claude://show/<account>`, so
 Raycast, Alfred, PowerToys Run or a browser bookmark can open an account.
+
+**Done when:** opening the link launches or shows the account, including when
+Multi-Claude was not running.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - cc-switch — `ccswitch://` links: https://github.com/farion1231/cc-switch
@@ -1309,15 +1483,24 @@ Raycast, Alfred, PowerToys Run or a browser bookmark can open an account.
 **Where in Multi-Claude:** register in `src/main/main.js`; parse in `src/main/argv.js`
 next to the existing `--launch <id>`.
 
-**Done when:** opening the link launches or shows the account, including when
-Multi-Claude was not running.
+</details>
+
+[↑ Feature list](#feature-list)
 
 ---
 
 ### 18. Command-line status (`--status --json`)
 
+> **Status:** ⬜ To do · **Priority:** Low · **Effort:** S
+
 **What:** `Multi-Claude.exe --status --json` prints each account's running state and
 latest figures, then exits — for scripts and status bars.
+
+**Done when:** output is stable JSON with a `schemaVersion`; documented in the README.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - claude-swap — `--json` with a `schemaVersion`: https://github.com/realiti4/claude-swap
@@ -1336,15 +1519,25 @@ latest figures, then exits — for scripts and status bars.
 **Where in Multi-Claude:** `src/main/argv.js` + an early exit in `src/main/main.js`
 before any window opens (must work while the single-instance app is already running).
 
-**Done when:** output is stable JSON with a `schemaVersion`; documented in the README.
+</details>
+
+[↑ Feature list](#feature-list)
 
 ---
 
 ### 19. winget, Homebrew and code signing
 
+> **Status:** ⬜ To do · **Priority:** Low · **Effort:** M
+
 **What:** Install with `winget install` and `brew install --cask`; sign the Windows
 installer (no SmartScreen warning) and sign + notarise the Mac app (no right-click →
 Open step).
+
+**Done when:** both installs work from a clean machine with no security warnings.
+
+<details>
+<summary><strong>Research, decisions and checks</strong></summary>
+<br>
 
 **References**
 - winget package repository: https://github.com/microsoft/winget-pkgs
@@ -1365,11 +1558,13 @@ Open step).
 `.github/workflows/mac.yml`; signing needs paid certificates (Windows code signing,
 Apple Developer ID).
 
-**Done when:** both installs work from a clean machine with no security warnings.
+</details>
+
+[↑ Feature list](#feature-list)
 
 ---
 
-## Not doing (breaks the rules above)
+## Not doing (breaks the rules)
 
 | Feature | Seen in | Why not |
 |---|---|---|
