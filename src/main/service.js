@@ -108,7 +108,7 @@ function createService(deps) {
 
   const ccDirFor = (a) => (deps.ccRoot ? path.join(deps.ccRoot, a.id) : null);
 
-  // Where an account's Claude Code chats live (roadmap feature 20). The
+  // Where an account's Claude Code chats live (Copy a chat to another account). The
   // Default account also shows ~/.claude: plain `claude` and Claude Desktop's
   // Code tab keep their chats there.
   function chatSources(a) {
@@ -1094,7 +1094,7 @@ function createService(deps) {
       return { ok: true };
     },
 
-    // ---- chats (roadmap feature 20) -----------------------------------------
+    // ---- chats (Copy a chat to another account) -----------------------------
     // For a Claude Code chat started in the wrong account: copy it, by hand,
     // to another account and continue it there. Nothing here looks at usage.
 

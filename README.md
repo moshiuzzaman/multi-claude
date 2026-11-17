@@ -48,8 +48,7 @@ Multi-Claude is neither.
 | Auto-switch, pooling, failover | Common | — | **Refused** |
 | Per-account taskbar + tray icon (Windows) | — | — | **Yes** |
 
-<sub>From the feature-by-feature research in [`docs/FEATURE-ROADMAP.md`](docs/FEATURE-ROADMAP.md)
-(November 2026). Good tools, different problem — go read them.</sub>
+<sub>From research into similar tools (November 2026). Good tools, different problem — go read them.</sub>
 
 ## Features
 
@@ -125,7 +124,7 @@ sign in to each account yourself, inside Claude's own window.
 
 - [User guide](docs/GUIDE.md) — usage limits, alerts, history, tray, VS Code, file locations
 - [Known limitations](docs/GUIDE.md#known-limitations) and [FAQ](docs/GUIDE.md#faq)
-- [Feature roadmap](docs/FEATURE-ROADMAP.md) — 19 researched features with status
+- [Features](docs/FEATURES.md) — everything available now, and what's coming next
 - [Contributing](CONTRIBUTING.md) — setup, architecture, the rules a PR must keep
 
 ## Contributing

@@ -2,7 +2,8 @@
 
 Multi-Claude lets you keep several Claude accounts on one computer, each in its own Claude
 window, and see all their usage limits in one place. This guide explains every feature in
-plain steps. For a short overview, see the [README](../README.md).
+plain steps. For a short overview, see the [README](../README.md); for everything available
+now and what's coming next, see [Features](FEATURES.md).
 
 > [!TIP]
 > In the app, the **?** button at the top-right of every page opens this guide, the release

@@ -2,7 +2,8 @@
 // Claude Code chats inside one account's Claude Code folder (its
 // CLAUDE_CONFIG_DIR), and copying one chat to another account's folder.
 //
-// Roadmap feature 20: for a chat that was started in the wrong account. It is
+// "Copy a chat to another account" (docs/FEATURES.md): for a chat that was
+// started in the wrong account. It is
 // started by hand, one chat at a time, and nothing here knows about usage.
 //
 // Claude Code keeps a chat as <config>/projects/<encoded folder>/<id>.jsonl,

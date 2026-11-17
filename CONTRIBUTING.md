@@ -26,7 +26,7 @@ welcome, and you don't need to write code to help.
 | 💡 **Suggest an idea** | In the app: **? → Suggest an idea**. Or [open an idea](https://github.com/moshiuzzaman/multi-claude/issues/new?template=feature_request.yml). |
 | 🍎 **Try it on a Mac** | The Mac build has never run on real hardware. See [macOS](docs/GUIDE.md#macos) for what to check first. **The most useful thing anyone can do right now.** |
 | 🖼️ **Add screenshots** | The README has none yet. [`MULTI_CLAUDE_SHOT`](#debugging) captures every view. |
-| 🛠️ **Build a feature** | Pick one from the [roadmap](docs/FEATURE-ROADMAP.md): 20 researched features with priority, effort and status. |
+| 🛠️ **Build a feature** | Pick one from [Coming next](docs/FEATURES.md#coming-next), or an idea issue. Comment on its issue first so we can agree the approach. |
 | 📝 **Improve the docs** | Anything in the README, [guide](docs/GUIDE.md) or a dialog that didn't explain itself is a bug. |
 
 > [!TIP]
@@ -54,7 +54,7 @@ that is exactly what Anthropic's enforcement targets. These rules keep Multi-Cla
 right side of that line.
 
 > [!NOTE]
-> **The one exception (roadmap feature 20): copying a chat started in the wrong account.**
+> **The one exception: copying a chat started in the wrong account** ([Copy a chat to another account](docs/FEATURES.md#claude-code)).
 > A Claude Code chat may be copied **by hand, one at a time**, to another account the user
 > owns. For that feature only, Multi-Claude may:
 > - list chats (title, folder, date, size) and copy a chat's own files inside its own `cc`
@@ -70,18 +70,18 @@ right side of that line.
 
 ## How features get built
 
-Every roadmap feature follows the same path, and pull requests should too:
+Every new feature follows the same path, and pull requests should too:
 
-1. **Read the spec** for the feature in the [roadmap](docs/FEATURE-ROADMAP.md).
-2. **Study the reference projects** linked with it: their docs, their code, and their issues,
-   which show what went wrong for them.
+1. **Start from an issue.** Pick one from [Coming next](docs/FEATURES.md#coming-next) or an
+   idea issue, or open one describing the feature.
+2. **Study similar tools** that already do it: their docs, their code, and their issues, which
+   show what went wrong for them.
 3. **Compare the approaches** in a short table: pros, cons, and whether each fits the
    [rules](#project-rules).
-4. **Pick the better idea.** Write the decision into the feature's *Analysis notes* and set
-   its status to **Analysed**.
+4. **Agree the approach** in the issue before building.
 5. **Build it, with tests.**
-6. **Check it in the real app**, not only in unit tests. Write down what you checked, and only
-   then mark it **Done**.
+6. **Check it in the real app**, not only in unit tests, and say what you checked in the pull
+   request.
 
 > [!IMPORTANT]
 > **Learn ideas, don't copy code.** Write Multi-Claude's own code. Code from MIT-licensed
@@ -118,7 +118,7 @@ npm install
 | `src/preload/` | The bridge between the window and the main process |
 | `src/renderer/` | The window: React + Vite |
 | `test/` | Unit tests (`node --test`) |
-| `docs/` | The user [guide](docs/GUIDE.md) and the [roadmap](docs/FEATURE-ROADMAP.md) |
+| `docs/` | The user [guide](docs/GUIDE.md) and the [feature list](docs/FEATURES.md) |
 | `.github/` | Issue forms and the Mac build workflow |
 
 **Security model:** the window runs sandboxed with `contextIsolation` on. It talks to the main
@@ -196,7 +196,7 @@ Before you open a pull request:
 - [ ] It keeps every [project rule](#project-rules).
 - [ ] `npm test` passes, and new behaviour has tests.
 - [ ] You tried it in the real app (`npm start`) and say what you checked in the PR.
-- [ ] User-facing changes are in the [guide](docs/GUIDE.md); roadmap features have their status updated.
+- [ ] User-facing changes are in the [guide](docs/GUIDE.md), and new features are listed in [FEATURES.md](docs/FEATURES.md).
 - [ ] No code copied from AGPL, unlicensed or closed-source projects.
 - [ ] No emails, account names or personal paths in screenshots, logs or test data.
 

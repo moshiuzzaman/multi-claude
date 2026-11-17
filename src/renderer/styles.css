@@ -1758,7 +1758,7 @@ button.uf-icon:hover:not(:disabled) { background: var(--gloss-neutral-hover); bo
 .recent-bar > span.open { background: var(--good); opacity: 0.6; }
 .recent-dur { text-align: right; font-variant-numeric: tabular-nums; font-weight: 560; }
 
-/* ------------------------------------------- chats (roadmap feature 20) -- */
+/* --------------------------------------- chats (copy to another account) -- */
 
 .chat-list { display: flex; flex-direction: column; }
 .chat-row {

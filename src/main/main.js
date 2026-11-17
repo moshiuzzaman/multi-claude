@@ -254,7 +254,7 @@ if (!app.requestSingleInstanceLock()) {
       // One Claude Code config dir per account, each with its own official sign-in.
       ccRoot: path.join(appDir, 'cc'),
       // Plain `claude` and Claude Desktop's Code tab keep their chats here.
-      // Shown on the Default account's Chats panel (roadmap feature 20).
+      // Shown on the Default account's Chats panel (Copy a chat to another account).
       homeClaudeDir: process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'),
       // One VS Code, one account at a time: the account is a setting in the
       // user's own settings.json, which the extension watches.
@@ -501,8 +501,8 @@ if (!app.requestSingleInstanceLock()) {
                   await fsp.writeFile(`${base}-detail.png`, (await win.webContents.capturePage()).toPNG());
                   log(`[renderer] screenshot -> ${base}-detail.png`);
 
-                  // Opt-in: the Chats panel and the Copy dialog (roadmap
-                  // feature 20). Picks the account named by
+                  // Opt-in: the Chats panel and the Copy dialog (Copy a
+                  // chat to another account). Picks the account named by
                   // MULTI_CLAUDE_SHOT_CHATS and captures the dialog. Never
                   // presses Copy, so nothing is ever copied.
                   if (process.env.MULTI_CLAUDE_SHOT_CHATS) {

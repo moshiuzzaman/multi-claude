@@ -4,7 +4,7 @@ import { colorOf } from '../lib/colors.js';
 import { bytes } from '../lib/format.js';
 
 /**
- * Copy one Claude Code chat to another account (roadmap feature 20).
+ * Copy one Claude Code chat to another account (docs/FEATURES.md).
  *
  * For a chat started in the wrong account. The account list deliberately
  * shows no usage figures and is not sorted by usage: this is about putting

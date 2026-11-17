@@ -1481,7 +1481,7 @@ test('account check: a new profile signed in to an account already in use is not
   cleanup(h);
 });
 
-// ---- chats (roadmap feature 20) ---------------------------------------------
+// ---- chats (Copy a chat to another account) ---------------------------------
 
 const CHAT_ID = '11111111-2222-4333-8444-555555555555';
 

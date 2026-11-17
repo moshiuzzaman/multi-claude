@@ -3,3 +3,6 @@ dist/
 *.log
 dist-renderer/
 .worktrees/
+
+# Internal planning notes, kept on this PC only
+docs/FEATURE-ROADMAP.md
