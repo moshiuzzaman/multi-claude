@@ -253,6 +253,9 @@ if (!app.requestSingleInstanceLock()) {
       storageCacheFile: path.join(appDir, 'storage-cache.json'),
       // One Claude Code config dir per account, each with its own official sign-in.
       ccRoot: path.join(appDir, 'cc'),
+      // Plain `claude` and Claude Desktop's Code tab keep their chats here.
+      // Shown on the Default account's Chats panel (roadmap feature 20).
+      homeClaudeDir: process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'),
       // One VS Code, one account at a time: the account is a setting in the
       // user's own settings.json, which the extension watches.
       vscodeSettingsFile: path.join(app.getPath('appData'), 'Code', 'User', 'settings.json'),
@@ -300,6 +303,8 @@ if (!app.requestSingleInstanceLock()) {
       ? 'source'
       : process.platform === 'darwin' || process.env.PORTABLE_EXECUTABLE_FILE ? 'portable' : 'installed';
     const tmpDir = path.join(os.tmpdir(), 'multi-claude-update');
+    // Filled into a new GitHub issue's form (Send feedback): the OS and its build only.
+    const updaterOsLabel = `${process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'macOS' : process.platform} ${os.release()}`;
     // An installer from an earlier update is finished with by now. Best effort:
     // right after an update it may still be exiting, and goes next launch.
     fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
@@ -317,7 +322,8 @@ if (!app.requestSingleInstanceLock()) {
         openExternal: (url) => { shell.openExternal(url).catch(() => {}); },
         currentVersion: app.getVersion(),
         repo: updateConfig,
-        tmpDir
+        tmpDir,
+        osLabel: updaterOsLabel
       });
     }
 
@@ -331,7 +337,8 @@ if (!app.requestSingleInstanceLock()) {
       currentVersion: app.getVersion(),
       mode,
       repo: updateConfig,
-      tmpDir
+      tmpDir,
+      osLabel: updaterOsLabel
     });
   }
 
@@ -493,6 +500,46 @@ if (!app.requestSingleInstanceLock()) {
                   await new Promise((r) => setTimeout(r, Number(process.env.MULTI_CLAUDE_SHOT_WAIT) || 1400));
                   await fsp.writeFile(`${base}-detail.png`, (await win.webContents.capturePage()).toPNG());
                   log(`[renderer] screenshot -> ${base}-detail.png`);
+
+                  // Opt-in: the Chats panel and the Copy dialog (roadmap
+                  // feature 20). Picks MULTI_CLAUDE_SHOT_CHATS as the target
+                  // account's name and presses Copy only when it is not
+                  // signed in to Claude Code, so nothing is ever copied.
+                  if (process.env.MULTI_CLAUDE_SHOT_CHATS) {
+                    const js = (code) => win.webContents.executeJavaScript(code);
+                    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+                    const target = JSON.stringify(process.env.MULTI_CLAUDE_SHOT_CHATS);
+                    await wait(1500);
+                    const info = await js(`(() => {
+                      const p = [...document.querySelectorAll('.panel')].find(x => x.textContent.includes('Claude Code chats'));
+                      if (!p) return 'no panel';
+                      p.scrollIntoView({ block: 'start' });
+                      return [...p.querySelectorAll('.chat-row')].map(r => r.innerText.replace(/\\s+/g, ' ')).join(' | ') || p.innerText.replace(/\\s+/g, ' ');
+                    })()`);
+                    log(`[chats] panel: ${info}`);
+                    await wait(600);
+                    await fsp.writeFile(`${base}-chats-1-panel.png`, (await win.webContents.capturePage()).toPNG());
+                    const opened = await js("(() => { const b = [...document.querySelectorAll('.chat-row button')].find(b => b.textContent.includes('Copy to') && !b.disabled); if (b) { b.click(); return true; } return false; })()");
+                    log(`[chats] dialog opened: ${opened}`);
+                    if (opened) {
+                      await wait(600);
+                      await js(`[...document.querySelectorAll('.copy-chat-account')].find(b => b.querySelector(':scope > span:last-child')?.textContent.trim() === ${target})?.click()`);
+                      await wait(400);
+                      await fsp.writeFile(`${base}-chats-2-dialog.png`, (await win.webContents.capturePage()).toPNG());
+                      // Press Copy only when the named account is the one selected.
+                      const picked = await js("document.querySelector('.copy-chat-account.selected > span:last-child')?.textContent.trim() || ''");
+                      if (picked === process.env.MULTI_CLAUDE_SHOT_CHATS) {
+                        await js("[...document.querySelectorAll('.modal .buttons button')].find(b => b.textContent.includes('& open'))?.click()");
+                        await wait(8000);
+                        const msg = await js("document.querySelector('.modal .error')?.textContent || 'no error shown'");
+                        log(`[chats] after copy: ${msg}`);
+                        await fsp.writeFile(`${base}-chats-3-result.png`, (await win.webContents.capturePage()).toPNG());
+                      } else {
+                        log(`[chats] target not selectable (selected: "${picked}"), Copy not pressed`);
+                      }
+                      await js("[...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Cancel')?.click()");
+                    }
+                  }
 
                   // Also capture the Add dialog, which no view shows on its own.
                   await win.webContents.executeJavaScript(

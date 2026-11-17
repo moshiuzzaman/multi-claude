@@ -1,4 +1,5 @@
 import React from 'react';
+import HelpMenu from '../components/HelpMenu.jsx';
 import StatTile from '../components/StatTile.jsx';
 import BarList from '../charts/BarList.jsx';
 import { duration, clockTime, relativeTime, seriesColor } from '../lib/format.js';
@@ -41,6 +42,7 @@ export default function History({ activity, accounts, days, setDays }) {
             <button key={d} className={days === d ? 'on' : ''} onClick={() => setDays(d)}>{d}d</button>
           ))}
         </div>
+        <HelpMenu />
       </div>
 
       <div className="stack">

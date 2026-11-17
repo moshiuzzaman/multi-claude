@@ -17,6 +17,21 @@ no automatic switching, no pooled or "next available" launching, no copying or
 exporting sign-ins, and no reading files inside a profile beyond what already
 happens (`config.json` setting names, `plan-usage-history.json` percentages).
 
+**One narrow exception (feature 20):** a Claude Code chat that was started in the
+wrong account may be copied, by hand, to another account the user owns. To do that,
+Multi-Claude may read the chat list (title, project folder, last used, size) and copy
+the chat's own files inside its own `cc\` folders, and, for the Default account, from
+`~\.claude` (where plain `claude` and Claude Desktop's Code tab keep chats; agreed
+2026-11-17). Copies always land in the target account's own `cc\` folder.
+Phase 2 (agreed 2026-11-17): so a copied chat also shows in the target's Claude Desktop
+Code tab, Multi-Claude may copy the transcript inside `~\.claude` under a new chat id and
+add **one** chat-list entry to the target profile's `claude-code-sessions` folder, only
+while that account's Claude window is closed, and only when the entry matches the shape
+of the profile's own entries. Nothing else in a profile is ever written. Nothing about it may be tied to
+usage limits: no usage figures in its dialog, no "account with room" suggestion, no
+prompt or button when a limit is reached. Moving a chat to keep working past a limit
+stays banned (see "Not doing").
+
 ## How to build each feature: analyse first, then build
 
 No feature starts with code. Every feature goes through these steps, in order:
@@ -84,6 +99,7 @@ Rejected: <ideas not taken, and why>
 | 17 | `multi-claude://` links and launcher support | Low | S | To do |
 | 18 | Command-line status (`--status --json`) | Low | S | To do |
 | 19 | winget, Homebrew and code signing | Low | M | To do |
+| 20 | Copy a chat started in the wrong account | Mid | L | Building (real copy between two own accounts untested) |
 
 ---
 
@@ -1066,6 +1082,160 @@ Never anything inside a profile, never a sign-in.
 
 ---
 
+### 20. Copy a chat started in the wrong account
+
+**What:** On an account's page, a **Chats** section lists that account's Claude Code
+chats (Terminal and VS Code). A chat that was started in the wrong account (for
+example work started in a personal account) can be copied to another account the user
+owns, then continued there in a Terminal opened in the same project folder. The
+original stays where it was unless the user picks **Move**, which removes it only after
+the copy is checked.
+
+**Purpose and limits (agreed 2026-11-17):** this is for putting work in the right
+account (billing, data, employer policy), never for working past a usage limit.
+- The account picker shows names, colours and emails only. **No Session or Weekly
+  figures**, no sorting by usage, no "account with room" hint.
+- Never offered automatically: no prompt, toast or button when a limit is reached.
+- The dialog says: "For a chat started in the wrong account. Only move chats between
+  accounts you own."
+- One chat at a time, by hand. No bulk copy, no "copy all", no syncing.
+
+**User journey**
+1. Account page → **Chats** section: title, project folder, last used, size, a
+   running dot, and a **Copy to…** button per chat.
+2. **Copy to…** opens a dialog: pick the account; Copy (default) or Move; notes that
+   the first message re-reads the whole chat on the new account, that earlier
+   reasoning steps don't carry over, and that the new account's skills, MCP servers
+   and settings apply.
+3. **Copy & open** → copied, checked, and a Terminal opens as the new account in the
+   chat's project folder, running `claude --resume <id>`.
+4. The new account lists the chat with a "from <account>" tag.
+
+| Situation | What the user sees |
+|---|---|
+| Chat is running | Copy disabled; **Close** (after a confirm) ends that chat's Claude Code process, only if its process id still names Claude Code |
+| Project folder not on this PC | Copy blocked: "Folder … not found" |
+| Target already has this chat | **Open that copy** / **Copy again** |
+| Target not signed in to Claude Code | "Sign in to Claude Code first", with the existing sign-in flow |
+| Copy fails partway | Everything copied is removed; the original is untouched |
+| Unknown chat format | "This chat format isn't supported yet. Nothing was changed." |
+
+**Phase 2 (built 2026-11-17, user's go-ahead):** "Show it in: Claude Desktop's Code tab"
+in the Copy dialog. Found on this PC: each profile lists Code-tab chats in
+`claude-code-sessions\<a>\<b>\local_<uuid>.json` (<a>/<b> are Claude Desktop's own ids,
+not the transcript's account ids); 72 entries on Default had 51 different key sets, and only
+10 keys are in every entry. So Multi-Claude writes a minimal entry (those 10 keys plus
+`cliSessionId` and `completedTurns`), in the folder of, and with `model`, `permissionMode`
+and `remoteMcpServersConfig` from, the profile's own newest entry. The transcript is copied
+inside `~\.claude` under a new id (two profiles never share one file). Refused while that
+account's Claude window is open, when it has never used its Code tab, or when its newest
+entry doesn't look like one; if writing the entry fails, the copied transcript is removed.
+Original note: Desktop app Code-tab chats. Their
+transcripts are already shared in `~/.claude\projects`; only the per-profile list in
+`<profile>\claude-code-sessions` differs, so copying means writing a list entry inside a
+profile. Not covered by the exception above.
+
+**References**
+- STRML/move-claude-session (MIT): https://github.com/STRML/move-claude-session
+- yaroslavvb/claude-session-mover (MIT): https://github.com/yaroslavvb/claude-session-mover
+- azahran007/claude-session-switcher (MIT, Windows, Desktop list entries):
+  https://github.com/azahran007/claude-session-switcher
+- TomSOhm/claude-session-port: https://github.com/TomSOhm/claude-session-port
+- Feature request, open, no staff reply: https://github.com/anthropics/claude-code/issues/73639
+
+**Analysis notes**
+
+```
+Analysed on: 2026-11-17
+References read: the four repos above (READMEs), anthropics/claude-code#73639 and #47926,
+Claude Code docs "Work with sessions".
+On this PC: each account's chats are <cc>\projects\<encoded folder>\<id>.jsonl, plus a
+<id>\ folder (subagents, saved tool output) and <id>-named entries in file-history\,
+session-env\. Transcripts now carry `session-owner` records with accountUuid and
+organizationUuid (older tools say transcripts have no account identity: no longer true),
+and signed thinking blocks.
+```
+
+| Reference | How they do it | Pros | Cons | Fits rules? |
+|---|---|---|---|---|
+| STRML | Copy transcript + sibling folder + `*<id>*` side files, rewrite old paths, delete source only after success, refuse running chats | Safe copy with rollback | mac/Linux CLI | ✅ copy logic |
+| yaroslavvb | Copy, pre-answer the target's trust prompts, add a hidden "moved" note, resume | Note keeps the model from trusting stale paths | tmux only; has an automatic "--to auto" by quota | ⚠️ note yes, auto no |
+| azahran007 | Copy transcript; clone a Desktop list entry into the target profile | Only one covering the Desktop app; Windows | Desktop must restart; internal format | ⚠️ Phase 2 only |
+| claude-swap | Share one `projects\` folder across all accounts | Simple | Every chat in every account; changes all accounts | ❌ |
+
+Chosen approach: STRML-style copy (copy → check sizes → only then remove the source on
+Move; roll back on any failure), limited to Multi-Claude's own `cc\<id>` folders, plus
+yaroslavvb's hidden "copied from <account>" note. Resume through the existing Terminal
+action with `claude --resume <id>`.
+Why it's better: one click from the account page, Windows-first, and none of the
+references' quota-driven picking.
+Rejected: shared `projects\` folder (changes every account); automatic or quota-based
+target picking (breaks the rules); Desktop Code tab in phase 1 (writes inside a profile).
+Prototype (2026-11-17, Claude Code 2.1.224 and 2.1.325, haiku, test chats deleted after):
+- A transcript copied under a new chat id (id replaced throughout the file) resumes with
+  `claude -p --resume <new id>` and remembers the conversation (code words recalled).
+- With 2.1.325 the copy's four `session-owner` records were rewritten to made-up account
+  and organisation ids: resume still worked. Claude Code does not check the owner; it
+  copies the existing owner into the records it adds. So a copied chat keeps naming the
+  source account inside its file. Harmless for resuming; Multi-Claude will not re-stamp
+  it (that would need the target's account id, which comes from its sign-in).
+- 2.1.224 writes no `session-owner` records at all; the format differs between versions.
+- Not tested: a real second organisation (no second account owned by the user is signed
+  in to Claude Code here). yaroslavvb reports thinking blocks are dropped across
+  organisations and the chat still resumes.
+- Found on the way: `~/.claude` and Default's `cc\547425b2` sign-ins are expired ("OAuth
+  session expired and could not be refreshed") even though `auth status` says signed in.
+
+**Build notes (2026-11-17):**
+- No hidden "copied from" note in the transcript after all: adding a record means
+  guessing Claude Code's message chain (`parentUuid`), and a wrong guess could stop the
+  chat resuming. Same machine and same folder, so no stale paths for the model to trip on.
+- Copied with the chat: `projects\<folder>\<id>.jsonl`, its `<id>\` folder, and
+  `<id>`-named entries in `file-history`, `todos` and `tasks` (never `session-env`,
+  sign-ins or settings). Paths to the old Claude Code folder are rewritten.
+- "Copy as a new chat" (when the target already has it) gives every piece a new id.
+- Simplified on the user's request (2026-11-17): the dialog is now account + two checkboxes
+  (**Terminal & VS Code**, **Claude Desktop's Code tab**, one or both) + one **Copy** button.
+  Copy only: no terminal opens and no Move in the dialog (the service still supports both).
+  A Terminal & VS Code copy that already exists counts as done.
+- Running = a `sessions\<pid>.json` naming the chat whose process is alive.
+- The target must be signed in to Claude Code (`auth status`), checked before copying.
+
+**Verification (2026-11-17, dev build on the PC, `MULTI_CLAUDE_SHOT_CHATS`):**
+
+| Check | Result |
+|---|---|
+| Chats panel on an account page lists a chat (title, folder, age, size) | ✅ with a test chat in Default's folder (removed after) |
+| Account with no chats shows the empty note | ✅ Default has none of its own |
+| Copy dialog: wording, no usage figures, Copy / Move, cost note | ✅ (first build drew it under the panels below; fixed by rendering at page level) |
+| Target not signed in to Claude Code is refused, nothing copied | ✅ and since the fix, no folder is created for it either |
+| Target account is never pre-selected | ✅ (changed after the first run picked the only other account) |
+| A real chat copied between two of the user's own accounts resumes | ❌ not yet: no second account the user owns is signed in to Claude Code here |
+| Move removes the original; failed copy leaves nothing | ✅ unit tests only |
+| Default lists the real `~/.claude` chats, tagged, with open ones marked and their buttons off | ✅ 92 chats; the 4 open Desktop Code-tab chats (this one included) shown running |
+| Titles: Desktop's "New session" placeholder and interrupt markers skipped | ✅ falls back to the first real prompt |
+| Phase 2: copy shows in the target's Claude Desktop Code tab and opens there | ⏳ unit tests pass; waiting on the user's try with Anika's window closed |
+| Open chat shows **Close** (user's request): confirm, end its Claude Code process, then Continue / Copy unlock | ✅ unit tests; the name check returns `claude` for real open chats; not clicked on a real chat |
+
+Decided (2026-11-17): the user's everyday chats are in plain `~/.claude`, which no
+account pointed at, so the Default account's Chats panel now also lists them, tagged
+`~/.claude`. Continue runs Claude Code on `~/.claude` itself and never adds Multi-Claude's
+status line there; Copy to… lands in the target's own folder. `~/.claude` also holds
+Claude Desktop Code-tab chats from every profile (they all write there), so these rows
+are "this PC's chats", not strictly the Default account's.
+
+**Where in Multi-Claude:** new `src/main/chats.js` (list + copy, pure functions with
+injected fs for tests); `service.listChats` / `service.copyChat`; IPC in `src/main/ipc.js`
+and `src/preload/preload.js`; resume through the Terminal launcher; a Chats panel and
+`CopyChatDialog.jsx` on `src/renderer/views/AccountDetail.jsx`.
+
+**Done when:** a real chat copied from one account resumes in the other with its
+history; Move removes the source only after a good copy; a failed copy leaves no
+partial files; running chats are refused; the dialog shows no usage figures; unit
+tests for listing, copying, rollback and the guards.
+
+---
+
 ## Low priority
 
 ### 15. More languages (Bangla first)
@@ -1204,6 +1374,6 @@ Apple Developer ID).
 | Feature | Seen in | Why not |
 |---|---|---|
 | Automatic switching at a limit, "next available", failover | claude-swap, cux, clauth, cc-switch | Gets around usage limits |
-| Pooling accounts, carrying a conversation to another account, handing work to another account | cux, clauth | Same |
+| Pooling accounts, carrying a conversation to another account to keep working past a limit, handing work to another account | cux, clauth | Same. (Copying a chat started in the wrong account, by hand, is allowed: feature 20.) |
 | Exporting or backing up sign-ins | claude-swap | Handles credentials |
 | Session browser, syncing MCP servers or history between profiles | cc-switch, clauth, KeyboardCowboy | Reads or moves files inside a profile |

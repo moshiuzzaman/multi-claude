@@ -10,7 +10,7 @@ Thanks for being here. Issues, fixes, translations and real-world testing are al
 - **Screenshots** for the README — the repo has none yet. `MULTI_CLAUDE_SHOT` (below)
   captures every view.
 - **Pick a feature from the roadmap.** [`docs/FEATURE-ROADMAP.md`](docs/FEATURE-ROADMAP.md)
-  lists 19 researched features with priority, effort, status and reference implementations.
+  lists 20 researched features with priority, effort, status and reference implementations.
 - **Report what confused you.** A README or dialog that didn't explain itself is a bug.
 
 ## Rules a contribution must keep
@@ -25,6 +25,15 @@ declined:
 - **No reading files inside a profile** beyond what already happens: setting *names* in
   `config.json`, the account id used for the one-way fingerprint, and the percentages in
   `plan-usage-history.json`.
+- **No moving a conversation to another account to keep working past a limit.** One
+  narrow exception: a Claude Code chat started in the wrong account may be copied, by
+  hand and one at a time, to another account the user owns (roadmap feature 20). That
+  feature may list chats and copy their files inside Multi-Claude's own `cc` folders
+  (and, for the Default account, from `~/.claude`; copies always land in a `cc` folder),
+  and, so the copy shows in Claude Desktop's Code tab, add one chat-list entry to the
+  target profile's `claude-code-sessions` folder while that account's window is closed,
+  and must never show usage figures, suggest an account by usage, or be offered when a
+  limit is reached.
 - **Never modify, patch or repack Claude Desktop.**
 
 Owning several Claude accounts is fine. Using them to get around usage limits is not, and
@@ -80,6 +89,9 @@ MULTI_CLAUDE_DEBUG=1                      # renderer console + load events -> %T
 MULTI_CLAUDE_SHOT=C:\path\shot.png        # screenshot every view, one account page and the Add dialog
 MULTI_CLAUDE_SHOT_WAIT=12000              # ms to wait on each view before capturing (default 1400)
 MULTI_CLAUDE_SHOT_SIGNIN=1                # also drive the sign-in dialog with an invalid code
+MULTI_CLAUDE_SHOT_CHATS=<account name>    # also open "Copy to…" on the first chat and press Copy & open for that
+                                          # account (skipped if it can't be selected); name one that is NOT signed
+                                          # in to Claude Code unless you want a real copy
 ```
 
 `MULTI_CLAUDE_DEBUG` exists because a packaged Windows GUI app has no console to print to.

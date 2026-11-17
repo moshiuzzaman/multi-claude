@@ -1,4 +1,5 @@
 import React from 'react';
+import HelpMenu from '../components/HelpMenu.jsx';
 import { Meter, desktopMeters, DesktopAsOf } from '../components/AccountLimits.jsx';
 import { bytes, relativeTime } from '../lib/format.js';
 import { Avatar } from '../components/Avatar.jsx';
@@ -130,6 +131,7 @@ export default function Dashboard({
           {limitsLoading ? 'Refreshing…' : 'Refresh limits'}
         </button>
         <button className="primary" onClick={onAdd}>+ Add account</button>
+        <HelpMenu />
       </div>
 
       {accounts.length === 0 && <div className="panel"><div className="empty">No accounts yet.</div></div>}

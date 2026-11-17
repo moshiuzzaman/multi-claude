@@ -1,10 +1,12 @@
 import React from 'react';
+import HelpMenu from '../components/HelpMenu.jsx';
 import StatTile from '../components/StatTile.jsx';
 import { Avatar, ColorPicker } from '../components/Avatar.jsx';
 import { colorOf, colorName } from '../lib/colors.js';
 import StackedBar from '../charts/StackedBar.jsx';
 import { LimitsBlock } from '../components/AccountLimits.jsx';
 import UsageHistory from '../components/UsageHistory.jsx';
+import ChatsPanel from '../components/ChatsPanel.jsx';
 import { AccountCheckPill, AccountCheckBanner } from '../components/AccountCheck.jsx';
 import { STORAGE_CATEGORIES } from '../lib/storageCategories.js';
 import { bytes, duration, relativeTime, clockTime } from '../lib/format.js';
@@ -123,6 +125,7 @@ export default function AccountDetail({
             Delete
           </button>
         </div>
+        <HelpMenu />
       </div>
 
       <div className="color-row">
@@ -158,6 +161,8 @@ export default function AccountDetail({
         </div>
 
         <UsageHistory account={account} color={colorOf(account)} refreshKey={limits} />
+
+        <ChatsPanel account={account} accounts={accounts} actions={actions} running={running} scanOk={scanOk} />
 
         <div className="grid halves detail-pair">
           <div className="panel">

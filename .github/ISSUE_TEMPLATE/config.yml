@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Guide and common questions
+    url: https://github.com/moshiuzzaman/multi-claude/blob/main/docs/GUIDE.md
+    about: How each feature works, where files are kept, and known limits.

@@ -1757,3 +1757,132 @@ button.uf-icon:hover:not(:disabled) { background: var(--gloss-neutral-hover); bo
 .recent-bar > span { display: block; height: 100%; border-radius: 3px; background: var(--accent); opacity: 0.75; }
 .recent-bar > span.open { background: var(--good); opacity: 0.6; }
 .recent-dur { text-align: right; font-variant-numeric: tabular-nums; font-weight: 560; }
+
+/* ------------------------------------------- chats (roadmap feature 20) -- */
+
+.chat-list { display: flex; flex-direction: column; }
+.chat-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 0; border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.chat-row:first-child { border-top: 0; }
+.chat-info { flex: 1; min-width: 0; }
+.chat-title {
+  display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 550;
+}
+.chat-title > span:not(.pill):not(.dot) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.chat-title .pill { flex-shrink: 0; }
+.chat-meta {
+  color: var(--muted); font-size: 11.5px; margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: pre;
+}
+.chat-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.modal.copy-chat { max-width: 480px; }
+.copy-step { margin-top: 16px; }
+.copy-step-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12.5px; font-weight: 600; color: var(--text); margin-bottom: 8px;
+}
+.copy-step-num {
+  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10.5px; font-weight: 700;
+  background: var(--accent-dim); color: var(--accent-hi);
+}
+.copy-chat-accounts { display: flex; flex-direction: column; gap: 6px; }
+.modal .copy-chat-account {
+  /* A list row, not a pill button: undo the global button look. */
+  display: flex; align-items: center; justify-content: flex-start; gap: 12px;
+  width: 100%; height: auto; min-height: 46px; padding: 0 14px;
+  text-align: left; white-space: normal; line-height: 1.3;
+  border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.025); box-shadow: none; text-shadow: none;
+  color: var(--text); font-size: 13px; font-weight: 500;
+}
+.modal .copy-chat-account:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.16);
+}
+.modal .copy-chat-account.selected,
+.modal .copy-chat-account.selected:hover:not(:disabled) {
+  background: rgba(217, 119, 87, 0.1); border-color: rgba(217, 119, 87, 0.7);
+  box-shadow: 0 0 0 3px rgba(217, 119, 87, 0.14);
+}
+.copy-radio {
+  width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; box-sizing: border-box;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  transition: border-color 0.14s var(--ease), box-shadow 0.14s var(--ease);
+}
+.copy-chat-account.selected .copy-radio {
+  border: 5px solid var(--accent);
+}
+.copy-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.copy-chat-account-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.copy-state {
+  flex-shrink: 0; font-size: 11px; font-weight: 550; padding: 3px 9px; border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1); color: var(--muted); background: rgba(255, 255, 255, 0.04);
+}
+.copy-state.open { color: #f6dca6; border-color: rgba(250, 178, 25, 0.35); background: rgba(250, 178, 25, 0.1); }
+.copy-state.closed { color: #a9dca9; border-color: rgba(12, 163, 12, 0.35); background: rgba(12, 163, 12, 0.1); }
+.copy-window-warn {
+  display: flex; align-items: center; gap: 12px; margin-top: 14px;
+  padding: 10px 12px; border-radius: 10px;
+  border: 1px solid rgba(250, 178, 25, 0.3); background: rgba(250, 178, 25, 0.09);
+  font-size: 12px; color: #f6dca6; line-height: 1.5;
+}
+.copy-window-warn button { flex-shrink: 0; }
+.copy-chat-modes { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+.modal label.copy-chat-mode {
+  display: flex; align-items: flex-start; gap: 8px; margin: 4px 0;
+  font-size: 12.5px; color: var(--text); cursor: pointer;
+}
+.copy-chat-mode input { margin-top: 3px; accent-color: var(--accent); }
+.copy-chat-mode strong { font-weight: 600; }
+.copy-chat-note { margin-top: 12px; }
+.copy-chat-hint { display: block; color: var(--muted); font-weight: 400; font-size: 11.5px; margin-top: 1px; }
+
+@media (max-width: 560px) {
+  .chat-row { flex-wrap: wrap; }
+  .chat-actions { width: 100%; justify-content: flex-end; }
+}
+.copy-step .copy-chat-modes { margin-top: 0; }
+
+/* ----------------------------------------------- help menu (page headers) -- */
+
+.page-head button.help-btn {
+  width: var(--btn-h, 32px); height: var(--btn-h, 32px); padding: 0; flex-shrink: 0;
+  border-radius: 50%; font-size: 14px; font-weight: 650; line-height: 1;
+  color: var(--muted);
+}
+.page-head button.help-btn:hover:not(:disabled),
+.page-head button.help-btn.active { color: var(--text); }
+.page-head button.help-btn.active { border-color: rgba(255, 255, 255, 0.22); }
+
+.help-menu {
+  position: fixed; z-index: 70; width: 240px; padding: 6px;
+  background: rgba(32, 32, 30, 0.97);
+  backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid var(--glass-border-hi); border-radius: 13px;
+  box-shadow: 0 22px 50px -18px rgba(0, 0, 0, 0.9), inset 0 1px 0 var(--glass-hi);
+  animation: rise 0.16s var(--ease);
+}
+.help-menu-head {
+  padding: 6px 9px 4px; font-size: 10.5px; font-weight: 650; letter-spacing: 0.06em;
+  color: var(--muted); text-transform: uppercase;
+}
+.help-menu button.help-menu-item {
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px;
+  width: 100%; height: auto; padding: 7px 9px; text-align: left; white-space: normal;
+  border: 1px solid transparent; border-radius: 9px;
+  background: transparent; box-shadow: none; text-shadow: none; line-height: 1.3;
+}
+.help-menu button.help-menu-item:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.08);
+}
+.help-menu-title { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.help-menu-sub { font-size: 11.5px; font-weight: 400; color: var(--muted); }
+.help-menu-sep { height: 1px; margin: 5px 6px; background: rgba(255, 255, 255, 0.07); }
+.help-menu-foot {
+  margin-top: 4px; padding: 7px 9px 4px; border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px; color: var(--muted); line-height: 1.45;
+}

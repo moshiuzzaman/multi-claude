@@ -261,3 +261,17 @@ test('quitApp quits', () => {
   assert.deepStrictEqual(u.quitApp(), { ok: true });
   assert.strictEqual(calls.quit, 1);
 });
+
+test('openFeedback opens a prefilled GitHub issue form, nothing personal in it', () => {
+  const { u, calls } = harness({ osLabel: 'Windows 10.0.26300' });
+  u.openFeedback({ kind: 'bug' });
+  u.openFeedback({ kind: 'idea' });
+  u.openFeedback({ kind: 'guide' });
+  assert.deepStrictEqual(calls.opened, [
+    'https://github.com/o/r/issues/new?template=bug_report.yml&version=1.2.0&os=Windows+10.0.26300',
+    'https://github.com/o/r/issues/new?template=feature_request.yml&version=1.2.0',
+    'https://github.com/o/r/blob/main/docs/GUIDE.md'
+  ]);
+  assert.throws(() => u.openFeedback({ kind: 'https://evil.example' }));
+  assert.strictEqual(calls.opened.length, 3);
+});

@@ -105,3 +105,14 @@ test('isMajorUpdate is true only when the first number goes up', () => {
   assert.strictEqual(F.isMajorUpdate('2.0.0-beta.1', '1.2.1'), false);
   assert.strictEqual(F.isMajorUpdate('garbage', '1.2.1'), false);
 });
+
+test('the feedback templates the app links to exist, with the fields it fills in', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const dir = path.join(__dirname, '..', '.github', 'ISSUE_TEMPLATE');
+  const bug = fs.readFileSync(path.join(dir, 'bug_report.yml'), 'utf8');
+  const idea = fs.readFileSync(path.join(dir, 'feature_request.yml'), 'utf8');
+  assert.match(bug, /id: version\b/);
+  assert.match(bug, /id: os\b/);
+  assert.match(idea, /id: version\b/);
+});
