@@ -502,9 +502,9 @@ if (!app.requestSingleInstanceLock()) {
                   log(`[renderer] screenshot -> ${base}-detail.png`);
 
                   // Opt-in: the Chats panel and the Copy dialog (roadmap
-                  // feature 20). Picks MULTI_CLAUDE_SHOT_CHATS as the target
-                  // account's name and presses Copy only when it is not
-                  // signed in to Claude Code, so nothing is ever copied.
+                  // feature 20). Picks the account named by
+                  // MULTI_CLAUDE_SHOT_CHATS and captures the dialog. Never
+                  // presses Copy, so nothing is ever copied.
                   if (process.env.MULTI_CLAUDE_SHOT_CHATS) {
                     const js = (code) => win.webContents.executeJavaScript(code);
                     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -523,20 +523,11 @@ if (!app.requestSingleInstanceLock()) {
                     log(`[chats] dialog opened: ${opened}`);
                     if (opened) {
                       await wait(600);
-                      await js(`[...document.querySelectorAll('.copy-chat-account')].find(b => b.querySelector(':scope > span:last-child')?.textContent.trim() === ${target})?.click()`);
+                      await js(`[...document.querySelectorAll('.copy-chat-account')].find(b => b.querySelector('.copy-chat-account-name')?.textContent.trim() === ${target})?.click()`);
                       await wait(400);
+                      const picked = await js("document.querySelector('.copy-chat-account.selected .copy-chat-account-name')?.textContent.trim() || ''");
+                      log(`[chats] selected: "${picked}"`);
                       await fsp.writeFile(`${base}-chats-2-dialog.png`, (await win.webContents.capturePage()).toPNG());
-                      // Press Copy only when the named account is the one selected.
-                      const picked = await js("document.querySelector('.copy-chat-account.selected > span:last-child')?.textContent.trim() || ''");
-                      if (picked === process.env.MULTI_CLAUDE_SHOT_CHATS) {
-                        await js("[...document.querySelectorAll('.modal .buttons button')].find(b => b.textContent.includes('& open'))?.click()");
-                        await wait(8000);
-                        const msg = await js("document.querySelector('.modal .error')?.textContent || 'no error shown'");
-                        log(`[chats] after copy: ${msg}`);
-                        await fsp.writeFile(`${base}-chats-3-result.png`, (await win.webContents.capturePage()).toPNG());
-                      } else {
-                        log(`[chats] target not selectable (selected: "${picked}"), Copy not pressed`);
-                      }
                       await js("[...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Cancel')?.click()");
                     }
                   }

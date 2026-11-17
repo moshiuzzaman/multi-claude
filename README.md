@@ -7,7 +7,7 @@
 [![Download](https://img.shields.io/github/v/release/moshiuzzaman/multi-claude?label=download&color=f97316)](https://github.com/moshiuzzaman/multi-claude/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0f172a)](#install)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-427%20passing-brightgreen)](CONTRIBUTING.md#development)
+[![Tests](https://img.shields.io/badge/tests-457%20passing-brightgreen)](CONTRIBUTING.md#development)
 
 [Install](#install) · [Why it's different](#why-its-different) · [Features](#features) · [Docs](docs/GUIDE.md) · [Contributing](CONTRIBUTING.md)
 
@@ -131,7 +131,7 @@ sign in to each account yourself, inside Claude's own window.
 ## Contributing
 
 Issues, fixes and testing are welcome — especially **anyone with a real Mac**. Start with
-[CONTRIBUTING.md](CONTRIBUTING.md), which covers the dev setup and the six rules every
+[CONTRIBUTING.md](CONTRIBUTING.md), which covers the dev setup and the rules every
 contribution must keep.
 
 ## License
