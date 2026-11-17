@@ -39,14 +39,14 @@ Multi-Claude is neither.
   and tray icon in the account's colour and letter, using standard shell properties. Claude
   itself is never patched or repacked.
 
-| | CLI switchers<br><sub>cc-switch, claude-swap, clauth, cux</sub> | Usage monitors<br><sub>CC-Usage-Monitor, CodexBar</sub> | **Multi-Claude** |
+| | **Multi-Claude** | CLI switchers<br><sub>cc-switch, claude-swap, clauth, cux</sub> | Usage monitors<br><sub>CC-Usage-Monitor, CodexBar</sub> |
 |---|:---:|:---:|:---:|
-| Several Claude **Desktop** accounts at once | — | — | **Yes** |
-| Per-account Session + Weekly limits, with resets | Some | Yes | **Yes** |
-| Usage without any extra sign-in | — | Partly | **Yes** |
-| Reads or moves your tokens | Often | Reads logs | **Never** |
-| Auto-switch, pooling, failover | Common | — | **Refused** |
-| Per-account taskbar + tray icon (Windows) | — | — | **Yes** |
+| Several Claude **Desktop** accounts at once | **Yes** | — | — |
+| Per-account Session + Weekly limits, with resets | **Yes** | Some | Yes |
+| Usage without any extra sign-in | **Yes** | — | Partly |
+| Reads or moves your tokens | **Never** | Often | Reads logs |
+| Auto-switch, pooling, failover | **Refused** | Common | — |
+| Per-account taskbar + tray icon (Windows) | **Yes** | — | — |
 
 <sub>From research into similar tools (November 2026). Good tools, different problem — go read them.</sub>
 
