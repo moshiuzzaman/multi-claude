@@ -109,18 +109,25 @@ export default function App() {
 
   // Plan limits per account. Cheap to refresh: the auth status is cached in the
   // main process and the limits themselves are a small file per account.
-  const loadLimits = useCallback(async (force = false) => {
+  // Several loads can overlap (the 20 s timer, opening a page, Refresh).
+  // Only the newest one may change what is shown or end "Refreshing…", so a
+  // slower, older answer can never replace a newer one.
+  const limitsReq = useRef(0);
+  const loadLimits = useCallback(async (force = false, maxAgeMs = null) => {
+    const req = ++limitsReq.current;
+    const latest = () => req === limitsReq.current;
     setLimitsLoading(true);
     try {
       // Paint rows straight away from what is already known, then fetch.
       // The full fetch starts Claude Code once per account and takes a few
       // seconds, so the panel should never sit empty while it runs.
       const quick = await api.limits({ cachedOnly: true });
-      setLimits((prev) => prev || quick);
-      setLimits(await api.limits({ force }));
+      if (latest()) setLimits((prev) => prev || quick);
+      const full = await api.limits({ force, ...(maxAgeMs === null ? {} : { maxAgeMs }) });
+      if (latest()) setLimits(full);
     }
-    catch (e) { fail(e); }
-    finally { setLimitsLoading(false); }
+    catch (e) { if (latest()) fail(e); }
+    finally { if (latest()) setLimitsLoading(false); }
   }, [fail]);
 
   useEffect(() => {
@@ -167,15 +174,17 @@ export default function App() {
   // A clicked limit alert opens its account's page.
   useEffect(() => api.onOpenAccount((id) => { setDetailId(id); setView('detail'); }), []);
 
-  // Limits are shown on the Dashboard cards and on each account's page. While
-  // either is open and focused, re-read every 20 s; the main process caches the
-  // real /usage fetch for 90 s, so this rarely starts Claude Code.
+  // Limits are shown on the Dashboard cards and on each account's page.
+  // Opening either (or another account's page) fetches fresh figures, unless
+  // they are under 10 s old. While the page stays open and focused, re-read
+  // every 20 s; the main process caches the real /usage fetch for 90 s, so
+  // that rarely starts Claude Code.
   useEffect(() => {
     if (view !== 'dashboard' && view !== 'detail') return undefined;
-    loadLimits(false);
+    loadLimits(false, 10000);
     const t = setInterval(() => { if (document.hasFocus()) loadLimits(false); }, 20000);
     return () => clearInterval(t);
-  }, [view, loadLimits]);
+  }, [view, detailId, loadLimits]);
 
   // Poll only while focused: each scan spawns a PowerShell process.
   useEffect(() => {

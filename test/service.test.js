@@ -593,6 +593,35 @@ test('the /usage report is cached between quick refreshes', async () => {
   cleanup(h);
 });
 
+test('limits({ maxAgeMs }) reuses figures only while they are younger than that', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Fresh' });
+  await h.svc.connectAccount({ id: a.id });
+  h.authReply.value = { loggedIn: true };
+  await h.svc.limits();
+  assert.strictEqual(h.usageFetches.length, 1);
+  await h.svc.limits({ maxAgeMs: 60000 });
+  assert.strictEqual(h.usageFetches.length, 1, 'figures a moment old are reused');
+  await h.svc.limits({ maxAgeMs: 0 });
+  assert.strictEqual(h.usageFetches.length, 2, 'opening a page asks again once they are older');
+  cleanup(h);
+});
+
+test('overlapping refreshes share one fetch per account', async () => {
+  const h = harness();
+  await h.svc.init();
+  const a = await h.svc.add({ label: 'Busy' });
+  await h.svc.connectAccount({ id: a.id });
+  h.authReply.value = { loggedIn: true };
+  const [x, y] = await Promise.all([h.svc.limits({ force: true }), h.svc.limits({ force: true })]);
+  assert.strictEqual(h.usageFetches.length, 1, 'two refreshes at once start Claude Code once');
+  const pct = (r) => r.accounts.find((row) => row.id === a.id).plan.meters[0].percent;
+  assert.strictEqual(pct(x), 52);
+  assert.strictEqual(pct(y), 52);
+  cleanup(h);
+});
+
 test('a fetch that reached a model pauses automatic refresh for that account', async () => {
   const h = harness();
   await h.svc.init();

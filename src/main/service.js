@@ -100,6 +100,15 @@ function createService(deps) {
   // Accounts whose /usage fetch ever reached a model. Auto-refresh stops for
   // them so a changed CLI can never quietly spend usage on a timer.
   const planHalted = new Set();
+  // A fetch already running for an account is shared, so overlapping
+  // refreshes (the 20 s timer, a page opening, the Refresh button) start
+  // Claude Code once and all get the same, newest answer.
+  const authInFlight = new Map();
+  const planInFlight = new Map();
+  function once(map, id, fn) {
+    if (!map.has(id)) map.set(id, fn().finally(() => map.delete(id)));
+    return map.get(id);
+  }
   const ccUsage = deps.ccUsage || { fetch: (cliPath, dir) => ccUsageMod.fetchUsage(cliPath, dir) };
   // Hidden `claude auth login` runs, one per account being signed in.
   const logins = deps.loginManager || createLoginManager({
@@ -957,9 +966,12 @@ function createService(deps) {
      * Each account's real Session (5hr) / Weekly (7 day) limits, as recorded by
      * that account's own Claude Code status line. See limits.js.
      */
-    async limits({ force = false, cachedOnly = false } = {}) {
+    async limits({ force = false, cachedOnly = false, maxAgeMs = null } = {}) {
       const found = await cli();
       const now = Date.now();
+      // How old a cached answer may be: none on Refresh, maxAgeMs when a page
+      // is opened, the usual cache times otherwise.
+      const fresh = (hit, ttl) => !force && hit && now - hit.at < (maxAgeMs === null ? ttl : maxAgeMs);
 
       const rows = await Promise.all(data.accounts.map(async (a) => {
         // A free Claude plan can't sign in to Claude Code, so there is nothing
@@ -979,11 +991,14 @@ function createService(deps) {
           if (cachedOnly) {
             // Instant answer for first paint: no process is started.
             auth = hit ? hit.auth : { loggedIn: false, pending: true };
-          } else if (!force && hit && now - hit.at < AUTH_TTL_MS) {
+          } else if (fresh(hit, AUTH_TTL_MS)) {
             auth = hit.auth;
           } else {
-            auth = await ccCli.authStatus(found.path, dir);
-            authCache.set(a.id, { at: now, auth });
+            auth = await once(authInFlight, a.id, async () => {
+              const v = await ccCli.authStatus(found.path, dir);
+              authCache.set(a.id, { at: Date.now(), auth: v });
+              return v;
+            });
           }
         }
 
@@ -995,16 +1010,19 @@ function createService(deps) {
           const hit = planCache.get(a.id);
           if (cachedOnly) {
             plan = hit ? hit.value : null;
-          } else if (!force && hit && now - hit.at < PLAN_TTL_MS) {
+          } else if (fresh(hit, PLAN_TTL_MS)) {
             plan = hit.value;
           } else if (!force && planHalted.has(a.id)) {
             plan = hit ? hit.value : { ok: false, reachedModel: true, reason: 'Paused: Claude Code answered /usage with the model.' };
           } else {
-            plan = await ccUsage.fetch(found.path, dir);
-            plan.fetchedAt = now;
-            planCache.set(a.id, { at: now, value: plan });
-            if (plan.reachedModel) planHalted.add(a.id);
-            if (plan.needsSignIn) authCache.delete(a.id);
+            plan = await once(planInFlight, a.id, async () => {
+              const v = await ccUsage.fetch(found.path, dir);
+              v.fetchedAt = Date.now();
+              planCache.set(a.id, { at: v.fetchedAt, value: v });
+              if (v.reachedModel) planHalted.add(a.id);
+              if (v.needsSignIn) authCache.delete(a.id);
+              return v;
+            });
           }
         }
 
