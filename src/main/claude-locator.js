@@ -13,7 +13,7 @@ function createLocator({ fsImpl, env, runPowerShell }) {
   };
 
   // Classic installer: %LOCALAPPDATA%\AnthropicClaude\app-<version>\claude.exe.
-  // Descending name sort matches the existing .bat's `dir /o-n`.
+  // Newest first by descending name sort (like `dir /o-n`).
   function fromAppFolders() {
     const base = path.join(env.LOCALAPPDATA || '', 'AnthropicClaude');
     let names;

@@ -471,7 +471,7 @@ function createService(deps) {
           dir: deps.defaultProfileDir, createdAt: now()
         });
 
-        // Adopt the folder the old Claude-Account2.bat created, in place.
+        // Adopt an existing Claude_Work profile folder, in place.
         const work = path.join(deps.userProfile, 'Claude_Work');
         if (fs.existsSync(work)) {
           data.accounts.push({
@@ -916,7 +916,7 @@ function createService(deps) {
         runningKnown = true;
         lastRunning = new Set(running);
         for (const id of [...taskbarDone]) if (!lastRunning.has(id)) taskbarDone.delete(id);
-        // Accounts started outside Multi-Claude (a shortcut, a .bat), or whose
+        // Accounts started outside Multi-Claude (a shortcut, a script), or whose
         // window wasn't up yet last time, get their taskbar button now.
         const todo = data.accounts.filter((a) => lastRunning.has(a.id)
           && !taskbarDone.has(a.id) && !taskbarPending.has(a.id));

@@ -6,7 +6,7 @@
 // need the one --user-data-dir value out of it. Doing the match on the
 // PowerShell side keeps those blobs from crossing the process boundary.
 //
-// This sees every running instance, including ones started from a .bat file or
+// This sees every running instance, including ones started from a script or
 // a Start Menu shortcut, not only the ones Multi-Claude launched itself.
 
 const { normalizeDir } = require('./paths.js');

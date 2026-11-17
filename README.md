@@ -53,8 +53,8 @@ Multi-Claude is neither.
 
 ## Features
 
-- **Accounts** — add, rename, delete and shortcut profiles from the app; no more `.bat`
-  files. Your existing account and any `Claude_Work` folder are imported in place on first run.
+- **Accounts** — add, rename, delete and shortcut profiles from the app; no scripts to
+  edit. Your existing account and any `Claude_Work` folder are imported in place on first run.
 - **One button per account** that knows the state: Launch, Show, or Close.
 - **Usage limits per account** — Session (5hr) and Weekly, read from what Claude already
   records, with **no extra sign-in**. Optional live limits add reset times and every meter
