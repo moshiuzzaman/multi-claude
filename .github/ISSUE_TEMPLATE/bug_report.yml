@@ -7,15 +7,10 @@ body:
     id: what-happened
     attributes:
       label: What went wrong?
-      description: A sentence or two is enough. What did you do, and what happened?
+      description: A sentence or two is enough. You can drag a screenshot in here too (hide emails and names first; this page is public).
       placeholder: "I clicked Launch on my Work account and nothing opened."
     validations:
       required: true
-  - type: textarea
-    id: screenshot
-    attributes:
-      label: Screenshot (optional)
-      description: Drag an image or video here, or paste it. Hide emails and names first; this page is public.
   - type: input
     id: version
     attributes:
