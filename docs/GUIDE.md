@@ -1,159 +1,204 @@
 # Multi-Claude user guide
 
-Everything the [README](../README.md) summarises, in full.
+Multi-Claude lets you keep several Claude accounts on one computer, each in its own Claude
+window, and see all their usage limits in one place. This guide explains every feature in
+plain steps. For a short overview, see the [README](../README.md).
 
-- [Usage limits](#usage-limits) · [One account per profile](#one-account-per-profile) ·
-  [Tray icon](#tray-icon-and-menu) · [Limit alerts](#limit-alerts) ·
-  [Usage history](#usage-history) · [Activity and storage](#activity-and-storage)
-- [Taskbar button per account](#one-taskbar-button-per-account-windows) ·
-  [Launching and closing](#launching-and-closing) · [VS Code and terminal](#using-one-account-in-vs-code-or-a-terminal) ·
-  [Deleting and shortcuts](#deleting-an-account-and-desktop-shortcuts) · [Updates](#updates)
-- [Where things live](#where-things-live-on-disk) · [macOS](#macos) ·
-  [Known limitations](#known-limitations) · [FAQ](#faq)
+> [!TIP]
+> In the app, the **?** button at the top-right of every page opens this guide, the release
+> notes, and forms to report a bug or suggest an idea.
+
+## Contents
+
+**Getting started**
+- [Quick start](#quick-start)
+- [Adding and signing in to an account](#adding-and-signing-in-to-an-account)
+- [Opening and closing accounts](#opening-and-closing-accounts)
+
+**Everyday use**
+- [Usage limits](#usage-limits)
+- [Limit alerts](#limit-alerts)
+- [Usage history](#usage-history)
+- [Claude Code chats](#claude-code-chats)
+- [Using an account in VS Code or a terminal](#using-an-account-in-vs-code-or-a-terminal)
+- [Tray icon and menu](#tray-icon-and-menu)
+- [Taskbar and tray icons per account (Windows)](#taskbar-and-tray-icons-per-account-windows)
+
+**Managing accounts**
+- [Rename, colour and desktop shortcut](#rename-colour-and-desktop-shortcut)
+- [One account per profile](#one-account-per-profile)
+- [Deleting an account](#deleting-an-account)
+- [History and Storage pages](#history-and-storage-pages)
+
+**More**
+- [Updates](#updates)
+- [Help and feedback](#help-and-feedback)
+- [Privacy: what Multi-Claude reads and never does](#privacy-what-multi-claude-reads-and-never-does)
+- [Where things live on disk](#where-things-live-on-disk)
+- [macOS](#macos)
+- [Troubleshooting](#troubleshooting)
+- [Known limitations](#known-limitations)
+- [FAQ](#faq)
+
+---
+
+## Quick start
+
+1. **Install and open Multi-Claude.** It finds Claude Desktop and adds your current Claude as
+   the **Default** account. If you have a `Claude_Work` folder, it is added too, in place.
+2. **Add an account:** **+ Add account** on the Dashboard, then give it a name such as
+   *Work* or *Client A*.
+3. **Sign in** inside the new Claude window that opens. Use your **email and the emailed code**,
+   not *Continue with Google* (see [why](#adding-and-signing-in-to-an-account)).
+4. **Launch** any account from its card. Each one opens in its own Claude window, signed in.
+5. **Watch the Dashboard:** every card shows that account's Session and Weekly usage.
+
+That's it. Everything below is optional.
+
+---
+
+## Adding and signing in to an account
+
+1. Click **+ Add account** and type a name.
+2. Multi-Claude creates a separate Claude profile for it and opens its window, with a short
+   guide to the one-time sign-in.
+3. In that window, enter the account's **email**, then type the **code** Claude emails you.
+   **Open Gmail** in the guide opens your inbox to find it.
+4. Done. From now on, **Launch** opens that account already signed in.
+
+> [!IMPORTANT]
+> **Sign in with the email code, not with Google.** A Google sign-in finishes in your browser,
+> and Claude hands it to the *Default* window instead of the new one, so the new account
+> stays signed out. An account created with Google works too: enter that Google email and
+> use the code.
+
+An account whose window isn't signed in shows a **Not signed in** label. **Launch** then
+shows the sign-in steps again, and they are also under **Sign-in help** on the account's page.
+
+## Opening and closing accounts
+
+Each account has one main button that follows its state:
+
+| The account is… | You see | What it does |
+|---|---|---|
+| Not running | **Launch** | Opens its Claude window |
+| Running | **Show** | Brings its window to the front |
+| Running | **Close** | Quits that account's Claude (asks first) |
+
+- A green dot on an account means its window is open.
+- **Close** stops anything running in that window, such as an active chat. You stay signed
+  in and nothing is deleted.
+- If Multi-Claude can't tell whether an account is running, it shows **Launch**. Launching
+  an account that is already open just brings its window forward.
+
+<details>
+<summary>How it works: why Close is a force-quit</summary>
+
+Claude Desktop lives in the system tray: closing its window only hides it, and a polite
+`taskkill` (without `/F`) cannot make it quit. Both were tested on a throwaway profile and
+the process survived each time; only `taskkill /T /F` ended it. So **Close** ends that one
+account's process tree.
+
+Finding the right process takes care, because `--user-data-dir` is not on every process: the
+Default account's main process doesn't carry it, only its children do. Multi-Claude matches
+any process carrying the profile's folder and walks up through `claude.exe` parents to the
+root, so only that one account's Claude is ended. Afterwards it waits until a fresh process
+scan agrees the account is gone, and says so if it isn't. A failed scan is never treated
+as "gone".
+
+</details>
 
 ---
 
 ## Usage limits
 
-Each account's Dashboard card and its own page show that account's **Session (5hr)** and
-**Weekly** limits, and an account needs only **one sign-in**: its own Claude window.
+Every account's Dashboard card and its own page show its **Session (5 hr)** and **Weekly**
+limits. You choose how fresh they are:
 
-**From Claude itself (the default).** Claude Desktop records its own usage in the profile
-(`plan-usage-history.json`): a sample a few times a day while it runs, as percentages.
-Multi-Claude shows the newest sample with its age ("From Claude · 2 hours ago"); there is no
-reset time in it. Only that file's numbers are read, and nothing is sent anywhere. See
-`desktop-usage.js`.
+| Source | Set-up | Freshness | Reset times |
+|---|---|---|---|
+| **From Claude** (default) | Nothing: works once the account's window is signed in | A few readings a day, shown with their age (e.g. "2 hours ago") | No |
+| **Live limits** (optional) | One browser sign-in per account | Up to the minute; **Refresh** for now | Yes |
 
-**Live limits (optional).** For up-to-the-minute figures with reset times, **Live limits**
-on a card or the account's page connects that account to Anthropic's Claude Code through
-a browser sign-in, once. The rest of this section describes that route.
+### Turning on live limits
 
-**Why the app can't just read them like VS Code does.** VS Code, the Claude Code CLI and
-Claude Desktop are Anthropic's own apps. When you sign in, Anthropic's login hands *that
-app* a token, and it shows your limits by calling Anthropic with that token. You sign in
-to Claude Desktop, not to Multi-Claude. To do the same, Multi-Claude would have to take
-one of those tokens off disk and use it — and Anthropic's Claude Code terms say developers
-"may not collect, store, or intermediate Claude.ai credentials or session tokens", and
-reserve the right to enforce that without notice. On accounts you rely on, that is not a
-risk worth taking. So the app never does it.
+1. Click **Live limits** on an account's card or page.
+2. Your browser opens. Click **Authorize** with that same account. The dialog finishes by itself.
+3. If the browser shows a code instead, paste it into the dialog.
 
-**What it does instead.** It asks Anthropic's own Claude Code, which is allowed to.
-Every account gets its own Claude Code config folder
-(`%APPDATA%\multi-claude\cc\<account id>`, via `CLAUDE_CONFIG_DIR`):
+Live figures are reused for 90 seconds; **Refresh** fetches them straight away.
 
-1. **Connect** — once per account — runs Anthropic's `claude auth login` inside
-   Multi-Claude with no terminal window. Your browser opens; click **Authorize** with that
-   account and the dialog finishes by itself. If the browser shows a code instead, paste it
-   into the dialog: it goes straight to the Claude Code process, exactly like typing it
-   into a terminal, and is never stored or logged. Nothing asks for this: it only happens
-   when you choose **Live limits**.
-2. **Fetching** — Multi-Claude then runs `claude -p "/usage"` for each signed-in account,
-   hidden. `/usage` is a built-in command: Claude Code answers it from Anthropic's usage
-   service and returns a structured report, **without calling a model**. Measured on this
-   machine with Claude Code 2.1.319: cost $0, zero turns. Each account shows every meter the
-   server reports — session, weekly, any per-model weekly limit — with reset times and the
-   server's own severity, plus extra-usage status.
-3. Results are cached for 90 seconds; **Refresh** fetches immediately.
+> [!NOTE]
+> **Free plans can't have live limits.** Claude Code only signs in Pro, Max, Ultra, Team and
+> Enterprise plans. Choose **It's a free plan, stop asking** (or **Free plan?** on the card),
+> and Multi-Claude stops offering it. If you upgrade later, **Connect for usage limits** on the
+> account's page turns it back on.
 
-Safety nets, because getting this wrong would spend your usage silently:
+**No Claude Code on your PC?** Claude Desktop downloads its own copy the first time you open
+its Code tab, and Multi-Claude uses that. If there is none, **Set up usage limits** on the
+account's page downloads Anthropic's official Claude Code (about 350 MB) into Multi-Claude's
+own folder. It never changes your PATH or your home folder, and it only happens when you click.
 
-- The CLI is launched directly, never through a shell. During development Git Bash
-  rewrote `/usage` into `C:/Program Files/Git/usage`, which Claude Code then sent to the
-  model as an ordinary prompt.
-- The fetch also passes the cheapest model, a one-word system prompt and no tools, so if a
-  future Claude Code ever routed `/usage` to a model it would cost a fraction of a cent.
-- Every result's turn count is checked. A fetch that reached a model is shown as such, and
-  automatic refresh stops for that account; only a manual Refresh tries again.
+<details>
+<summary>How it works: why Multi-Claude asks Claude Code instead of reading your sign-in</summary>
 
-If `/usage` is ever unavailable, the account falls back to what Claude Code's status line last
-recorded for that account (see `limits.js`). The newest Claude Code installed on the PC is
-used automatically; `/usage` reports need Claude Code 2.1.273 or later.
+Claude Desktop, VS Code and the Claude Code CLI are Anthropic's own apps: when you sign in,
+Anthropic hands *that app* a token. Multi-Claude could only read limits directly by taking
+one of those tokens off disk, and Anthropic's Claude Code terms say developers "may not
+collect, store, or intermediate Claude.ai credentials or session tokens". So it never does.
 
-**Free plans.** Claude Code only signs in Pro, Max and Ultra plans (and Team or
-Enterprise); for a free account the browser shows *Claude Max, Ultra, or Pro is required*
-and no code. Such an account works in Multi-Claude as usual and shows the usage its Claude
-window records, but can't have live limits.
-Choose **It's a free plan, stop asking** in the sign-in dialog, or **Free plan?** on its
-card, and it stops asking to connect; Multi-Claude then never starts Claude Code for it.
-**Upgraded? Connect for usage limits** on its page undoes that.
+Instead, each account gets its own Claude Code folder (`%APPDATA%\multi-claude\cc\<account id>`,
+passed as `CLAUDE_CONFIG_DIR`):
 
-**A PC without Claude Code.** Claude Desktop downloads its own copy into the profile
-folder the first time its Code tab is opened, and Multi-Claude finds that copy. If there
-is none at all, choosing **Live limits** shows **Set up usage limits** on the account's page. One click
-downloads Anthropic's official Claude Code (about 350 MB) the same way Anthropic's own
-install script does: it asks `downloads.claude.ai` for the newest version, reads that
-version's manifest, downloads `claude.exe`, and keeps it only if its size and SHA-256 match
-the manifest. A progress line shows while it runs; the limits load by themselves when it
-finishes. It goes into `%APPDATA%\multi-claude\claude-code\<version>` and nowhere else:
-unlike the install script, Multi-Claude never runs `claude install`, so your PATH and home
-folder are not changed. Claude Code is not bundled with Multi-Claude; it only ever comes
-from Anthropic's server, and only when you click.
+1. **Connect** runs Anthropic's `claude auth login` for that account, with no terminal
+   window. A pasted code goes straight to Claude Code and is never stored or logged.
+2. **Fetching** runs `claude -p "/usage"` hidden. `/usage` is a built-in command answered by
+   Anthropic's usage service **without calling a model** (measured: $0, zero turns). Every
+   meter the server reports is shown, with reset times and severity.
 
-## One account per profile
+Safety nets, so it can never quietly spend your usage:
 
-Each profile should be signed in to its own Claude account. Otherwise two cards show the
-same usage, and both windows write the same account's chats. Multi-Claude checks this
-every time it reads the account list:
+- Claude Code is started directly, never through a shell (Git Bash once rewrote `/usage`
+  into a file path that was then sent to the model as a prompt).
+- The fetch also asks for the cheapest model, a one-word system prompt and no tools.
+- Every result's turn count is checked. If a fetch ever reached a model, automatic refresh
+  stops for that account; only a manual **Refresh** tries again.
 
-- **Same account as Work:** two profiles are signed in to the same Claude account. Both
-  show the warning. The account's page says how to fix it: in one of them, sign out in
-  Claude and sign in with another account, or delete the extra profile.
-- **Different account:** a profile is now signed in to another account than the one it
-  had. Its page offers **Keep this account** if that's on purpose. Otherwise, sign out in
-  its window and sign in with the old account.
+If `/usage` is unavailable, Multi-Claude falls back to the figures Claude Code's status line
+last recorded. The newest Claude Code on the PC is used; `/usage` needs version 2.1.273 or later.
 
-How it knows:
+</details>
 
-- Claude records the signed-in account's id in the profile's `config.json`
-  (`lastKnownAccountUuid`). This is an id, not a token or a password.
-- Multi-Claude reads that one value and keeps only a one-way fingerprint of it, saved as
-  `accountKey` in `accounts.json`. The first one seen for each profile becomes "its"
-  account.
-- The id itself is never saved, shown or sent anywhere, and the fingerprint never leaves
-  the main process.
-
-## Tray icon and menu
-
-Multi-Claude has an icon in the Windows tray (the Mac menu bar).
-
-- **Closing the window keeps Multi-Claude running there**, so limit alerts and usage
-  history keep working. The first time, a notification says where it went. Turn this
-  off on the **Accounts** page (*Keep running in the tray when the window is closed*),
-  and closing the window quits again.
-- **Windows:** click the icon to open the window, and right-click it for the menu.
-  **Mac:** click it for the menu.
-- **The menu** lists every account with a running dot (● running, ○ not) and its figures,
-  for example `● Work  S 37% · W 66%`. Each account has **Launch**, or **Show** and
-  **Close** while it runs, and **Open its page**. Then come **Open Multi-Claude**,
-  **Check for updates** (or *Update to x.y.z…*), and **Quit Multi-Claude**, which really
-  quits.
-- **Hovering the icon** shows every account's figures. **Close** from the tray asks first,
-  as it does in the window.
-- A new tray icon starts in Windows' hidden icons (**^**). Drag it onto the taskbar to keep
-  it in view.
+---
 
 ## Limit alerts
 
-Multi-Claude shows a notification when an account's **Session** or **Weekly** usage passes
-a level you pick, for example *Work: Weekly at 82% · Resets Mon 09:00*, and when it reaches
-its limit. Clicking it opens that account's page. Information only: it never switches,
-launches or closes anything.
+Multi-Claude can show a notification when an account's usage passes a level you choose,
+for example *Work: Weekly at 82% · Resets Mon 09:00*. Clicking it opens that account's page.
 
-- **Levels:** 80% and 95% by default; pick any of 50–95% under **Limit alerts** on the
-  **Accounts** page. 100% ("limit reached") is always on while alerts are on.
-- **Once per window:** each level alerts once, then again only after usage drops back
-  below it (the limit reset) and climbs past it again. A jump past several levels shows one
-  alert, for the highest. What was already shown is saved (`alert-state.json`), so
-  restarting Multi-Claude doesn't repeat it.
-- **When it checks:** whenever the screen refreshes limits, and every 5 minutes in the
-  background while Multi-Claude is running: open, minimised, or in the tray after its
-  window is closed. **Quit** from the tray stops it, and then there are no alerts.
-- **Which figures:** live limits where the account is connected; otherwise what its Claude
-  window recorded, if recent enough (a Session figure older than 5 hours has already reset,
-  so it is ignored; a Weekly one is used for a day).
-- **Optional:** *Also tell me when a limit resets after it was reached* (off by default),
-  **Mute limit alerts** on one account's page, and **Send a test alert**.
-- Windows' **Do not disturb** hides the pop-up; the alert still lands in the notification
+> [!NOTE]
+> Alerts only inform you. Multi-Claude never switches, launches or closes anything because
+> of a limit.
+
+**Set them up** under **Limit alerts** on the **Accounts** page:
+
+| Setting | Default |
+|---|---|
+| Alert levels (any of 50–95%) | 80% and 95% |
+| "Limit reached" at 100% | Always on while alerts are on |
+| Also tell me when a limit resets after it was reached | Off |
+| **Mute limit alerts** for one account (on its page) | Off |
+| **Send a test alert** | — |
+
+How they behave:
+
+- **Once per level.** Each level alerts once, and again only after the limit resets and
+  usage climbs past it again. A jump past several levels shows one alert, for the highest.
+- **When it checks:** whenever limits refresh on screen, and every 5 minutes in the
+  background while Multi-Claude runs (also from the tray). Quitting Multi-Claude stops alerts.
+- **Which figures:** live limits if connected; otherwise the account's own Claude readings,
+  if recent (a Session reading older than 5 hours is ignored; a Weekly one is used for a day).
+- Windows **Do not disturb** hides the pop-up, but the alert still goes to the notification
   centre.
 
 ## Usage history
@@ -162,306 +207,386 @@ Each account's page has a **Usage history** panel for the last **7 or 30 days**:
 
 - **Limit reached:** how many times Session or Weekly hit 100%, and when.
 - **Busiest day:** the day Session went highest.
-- **Weekly, last reading:** where Weekly stood most recently.
-- **Weekly line:** every reading. Resets show as drops, and stretches with no readings
-  are dashed.
-- **Session bars:** the highest reading each day. Claude records usage only a few times a
-  day, hours apart, so a Session line would be misleading. A day with no readings stays
-  empty instead of showing 0%. Red means the limit was reached.
+- **Weekly line:** every reading. Resets show as drops, and gaps without readings are dashed.
+- **Session bars:** the highest reading each day (red when the limit was reached). Days
+  without readings stay empty rather than showing 0%.
 
-The figures come from two places:
+The readings come from the account's own Claude window and from Multi-Claude's live checks.
+Multi-Claude keeps percentages and times only, for 90 days, and removes them when you delete
+the account.
 
-- what the account's own Claude window recorded (`plan-usage-history.json`);
-- Multi-Claude's own readings: every live figure it fetches, about every 5 minutes while
-  it's open, for accounts with live limits.
+---
 
-Multi-Claude keeps its readings in `usage-history.jsonl`: percentages and times only, for
-90 days. Deleting an account deletes its readings.
+## Claude Code chats
 
-## Activity and storage
+Each account's page lists its **Claude Code chats**: the ones from its Terminal and VS Code.
+The **Default** account also lists the chats in `~/.claude`, which is where plain `claude`
+and Claude Desktop's **Code tab** keep theirs (tagged `~/.claude`).
 
-**History** is observed by Multi-Claude itself, so it is exact per account. The limit is
-that it can only see what runs while the manager is open: a profile started from a desktop
-shortcut with the manager closed is recorded from the moment the manager next opens.
+Each chat shows its title, project folder, when it was last used and its size. A **green
+dot** means it is open right now.
 
-**Storage** adds up every file in each profile, which can run to tens of gigabytes, so the
-first measurement takes a few seconds. Results are cached in `%APPDATA%\multi-claude\` and
-reused for 10 minutes; they are re-measured with **Recalculate**, and after any delete or
-cache purge.
+| Button | What it does |
+|---|---|
+| **Continue** | Opens a terminal as this account, in the chat's folder, carrying on the chat |
+| **Close** (open chats only) | Ends that chat's Claude Code, after asking. The conversation so far is kept |
+| **Copy to…** | Copies the chat to another account (below) |
 
-## One taskbar button per account (Windows)
+### Copying a chat to another account
 
-Normally every Claude window shares Claude's one taskbar button, so accounts look
-identical there. Multi-Claude gives each **added** account's Claude window a taskbar
-button of its own, with the account's colour and first letter, its name
-("Claude - Work") in the tooltip, and a pin that opens that account. The default
-account stays on Claude's own button, and Multi-Claude's own button always shows its
-own logo.
+For a chat you started **in the wrong account**, for example work started in your personal
+account.
 
-It does this with four standard Windows shell properties set on the account's Claude
-windows from outside (the taskbar id `System.AppUserModel.ID` and the relaunch icon,
-name and command), after Launch or Show and when it sees an account running that
-doesn't have them yet. Nothing in Claude is changed or read. Right-clicking such a
-button shows Multi-Claude's pin rather than Claude's own menu.
+1. Click **Copy to…** on the chat. (Close it first if it has a green dot.)
+2. **Which account should get it?** Pick the account.
+3. **Where should it show?** Tick one or both:
+   - **Claude Desktop's Code tab** (ticked by default): the chat appears in that account's
+     Code tab sidebar the next time its Claude window opens. That window must be **closed**
+     while copying; the dialog offers a **Close** button if it is open.
+   - **Terminal & VS Code**: for `claude --resume` in that account's terminal, and VS Code.
+4. Click **Copy to …**. The original stays where it was.
 
-**Tray icons too.** Every Claude window also puts the same Claude icon in the tray.
-Multi-Claude gives each of those, the default account's included, the account's letter
-icon. Only the icon changes: Claude's own hover text, with its usage, stays as Claude sets
-it. It uses the shell's own notification-icon call (`Shell_NotifyIcon`, modify) on Claude's
-tray window. Claude may set its icon again, and restarting Explorer resets it, so the
-5-minute background check puts the account icons back.
+> [!NOTE]
+> - The first message in the other account re-reads the whole chat, so it uses that
+>   account's usage. Earlier reasoning steps don't carry over; the conversation does.
+> - The other account's own skills, MCP servers and settings apply from then on.
+> - The chat's project folder must still exist on this PC.
 
-Turn both off on the **Accounts** page (**Account icons on the taskbar and in the tray**).
-The windows go back onto Claude's button the next time each is shown, and the tray icons
-go back to Claude's own. This isn't available on a Mac, where the Dock can't be split per
-window without copying Claude.
+> [!WARNING]
+> Only copy chats between accounts **you own**. Copying is a manual, one-chat-at-a-time tool
+> for putting work in the right account. It is not a way to keep working past a usage limit,
+> and Multi-Claude never offers it for that. The copy dialog shows no usage figures for that
+> reason.
 
-## Launching and closing
+When a copy is refused, the dialog says why:
 
-Each row carries one button that changes with the profile's state: **Launch** when it is
-idle, **Close** when it is running. Close asks for confirmation, then quits that profile.
+| Message | What to do |
+|---|---|
+| *Close this chat first* | Use **Close** on the chat, or close it where it is open |
+| *Close Anika's Claude window first* | Close that account's window (the dialog has a button) |
+| *That account's Claude window has no Code-tab chats yet* | Open its Code tab once, then copy again |
+| *… isn't signed in to Claude Code yet* | Sign it in from its page (**Live limits**), then copy again |
+| *The chat's project folder … is not on this PC* | The chat can only continue in its own folder |
+| *This chat's format isn't supported yet* | Claude Code changed its format; nothing was changed |
 
-**Close is a force-quit, and that is deliberate.** Claude Desktop lives in the system tray:
-closing its window only hides it, and a polite `taskkill` (no `/F`) cannot make it quit.
-Both were tried against a throwaway profile and the process survived each time; only
-`taskkill /T /F` ended it. So Close ends that one instance's process tree, which also stops
-anything running inside it — an active chat, a Claude Code session. You stay signed in and
-nothing is deleted. That is why it asks first.
+<details>
+<summary>How it works</summary>
 
-Finding the right process takes care, because `--user-data-dir` is not on every process in
-the tree: an instance started without the flag (your default profile) only has it on its
-children. So the lookup matches any process carrying the profile's directory and walks up
-through `claude.exe` parents to the root, which keeps it inside that one instance. Only that
-root is named to `taskkill`, so no other account can be touched.
+- A **Terminal & VS Code** copy goes into the account's own Claude Code folder
+  (`%APPDATA%\multi-claude\cc\<account id>`): the chat file, its sub-folder, and its
+  file-history, todos and tasks. Paths inside it are updated. Everything is copied first and
+  the chat file lands last, so Claude Code never sees half a chat; any failure removes what
+  was written.
+- A **Code tab** copy is saved in `~/.claude` under a new chat id (two Claude windows never
+  share one file), and one small entry is added to that account's Code-tab list in its
+  Claude profile (`claude-code-sessions`). Its format is taken from that profile's own
+  newest entry, and the copy is refused if that entry doesn't look as expected.
+- **Close** checks that the chat's process is still Claude Code before ending it, so a stale
+  record can never close something else.
 
-After the kill the app waits until the process scan agrees the instance is gone, and reports
-what actually happened — it will say so if the profile survives, rather than claiming success.
-A failed scan is never read as "gone".
+</details>
 
-When the running check itself fails, the button falls back to **Launch** rather than offering
-to quit something that may not be open. Launch on an already-running profile just focuses its
-existing window.
+---
 
-## Using one account in VS Code or a terminal
+## Using an account in VS Code or a terminal
 
-Each account has a **Use in VS Code** button. It points Claude Code at that
-account inside the VS Code you already have open — no second window, and no
-signing in again.
+- **Use in VS Code** switches the Claude Code extension in your normal VS Code to that
+  account. No second window, no new sign-in. Every open VS Code window follows it, so
+  **one account at a time**.
+- **Terminal** opens a console running Claude Code as that account, without touching VS Code.
 
-It works by writing that account's `CLAUDE_CONFIG_DIR` into your own
-`%APPDATA%\Code\User\settings.json`, as `claudeCode.environmentVariables`. The
-Claude Code extension watches that setting and refreshes itself, so an editor
-that is already open switches account where it stands. Multi-Claude still never
-touches a credential: it writes one path, and Anthropic's own Claude Code put
-the sign-in where that path points.
+If VS Code isn't running, **Use in VS Code** starts it. Deleting the account VS Code is using
+puts VS Code back on your plain `~/.claude`.
 
-The setting is machine-wide, so **one account is active at a time** and every
-open VS Code window follows it. In exchange, it is your real VS Code: your
-extensions, your settings, and the sign-ins you already have inside those
-extensions.
+<details>
+<summary>How it works</summary>
 
-Multi-Claude writes the setting inside comment markers and replaces only what
-is between them. Before each change it saves a timestamped `.bak` beside the
-file, keeping the newest three. If `settings.json` is a symlink — a dotfiles
-setup — the file it points at is the one changed, and the link is kept. If you
-set `claudeCode.environmentVariables` yourself, outside those markers, yours
-wins and the button says so rather than fighting you.
+**Use in VS Code** writes that account's `CLAUDE_CONFIG_DIR` into your own
+`%APPDATA%\Code\User\settings.json`, as `claudeCode.environmentVariables`, between comment
+markers. The extension watches that setting and switches in place.
 
-Deleting the account VS Code is using takes the block back out, so VS Code
-falls back to your plain `~/.claude` rather than pointing at a folder that no
-longer exists.
+- Only the text between the markers is ever replaced, and a timestamped `.bak` is saved
+  first (the newest three are kept).
+- If `settings.json` is a symlink (a dotfiles setup), the real file is changed and the link kept.
+- If you set `claudeCode.environmentVariables` yourself outside the markers, yours wins and
+  the button tells you.
 
-If VS Code is not running, the button starts it. If it is not in one of the
-usual install locations, the setting is still written and takes effect the next
-time you open VS Code yourself.
+**Terminal** passes the account to that one process only, so it never changes the setting.
 
-**Terminal** does the same thing in a console window instead, for when you want
-Claude Code without an editor. It passes the account per process, so it never
-disturbs the setting.
+</details>
 
-VS Code uses one account at a time. **Use in VS Code** moves the editor from one
-account you own to another — different clients, different organisations. It does
-not run the same work across several accounts at once, which is the thing
-Anthropic's enforcement is actually aimed at.
+## Tray icon and menu
 
-## Deleting an account, and desktop shortcuts
+Multi-Claude has an icon in the Windows tray (the Mac menu bar).
 
-**Delete** erases the **profile folder on this PC**: the local login and cached data. Your
-Anthropic account is untouched and still exists; no application can delete that from
-here. Cancel your subscription or close your account through Anthropic directly.
+- **Closing the window keeps it running in the tray**, so alerts and history keep working.
+  To make closing quit instead, turn off *Keep running in the tray when the window is closed*
+  on the **Accounts** page.
+- **Windows:** click the icon to open the window; right-click for the menu.
+  **Mac:** click for the menu.
+- **The menu** lists every account with its figures, for example `● Work  S 37% · W 66%`, and
+  **Launch**, **Show**, **Close** and **Open its page** for each. Then **Open Multi-Claude**,
+  **Check for updates** and **Quit Multi-Claude**.
 
-Deletion is guarded. It refuses when the account is the default one, when its Claude
-window is still open, when the folder is a junction or symbolic link, when the path is a
-drive root or too close to one, and when the folder sits outside
-`%USERPROFILE%\ClaudeProfiles` unless you explicitly tick the unlock box. On top of all
-that, you type the account's name to confirm.
+> [!TIP]
+> A new tray icon starts in Windows' hidden icons (**^**). Drag it onto the taskbar to keep it
+> in view.
 
-**Shortcut** writes `Claude - <name>.lnk` to your Desktop. It targets Multi-Claude with
-`--launch <id>` rather than `claude.exe` directly, because the Store build's executable
-path contains its version number and changes on every update. Going through
-Multi-Claude means the path is resolved fresh each time, so a pinned shortcut never
-goes stale. Clicking one launches the profile without opening the manager window.
+## Taskbar and tray icons per account (Windows)
+
+Normally every Claude window shares one taskbar button, so accounts look the same. Multi-Claude
+gives each **added** account:
+
+- **its own taskbar button**, in the account's colour with its first letter, named
+  *Claude - Work*, and pinnable;
+- **its own tray icon** with that letter (the Default account's too).
+
+Turn this off on the **Accounts** page (**Account icons on the taskbar and in the tray**).
+Not available on a Mac.
+
+<details>
+<summary>How it works</summary>
+
+Multi-Claude sets four standard Windows shell properties on the account's Claude windows from
+outside (`System.AppUserModel.ID` and the relaunch icon, name and command), and changes the
+tray icon with the shell's own `Shell_NotifyIcon` call. Nothing inside Claude is changed or
+read. Claude or a restart of Explorer can reset the tray icons, so the 5-minute background
+check puts them back. Right-clicking such a taskbar button shows Multi-Claude's pin rather
+than Claude's own menu.
+
+</details>
+
+---
+
+## Rename, colour and desktop shortcut
+
+On an account's page:
+
+- **Rename** changes its name in Multi-Claude. The folder on disk keeps its original name.
+- **Colour** sets the colour of its card, letter icon and taskbar button.
+- **Shortcut** puts *Claude - Work* on your Desktop. It opens that account directly, without
+  the Multi-Claude window, and keeps working after Claude updates.
+
+## One account per profile
+
+Each profile should be signed in to a different Claude account. Multi-Claude warns you when
+that isn't so:
+
+- **Same account as Work:** two profiles are signed in to the same Claude account. Sign out
+  in one of them and sign in with another account, or delete the extra profile.
+- **Different account:** a profile is now signed in to a different account than before.
+  Choose **Keep this account** if that's on purpose; otherwise sign back in with the old one.
+
+<details>
+<summary>How it knows</summary>
+
+Claude records the signed-in account's id in the profile's `config.json`
+(`lastKnownAccountUuid`: an id, not a token or password). Multi-Claude reads that one value
+and keeps only a one-way fingerprint of it (`accountKey` in `accounts.json`). The id itself
+is never saved, shown or sent anywhere.
+
+</details>
+
+## Deleting an account
+
+**Delete** on an account's page erases the **profile folder on this PC**: its local login and
+cached data. You type the account's name to confirm.
+
+> [!NOTE]
+> Your Anthropic account is **not** deleted. Cancel a subscription or close an account with
+> Anthropic directly.
+
+Delete is refused for the Default account, while the account's window is open, for a folder
+that is a junction or symbolic link, for a path too close to a drive root, and for a folder
+outside `%USERPROFILE%\ClaudeProfiles` unless you tick the unlock box.
+
+**Folder already gone?** If you removed a profile folder by hand, the account shows *folder
+missing*. Use **Remove from list** (on its card) or **Forget** (in the Accounts list). Nothing
+on disk is touched.
+
+## History and Storage pages
+
+- **History** shows when each account was open and for how long, as seen by Multi-Claude.
+  An account opened while Multi-Claude was closed is counted from when Multi-Claude next opens.
+- **Storage** shows how much disk each profile uses. The first measurement takes a few
+  seconds; results are reused for 10 minutes. **Recalculate** measures again. An account's
+  page can also **Clear cache**, which is safe: Claude rebuilds it on its next launch.
+
+---
 
 ## Updates
 
-Multi-Claude checks GitHub Releases at these times:
+Multi-Claude checks for new versions when it starts, every 4 hours, when its window is
+reopened from the tray, and when you click ↻ at the bottom of the sidebar or **Check for
+updates** in the tray menu.
 
-- when it starts;
-- every 4 hours while it runs, in the tray too;
-- when its window is reopened from the tray;
-- when you choose **Check for updates** in the tray menu;
-- when you click ↻ in the sidebar footer.
+When a new version is out, a dialog shows what's new.
 
-If a newer version has been published, an update dialog opens on its own with the
-release notes of every version since yours, and the sidebar footer shows it with
-**What's new** and **Update**. The dialog opens again each time the window is reopened,
-and whenever ↻ or the tray menu finds the update. If the window is hidden when the 4-hour
-check finds one, a notification says so, and clicking it opens the dialog. Otherwise the
-footer says everything is up to date.
+| Update type | Example | What you can do |
+|---|---|---|
+| **Minor** | 1.2.0 → 1.3.0 | **Update**, or **Later** (it asks again next time the window opens) |
+| **Major** | 1.x → 2.0.0 | **Update** or **Quit Multi-Claude**; the dialog can't be dismissed |
 
-The dialog depends on which number in the version went up:
+**Update** downloads the new installer, checks it against the release's published size and
+SHA-512, installs it silently and restarts Multi-Claude. A download that doesn't match is
+deleted and never run. Your accounts and settings are kept, and Claude windows you opened
+keep running.
 
-- **Minor update** (`1.2.x` → `1.3.0` or `1.2.2`): **Later** closes it until the window is
-  next reopened (or Multi-Claude restarts), when it opens again. The footer keeps offering
-  the update in the meantime.
-- **Major update** (`1.x.x` → `2.0.0`): the dialog cannot be closed — no Close
-  button, Escape or clicking outside. It stays up through the download, and the
-  only ways out are **Update** or **Quit Multi-Claude**. Run from source, it can
-  still be closed.
+- Nothing is ever downloaded without your click.
+- **Portable build:** **Update** opens the download page instead.
+- **Run from source:** update with `git pull`.
 
-**Update** downloads the installer, checks its size and SHA-512 against the
-release's `latest.yml`, runs it silently and closes Multi-Claude; the installer
-starts the new version when it finishes. A download that does not match is
-deleted and never run. Your accounts and settings are kept, and any Claude
-window you launched keeps running.
+## Help and feedback
 
-From the moment **Update** is clicked, a progress screen covers the app
-(Download → Install → Restart) and cannot be closed, so nothing new is started
-while Multi-Claude is about to restart. If the update fails, the dialog shows
-why and can be closed again.
+The **?** button at the top-right of every page opens:
 
-Nothing is downloaded without a click. Run from source, the footer tells you to
-`git pull` instead; the portable build's **Update** opens the download page,
-since a running portable file cannot replace itself.
+| Item | Opens |
+|---|---|
+| **Report a bug** | A short GitHub form, with your version and computer already filled in |
+| **Suggest an idea** | A short GitHub form, with your version filled in |
+| **Guide** | This page |
+| **What's new** | The release notes, inside the app |
+
+> [!TIP]
+> GitHub issues are public. Hide emails and account names in screenshots before you attach
+> them.
+
+---
+
+## Privacy: what Multi-Claude reads and never does
+
+**It never:**
+- handles a password, sign-in token or API key;
+- copies or exports a sign-in;
+- switches accounts automatically, pools accounts or picks the "next available" one;
+- sends your data anywhere. The only network calls are update checks to GitHub, and
+  Anthropic's own Claude Code when you turn on live limits.
+
+**It reads only:**
+- the *names* of settings in a profile's `config.json` (to tell whether it's signed in), and
+  the account id there, kept only as a one-way fingerprint;
+- the usage percentages in a profile's `plan-usage-history.json`;
+- for **Claude Code chats**: each chat's title, folder, date and size, and a chat's own files
+  when you copy it.
 
 ## Where things live on disk
 
 | What | Where |
 |---|---|
 | New profiles | `%USERPROFILE%\ClaudeProfiles\<name>` |
-| Imported `Claude_Work` | left exactly where it is |
+| Imported `Claude_Work` | Left where it is |
 | Default account | `%LOCALAPPDATA%\Claude-Data\<package family>` |
-| App config | `%APPDATA%\multi-claude\accounts.json` |
-| Storage cache | `%APPDATA%\multi-claude\storage-cache.json` |
+| Account list and settings | `%APPDATA%\multi-claude\accounts.json` |
+| Each account's Claude Code (sign-in, chats) | `%APPDATA%\multi-claude\cc\<account id>` |
+| Plain `claude` and Code-tab chats | `%USERPROFILE%\.claude` |
 | Launch history | `%APPDATA%\multi-claude\activity.jsonl` |
-| Limit alerts already shown (percentages and levels only) | `%APPDATA%\multi-claude\alert-state.json` |
-| Usage history readings, 90 days (percentages and times only) | `%APPDATA%\multi-claude\usage-history.jsonl` |
-| Each account's Claude Code sign-in (for usage limits) | `%APPDATA%\multi-claude\cc\<account id>` |
-| VS Code's active account | `%APPDATA%\Code\User\settings.json` (a managed block) |
-| Claude Code downloaded by Multi-Claude (only if you clicked *Set up usage limits*) | `%APPDATA%\multi-claude\claude-code\<version>\claude.exe` |
-| Status-line recorder (limits fallback) | `%APPDATA%\multi-claude\limits-recorder.ps1` |
+| Usage history (percentages and times, 90 days) | `%APPDATA%\multi-claude\usage-history.jsonl` |
+| Alerts already shown | `%APPDATA%\multi-claude\alert-state.json` |
+| Storage cache | `%APPDATA%\multi-claude\storage-cache.json` |
+| VS Code's active account | `%APPDATA%\Code\User\settings.json` (a marked block) |
+| Claude Code downloaded by Multi-Claude (only if you clicked) | `%APPDATA%\multi-claude\claude-code\<version>\claude.exe` |
+| Status-line recorder (live-limits fallback) | `%APPDATA%\multi-claude\limits-recorder.ps1` |
 | A downloaded update, until the next launch | `%TEMP%\multi-claude-update` |
 
-`accounts.json` holds names, folder paths and ids. No credentials, ever. Deleting any of
-the cache files is safe — they are rebuilt on next launch.
+`accounts.json` holds names, folder paths and ids, never credentials. The cache files are
+safe to delete; they are rebuilt. The `cc\<account id>` folders belong to Anthropic's Claude
+Code: Multi-Claude creates them and deletes them with the account, but never reads the
+sign-in inside.
 
-The `cc\<account id>` folders belong to Anthropic's Claude Code: it keeps that account's
-sign-in there. Multi-Claude creates the folder and its status-line setting, and deletes the
-folder with the account, but never reads the credentials inside it.
-
-On first run the app registers your existing default account and, if you have one, the
-`Claude_Work` folder — in place, so any old `.bat` files keep working.
+---
 
 ## macOS
 
-The Mac app is built on a Mac by GitHub Actions (`.github/workflows/mac.yml`) for every
-pushed version tag, and attached to that release as `Multi-Claude-<version>-arm64.dmg`
-(Apple Silicon) and `Multi-Claude-<version>-x64.dmg` (Intel), plus `.zip` copies. On a Mac
-you can also build it yourself with `npm run dist:mac`.
+Download `Multi-Claude-<version>-arm64.dmg` (Apple Silicon) or `-x64.dmg` (Intel) from the
+[releases page](https://github.com/moshiuzzaman/multi-claude/releases), or build it on a Mac
+with `npm run dist:mac`.
 
-It is ad-hoc signed, not signed with an Apple Developer ID, so macOS stops it the first
-time: **right-click the app → Open → Open**. (On recent macOS: System Settings → Privacy &
-Security → **Open Anyway**.)
-
-What differs on a Mac (see `src/main/mac.js`; `platform.js` picks the Windows or Mac parts):
+> [!IMPORTANT]
+> The app isn't signed with an Apple Developer ID, so macOS blocks it the first time.
+> **Right-click the app → Open → Open.** On recent macOS: **System Settings → Privacy &
+> Security → Open Anyway.**
 
 | | Windows | Mac |
 |---|---|---|
-| Claude | `claude.exe` (Store or classic install) | `Claude.app` in Applications, or found by Spotlight |
+| Claude | `claude.exe` (Store or classic) | `Claude.app` |
 | Open an account | `claude.exe --user-data-dir=…` | `open -n -a Claude.app --args --user-data-dir=…` |
-| Which are open | PowerShell process list | `ps` |
-| Close | ends that profile's process tree | asks it to quit (SIGTERM), then ends what is left |
+| Close | Ends that account's process tree | Asks it to quit, then ends what's left |
 | Default profile | `%LOCALAPPDATA%\Claude-Data\…` | `~/Library/Application Support/Claude` |
-| Desktop shortcut | `.lnk` | a tiny `.app` on the Desktop |
-| Updating | in-app installer | **Update** opens the release page to download the new `.dmg` |
+| Desktop shortcut | `.lnk` | A small `.app` |
+| Updating | In-app installer | **Update** opens the release page |
+| Taskbar icons per account | Yes | No |
 
-The status-line recorder (a fallback for live limits) is a PowerShell script and isn't used
-on a Mac. **The Mac version has not been tried on a real Mac yet**: the parts are covered by
-tests, but whether Claude for Mac keeps a separate profile per `--user-data-dir` the way the
-Windows build does is the first thing to check. If you have a Mac, that is the single most
-useful thing you could contribute.
+> [!WARNING]
+> **The Mac version hasn't been tried on a real Mac yet.** Its parts are covered by tests, but
+> the first thing to check is whether Claude for Mac keeps a separate profile per
+> `--user-data-dir`. If you have a Mac, trying it is the most useful contribution you could make.
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| A new account shows **Get started** every time it opens | It was signed in with Google. Sign in with the **email code** instead ([why](#adding-and-signing-in-to-an-account)) |
+| An account shows **Not signed in** | Click **Launch** and follow the steps, or **Sign-in help** on its page |
+| Two cards show the same usage | Both profiles use the same Claude account. See [One account per profile](#one-account-per-profile) |
+| Usage says "2 hours ago" | That's the newest reading Claude recorded. Turn on [live limits](#turning-on-live-limits) for up-to-the-minute figures |
+| **Live limits** isn't offered | The account is marked as a free plan. Use **Connect for usage limits** on its page if you upgraded |
+| No limit alerts | Check **Limit alerts** is on (Accounts page), the account isn't muted, and Windows **Do not disturb** is off |
+| The tray icon is missing | Look under Windows' hidden icons (**^**) and drag it onto the taskbar |
+| A copied chat isn't in the other account's Code tab | Restart that account's Claude window; the list is read when it opens |
+| **Close** says the account is still running | Wait a few seconds and try again; Claude may be finishing something |
+| Accounts or settings look empty after starting Multi-Claude from inside Claude | Start Multi-Claude from the Start Menu or Explorer instead ([why](#known-limitations)) |
+
+Still stuck? Use **? → Report a bug**. For a detailed log, start Multi-Claude with
+`MULTI_CLAUDE_DEBUG=1` set; it writes `%TEMP%\multi-claude-debug.log`.
 
 ## Known limitations
 
-- **Windows and macOS only.** The Mac version is new and untested on a real Mac (above).
-- **Deep links go to the default instance.** Launching the Store build's executable directly
-  means the second instance runs without package identity, so `claude://` links and some
-  notification routing still reach the default instance. This applies equally to the `.bat`
-  approach.
-- **Sign in to an added account with the email code, not Google.** Claude Desktop registers
-  its `claude://` sign-in link without a profile folder, so a sign-in that finishes in the
-  browser (Continue with Google) is handed to the default Claude. The added account never
-  receives it and shows "Get started" on every launch. Entering your email and typing the
-  emailed code into the account's own window never leaves that window, so it sticks.
-  **Create account** walks you through this once, with an **Open Gmail** button for the
-  code; an account made with Google signs in the same way with that Google email. Claude
-  keeps the sign-in in the profile, so from then on **Launch** opens it signed in. An
-  account whose window isn't signed in shows **Not signed in**, and Launch brings the
-  steps up with the window (also under **Sign-in help** on its page). Multi-Claude tells
-  only from the names of the settings in the profile's `config.json`; it never reads a
-  token. For the same-account check it also reads one value there, the account's
-  id (`lastKnownAccountUuid`, an id, not a token), and keeps only a one-way fingerprint of
-  it. That one sign-in is all an account needs: its usage limits come from what its
-  Claude window records. Claude Code (for optional live limits) is a separate sign-in that
-  is never copied from the window's. Multi-Claude does not reroute the link: it carries the
-  sign-in code, and Multi-Claude never handles a credential.
-- **Shortcut icons** use the Multi-Claude icon, not Claude's.
-- **Start it yourself, not from inside Claude Desktop.** If Multi-Claude is launched by a
-  process running inside the Store version of Claude Desktop (for example by Claude Code
-  in its Code tab), Windows redirects its `%APPDATA%` writes into Claude's package folder
-  (`%LOCALAPPDATA%\Packages\Claude_<id>\LocalCache\Roaming\`). Its accounts, history and
-  Claude Code sign-ins then live there instead of in your real AppData, and **Use in VS
-  Code** writes a `settings.json` your real VS Code never reads. Starting it from
-  `start.cmd`, Explorer or the Start Menu uses the real location.
+- **Windows and macOS only**, and the Mac version is untested on a real Mac.
+- **Sign in to added accounts with the email code, not Google.** Claude Desktop registers its
+  `claude://` sign-in link without a profile folder, so a sign-in that finishes in the browser
+  goes to the Default window. Multi-Claude doesn't reroute that link, because it carries a
+  sign-in code and Multi-Claude never handles credentials.
+- **Links open in the Default window.** `claude://` links and some notifications reach the
+  Default account, because added accounts run without the Store app's package identity.
+- **Start Multi-Claude yourself, not from inside Claude Desktop.** If it is started by
+  something running inside the Store version of Claude (for example Claude Code in the Code
+  tab), Windows redirects its `%APPDATA%` into Claude's package folder
+  (`%LOCALAPPDATA%\Packages\Claude_<id>\LocalCache\Roaming\`). Its accounts and history then
+  live there, and **Use in VS Code** writes a file your VS Code never reads.
+- **Desktop shortcuts** use the Multi-Claude icon, not Claude's.
+- An account on an employer's email domain may be managed by that organisation's admin;
+  Multi-Claude doesn't change that.
 
-An account on an employer's email domain may be linked to that organisation's enterprise
-account, where an admin can manage it — nothing here changes that. And Claude Desktop has an
-internal `multiAccount` feature flag, currently switched off; if Anthropic ships native
-multi-account support, retire this app rather than working around it.
+If Anthropic ships multi-account support in Claude Desktop itself, use that instead.
 
 ## FAQ
 
 **Is this against Anthropic's terms?**
 Owning more than one Claude account is allowed; using several to get around usage limits is
-not. Multi-Claude launches Anthropic's own app with a standard Electron flag, never handles a
-credential, and deliberately omits every feature that would pool or multiply quota. Use it
-for accounts you legitimately own.
+not. Multi-Claude opens Anthropic's own app with a standard Electron option, never handles a
+credential, and leaves out every feature that would pool or multiply usage. Use it for
+accounts you own.
 
 **Does it need my password or an API key?**
-No. You sign in inside Claude's own window, exactly as you would without this app.
+No. You sign in inside Claude's own window, exactly as without Multi-Claude.
 
-**Will it slow my PC down?**
-Each account is a full Claude Desktop instance, so running three accounts costs roughly what
-running Claude three times costs. Launch only what you need; **Close** frees an account's
-memory.
+**Will it slow my computer down?**
+Each account is a full Claude Desktop, so three open accounts cost about what three Claudes
+cost. Open only what you need; **Close** frees an account's memory.
 
 **Does deleting an account delete my Claude account?**
-No. It deletes the local profile folder on this PC. Your Anthropic account is untouched.
+No. It deletes the profile folder on this PC only.
 
 **Can I use it with Claude Code or VS Code?**
-Yes — [Use in VS Code](#using-one-account-in-vs-code-or-a-terminal) points the editor at one
-account you own, and **Terminal** does the same in a console. One account at a time.
+Yes. [Use in VS Code](#using-an-account-in-vs-code-or-a-terminal) switches the editor to one
+account, **Terminal** opens Claude Code as an account, and
+[Claude Code chats](#claude-code-chats) lists, continues and copies chats.
 
-**Something broke. Where do I look?**
-Run with `MULTI_CLAUDE_DEBUG=1` and it writes a log to `%TEMP%\multi-claude-debug.log`. Open
-an issue with it.
+**Can I move a chat to another account?**
+A Claude Code chat, yes: see [Copying a chat](#copying-a-chat-to-another-account). Normal
+claude.ai chats live on Anthropic's servers and can't be moved.
+
+**Something broke. What do I do?**
+Use **? → Report a bug** in the app. A sentence or two is enough.
