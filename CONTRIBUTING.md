@@ -26,7 +26,7 @@ welcome, and you don't need to write code to help.
 | 💡 **Suggest an idea** | In the app: **? → Suggest an idea**. Or [open an idea](https://github.com/moshiuzzaman/multi-claude/issues/new?template=feature_request.yml). |
 | 🍎 **Try it on a Mac** | The Mac build has never run on real hardware. See [macOS](docs/GUIDE.md#macos) for what to check first. **The most useful thing anyone can do right now.** |
 | 🖼️ **Add screenshots** | The README has none yet. [`MULTI_CLAUDE_SHOT`](#debugging) captures every view. |
-| 🛠️ **Build a feature** | Pick one from [Coming next](docs/FEATURES.md#coming-next), or an idea issue. Comment on its issue first so we can agree the approach. |
+| 🛠️ **Build a feature** | Pick an [open idea](https://github.com/moshiuzzaman/multi-claude/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement). Comment on its issue first so we can agree the approach. |
 | 📝 **Improve the docs** | Anything in the README, [guide](docs/GUIDE.md) or a dialog that didn't explain itself is a bug. |
 
 > [!TIP]
@@ -54,7 +54,7 @@ that is exactly what Anthropic's enforcement targets. These rules keep Multi-Cla
 right side of that line.
 
 > [!NOTE]
-> **The one exception: copying a chat started in the wrong account** ([Copy a chat to another account](docs/FEATURES.md#claude-code)).
+> **The one exception: copying a chat started in the wrong account** ([Copy a chat to another account](docs/FEATURES.md#-claude-code)).
 > A Claude Code chat may be copied **by hand, one at a time**, to another account the user
 > owns. For that feature only, Multi-Claude may:
 > - list chats (title, folder, date, size) and copy a chat's own files inside its own `cc`
@@ -72,8 +72,8 @@ right side of that line.
 
 Every new feature follows the same path, and pull requests should too:
 
-1. **Start from an issue.** Pick one from [Coming next](docs/FEATURES.md#coming-next) or an
-   idea issue, or open one describing the feature.
+1. **Start from an issue.** Pick an [open idea](https://github.com/moshiuzzaman/multi-claude/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement), or open one describing the
+   feature.
 2. **Study similar tools** that already do it: their docs, their code, and their issues, which
    show what went wrong for them.
 3. **Compare the approaches** in a short table: pros, cons, and whether each fits the

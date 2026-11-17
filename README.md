@@ -124,7 +124,7 @@ sign in to each account yourself, inside Claude's own window.
 
 - [User guide](docs/GUIDE.md) — usage limits, alerts, history, tray, VS Code, file locations
 - [Known limitations](docs/GUIDE.md#known-limitations) and [FAQ](docs/GUIDE.md#faq)
-- [Features](docs/FEATURES.md) — everything available now, and what's coming next
+- [Features](docs/FEATURES.md) — everything Multi-Claude can do today
 - [Contributing](CONTRIBUTING.md) — setup, architecture, the rules a PR must keep
 
 ## Contributing
