@@ -1886,3 +1886,29 @@ button.uf-icon:hover:not(:disabled) { background: var(--gloss-neutral-hover); bo
   margin-top: 4px; padding: 7px 9px 4px; border-top: 1px solid rgba(255, 255, 255, 0.06);
   font-size: 11px; color: var(--muted); line-height: 1.45;
 }
+
+/* ---------------------------------------------------- chats search box -- */
+
+.chat-search {
+  position: relative; display: flex; align-items: center; gap: 8px;
+  margin-bottom: 10px; padding: 0 10px; height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  transition: border-color 0.14s var(--ease), box-shadow 0.14s var(--ease);
+}
+.chat-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.chat-search-icon { color: var(--muted); flex-shrink: 0; }
+.chat-search input {
+  flex: 1; min-width: 0; height: 100%; padding: 0;
+  border: 0; outline: none; background: transparent;
+  color: var(--text); font: inherit; font-size: 12.5px; user-select: text;
+}
+.chat-search input::placeholder { color: var(--muted); }
+.chat-search input::-webkit-search-cancel-button { display: none; }
+.chat-search-count { flex-shrink: 0; font-size: 11px; color: var(--muted); }
+.chat-search button.chat-search-clear {
+  flex-shrink: 0; width: 22px; height: 22px; padding: 0;
+  border: 0; border-radius: 6px; background: transparent; box-shadow: none; text-shadow: none;
+  color: var(--muted); font-size: 16px; line-height: 1;
+}
+.chat-search button.chat-search-clear:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); color: var(--text); }

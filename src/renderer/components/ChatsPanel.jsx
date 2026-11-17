@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { api } from '../lib/api.js';
 import { bytes, relativeTime } from '../lib/format.js';
 import CopyChatDialog from './CopyChatDialog.jsx';
+import { filterChats } from '../lib/chatSearch.js';
 
 const SHOWN = 6;
 
@@ -24,6 +25,7 @@ export default function ChatsPanel({ account, accounts, actions, running = [], s
   const [copying, setCopying] = useState(null);
   const [closing, setClosing] = useState(null); // chat awaiting the Close confirmation
   const [closeBusy, setCloseBusy] = useState(false);
+  const [query, setQuery] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -35,10 +37,13 @@ export default function ChatsPanel({ account, accounts, actions, running = [], s
     }
   }, [account.id]);
 
-  useEffect(() => { setChats(null); setAll(false); load(); }, [load]);
+  useEffect(() => { setChats(null); setAll(false); setQuery(''); load(); }, [load]);
 
   const others = accounts.filter((a) => a.id !== account.id && a.exists !== false);
-  const shown = chats ? (all ? chats : chats.slice(0, SHOWN)) : [];
+  const searching = query.trim() !== '';
+  const matches = chats ? filterChats(chats, query) : [];
+  // While searching, every match shows; otherwise the newest few.
+  const shown = searching || all ? matches : matches.slice(0, SHOWN);
 
   const resume = async (c) => {
     try {
@@ -78,6 +83,33 @@ export default function ChatsPanel({ account, accounts, actions, running = [], s
       <div className="panel-body">
         {!chats && <div className="skeleton" style={{ height: 48 }} />}
         {loadError && <div className="note">{loadError}</div>}
+
+        {chats && chats.length > 0 && (
+          <div className="chat-search">
+            <svg className="chat-search-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M10.5 10.5 14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <input
+              type="search"
+              placeholder="Search chats by title or folder"
+              aria-label="Search chats"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setQuery(''); }}
+            />
+            {searching && (
+              <>
+                <span className="chat-search-count">{matches.length} of {chats.length}</span>
+                <button className="chat-search-clear" onClick={() => setQuery('')} title="Clear search" aria-label="Clear search">×</button>
+              </>
+            )}
+          </div>
+        )}
+
+        {searching && matches.length === 0 && (
+          <div className="note">No chats match &quot;{query.trim()}&quot;.</div>
+        )}
         {chats && chats.length === 0 && !loadError && (
           <div className="note">
             No Claude Code chats yet. Chats from this account&apos;s Terminal and VS Code show here.
@@ -136,7 +168,7 @@ export default function ChatsPanel({ account, accounts, actions, running = [], s
           </div>
         )}
 
-        {chats && chats.length > SHOWN && (
+        {!searching && chats && chats.length > SHOWN && (
           <button className="link" style={{ marginTop: 8 }} onClick={() => setAll(!all)}>
             {all ? 'Show fewer' : `Show all ${chats.length}`}
           </button>

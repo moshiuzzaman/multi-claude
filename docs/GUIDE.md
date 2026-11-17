@@ -227,6 +227,9 @@ and Claude Desktop's **Code tab** keep theirs (tagged `~/.claude`).
 Each chat shows its title, project folder, when it was last used and its size. A **green
 dot** means it is open right now.
 
+**Search** the list with the box at its top: type part of a chat's title or its project
+folder. Every word you type must match. **Esc** or **×** clears it.
+
 | Button | What it does |
 |---|---|
 | **Continue** | Opens a terminal as this account, in the chat's folder, carrying on the chat |

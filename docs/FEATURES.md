@@ -74,7 +74,8 @@ Opens Claude Code in a terminal as any account.
 → [VS Code and terminal](GUIDE.md#using-an-account-in-vs-code-or-a-terminal)
 
 #### 💬 Claude Code chats `NEW`
-See each account's Claude Code chats in one list, then continue or close any of them.
+See each account's Claude Code chats in one list, search them by title or folder, then
+continue or close any of them.
 → [Claude Code chats](GUIDE.md#claude-code-chats)
 
 #### 📤 Copy a chat to another account `NEW`
