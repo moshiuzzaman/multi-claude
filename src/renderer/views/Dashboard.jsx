@@ -96,6 +96,11 @@ function AccountCard({ account, running, scanOk, limitRow, size, lastUsed, cliMi
         {size && lastUsed ? '  ·  ' : ''}
         {lastUsed ? `last used ${relativeTime(lastUsed)}` : ''}
         <span className="spacer" />
+        {missing && !isDefault && (
+          <button className="ghost" onClick={stop(() => actions.forget(account))} title="Remove from this list only">
+            Remove from list
+          </button>
+        )}
         <span className="open-hint">Open →</span>
       </div>
     </div>

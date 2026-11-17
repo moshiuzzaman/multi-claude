@@ -500,7 +500,12 @@ export default function App() {
       )}
 
       {deleting && (
-        <DeleteDialog account={deleting} onConfirm={actions.remove} onCancel={() => setDeleting(null)} />
+        <DeleteDialog
+          account={deleting}
+          onConfirm={actions.remove}
+          onCancel={() => setDeleting(null)}
+          onForget={() => { const a = deleting; setDeleting(null); actions.forget(a); }}
+        />
       )}
 
       {toast && <div className={toast.isError ? 'toast error' : 'toast'}>{toast.message}</div>}

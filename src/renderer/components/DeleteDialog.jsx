@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-export default function DeleteDialog({ account, onConfirm, onCancel }) {
+export default function DeleteDialog({ account, onConfirm, onCancel, onForget }) {
   const [typed, setTyped] = useState('');
   const [unlock, setUnlock] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -12,8 +12,31 @@ export default function DeleteDialog({ account, onConfirm, onCancel }) {
   const needsUnlock = account.kind === 'imported';
   const matches = typed === account.label;
   const canDelete = matches && (!needsUnlock || unlock) && !busy;
+  // The folder is already gone, so there is nothing to erase: offer only to
+  // drop the list entry. Typing a name cannot help here.
+  const folderGone = account.exists === false;
 
   useEffect(() => { cancelRef.current?.focus(); }, []);
+
+  if (folderGone) {
+    return (
+      <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
+        <div className="modal" role="dialog" aria-modal="true">
+          <h2>Remove &quot;{account.label}&quot; from the list?</h2>
+          <p>Its profile folder is already gone from this PC:</p>
+          <p className="path">{account.dir}</p>
+          <p className="reassure">
+            Nothing on disk will be touched. This only removes the entry from Multi-Claude.
+            Your Anthropic account is not affected.
+          </p>
+          <div className="buttons">
+            <button ref={cancelRef} onClick={onCancel}>Cancel</button>
+            <button className="danger" onClick={onForget}>Remove from list</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const submit = async () => {
     if (!canDelete) return;
