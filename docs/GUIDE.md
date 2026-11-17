@@ -563,30 +563,90 @@ If Anthropic ships multi-account support in Claude Desktop itself, use that inst
 
 ## FAQ
 
-**Is this against Anthropic's terms?**
-Owning more than one Claude account is allowed; using several to get around usage limits is
+Click a question to see the answer.
+
+<details>
+<summary><strong>Is this against Anthropic's terms?</strong></summary>
+<br>
+
+Owning more than one Claude account is allowed. Using several to get around usage limits is
 not. Multi-Claude opens Anthropic's own app with a standard Electron option, never handles a
 credential, and leaves out every feature that would pool or multiply usage. Use it for
 accounts you own.
 
-**Does it need my password or an API key?**
-No. You sign in inside Claude's own window, exactly as without Multi-Claude.
+</details>
 
-**Will it slow my computer down?**
-Each account is a full Claude Desktop, so three open accounts cost about what three Claudes
-cost. Open only what you need; **Close** frees an account's memory.
+<details>
+<summary><strong>Does it need my password or an API key?</strong></summary>
+<br>
 
-**Does deleting an account delete my Claude account?**
-No. It deletes the profile folder on this PC only.
+No. You sign in inside Claude's own window, exactly as you would without Multi-Claude.
 
-**Can I use it with Claude Code or VS Code?**
-Yes. [Use in VS Code](#using-an-account-in-vs-code-or-a-terminal) switches the editor to one
-account, **Terminal** opens Claude Code as an account, and
-[Claude Code chats](#claude-code-chats) lists, continues and copies chats.
+</details>
 
-**Can I move a chat to another account?**
-A Claude Code chat, yes: see [Copying a chat](#copying-a-chat-to-another-account). Normal
-claude.ai chats live on Anthropic's servers and can't be moved.
+<details>
+<summary><strong>Will it slow my computer down?</strong></summary>
+<br>
 
-**Something broke. What do I do?**
-Use **? → Report a bug** in the app. A sentence or two is enough.
+Each account is a full Claude Desktop, so three open accounts use about as much memory as
+three Claudes. Open only what you need; **Close** frees an account's memory.
+
+</details>
+
+<details>
+<summary><strong>Does deleting an account delete my Claude account?</strong></summary>
+<br>
+
+No. It deletes the profile folder on this PC only. Your Anthropic account and subscription
+stay as they are. See [Deleting an account](#deleting-an-account).
+
+</details>
+
+<details>
+<summary><strong>Do I need Claude Code installed?</strong></summary>
+<br>
+
+No. Multi-Claude works with Claude Desktop alone. Claude Code is only used for the optional
+[live limits](#turning-on-live-limits), and if you don't have it, Multi-Claude can download
+Anthropic's official copy for you with one click.
+
+</details>
+
+<details>
+<summary><strong>Can I use it with Claude Code or VS Code?</strong></summary>
+<br>
+
+Yes:
+
+- [Use in VS Code](#using-an-account-in-vs-code-or-a-terminal) switches the editor to one account.
+- **Terminal** opens Claude Code as an account.
+- [Claude Code chats](#claude-code-chats) lists, continues and copies chats.
+
+</details>
+
+<details>
+<summary><strong>Can I move a chat to another account?</strong></summary>
+<br>
+
+A **Claude Code** chat, yes: see [Copying a chat](#copying-a-chat-to-another-account).
+Normal claude.ai chats live on Anthropic's servers and can't be moved.
+
+</details>
+
+<details>
+<summary><strong>Will updating Multi-Claude lose my accounts?</strong></summary>
+<br>
+
+No. Updates keep your accounts, settings and history, and Claude windows you opened keep
+running. See [Updates](#updates).
+
+</details>
+
+<details>
+<summary><strong>Something broke. What do I do?</strong></summary>
+<br>
+
+Use **? → Report a bug** in the app. A sentence or two is enough; your version is filled in
+for you. Also see [Troubleshooting](#troubleshooting).
+
+</details>
