@@ -1,4 +1,5 @@
 import React from 'react';
+import HelpMenu from '../components/HelpMenu.jsx';
 import StatTile from '../components/StatTile.jsx';
 import StackedBar from '../charts/StackedBar.jsx';
 import { bytes } from '../lib/format.js';
@@ -40,6 +41,7 @@ export default function Storage({ storage, running, scanOk, actions }) {
         </div>
         <span className="spacer" />
         <button className="ghost" onClick={actions.refreshStorage}>Recalculate</button>
+        <HelpMenu />
       </div>
 
       <div className="stack">

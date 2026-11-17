@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../lib/api.js';
 import WhatsNewDialog from './WhatsNewDialog.jsx';
+import { WHATS_NEW_EVENT } from './HelpMenu.jsx';
 
 // States that change on their own; the line polls only while in one.
 const MOVING = ['idle', 'checking', 'downloading', 'installing'];
@@ -66,6 +67,13 @@ export default function UpdateFoot() {
   };
 
   const openNotes = () => { setPrompted(false); setShowNotes(true); };
+
+  // The Help menu (page headers) asks for the release notes.
+  useEffect(() => {
+    const show = () => { setPrompted(false); setShowNotes(true); };
+    window.addEventListener(WHATS_NEW_EVENT, show);
+    return () => window.removeEventListener(WHATS_NEW_EVENT, show);
+  }, []);
   const closeNotes = () => { if (!locked && !updating) setShowNotes(false); };
 
   // Ask GitHub again. The answer usually comes back in well under a second,

@@ -92,7 +92,17 @@ function feedUrls({ owner, repo }) {
     releasesApi: `https://api.github.com/repos/${owner}/${repo}/releases?per_page=30`,
     releasesPage: `${site}/releases`,
     asset: (version, name) => `${site}/releases/download/v${version}/${encodeURIComponent(name)}`,
-    releasePage: (version) => `${site}/releases/tag/v${version}`
+    releasePage: (version) => `${site}/releases/tag/v${version}`,
+    // A new issue from one of .github/ISSUE_TEMPLATE's forms, with the
+    // version and OS filled in. Nothing personal goes in the address.
+    guide: `${site}/blob/main/docs/GUIDE.md`,
+    feedback: (kind, { version, os } = {}) => {
+      const template = kind === 'idea' ? 'feature_request.yml' : 'bug_report.yml';
+      const q = new URLSearchParams({ template });
+      if (version) q.set('version', String(version));
+      if (os && kind !== 'idea') q.set('os', String(os));
+      return `${site}/issues/new?${q.toString()}`;
+    }
   };
 }
 

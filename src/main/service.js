@@ -34,6 +34,7 @@ const ccUsageMod = require('./cc-usage.js');
 const vscodeMod = require('./vscode.js');
 const vscodeSettings = require('./vscode-settings.js');
 const alertsMod = require('./alerts.js');
+const chatsMod = require('./chats.js');
 
 const LIMITS_FILE = 'multi-claude-limits.json';
 const GMAIL_URL = 'https://mail.google.com/';
@@ -106,6 +107,40 @@ function createService(deps) {
   });
 
   const ccDirFor = (a) => (deps.ccRoot ? path.join(deps.ccRoot, a.id) : null);
+
+  // Where an account's Claude Code chats live (roadmap feature 20). The
+  // Default account also shows ~/.claude: plain `claude` and Claude Desktop's
+  // Code tab keep their chats there.
+  function chatSources(a) {
+    const out = [];
+    const cc = ccDirFor(a);
+    if (cc) out.push({ source: 'account', dir: cc });
+    const home = deps.homeClaudeDir;
+    if (a.kind === 'default' && home && !(cc && P.samePath(home, cc))) out.push({ source: 'home', dir: home });
+    return out;
+  }
+  // Naming and ending one chat's Claude Code process (closeChat).
+  const chatProcess = deps.chatProcess || (process.platform === 'win32' ? {
+    nameOf: async (pid) => deps.runPowerShell(
+      `(Get-Process -Id ${Number(pid)} -ErrorAction SilentlyContinue).ProcessName`),
+    // /T: its shell and MCP servers go with it.
+    kill: (pid) => new Promise((resolve) => {
+      require('node:child_process').execFile('taskkill', ['/PID', String(Number(pid)), '/T', '/F'],
+        { windowsHide: true }, () => resolve());
+    })
+  } : {
+    nameOf: (pid) => new Promise((resolve) => {
+      require('node:child_process').execFile('ps', ['-p', String(Number(pid)), '-o', 'comm='],
+        (e, out) => resolve(e ? '' : path.basename(String(out).trim())));
+    }),
+    kill: async (pid) => { try { process.kill(Number(pid), 'SIGTERM'); } catch { /* already gone */ } }
+  });
+
+  function chatSourceDir(a, source) {
+    const s = chatSources(a).find((x) => x.source === source);
+    if (!s) throw err('unsupported', 'Chats are not available here.');
+    return s.dir;
+  }
 
   const vscode = deps.vscode || {
     find: () => vscodeMod.findVsCode(),
@@ -1056,6 +1091,126 @@ function createService(deps) {
       const found = await requireCli();
       const dir = await prepareCcDir(a);
       ccCli.openTerminal(found.path, dir, [], { title: `Claude Code: ${a.label}` });
+      return { ok: true };
+    },
+
+    // ---- chats (roadmap feature 20) -----------------------------------------
+    // For a Claude Code chat started in the wrong account: copy it, by hand,
+    // to another account and continue it there. Nothing here looks at usage.
+
+    /**
+     * This account's Claude Code chats, newest first, each tagged with its
+     * source: 'account' (the account's own folder) or 'home' (~/.claude, for
+     * the Default account only).
+     */
+    async listChats({ id }) {
+      const a = find(id);
+      const out = [];
+      for (const s of chatSources(a)) {
+        for (const c of chatsMod.listChats(s.dir, { isAlive: deps.isAlive })) out.push({ ...c, source: s.source });
+      }
+      out.sort((x, y) => y.lastUsed - x.lastUsed);
+      return out;
+    },
+
+    /**
+     * Copy one chat to another account, then open a terminal there that
+     * continues it in the chat's own project folder.
+     * mode: 'copy' (keep the original), 'move' (remove it after a good copy),
+     * or 'new' (copy under a new chat id, when the target already has one).
+     */
+    async copyChat({ fromId, toId, chatId, mode = 'copy', source = 'account', open = true }) {
+      const a = find(fromId);
+      const b = find(toId);
+      if (a.id === b.id) throw err('same_account', 'Pick a different account to copy to.');
+      if (!['copy', 'move', 'new'].includes(mode)) throw err('bad_mode', 'Unknown copy mode.');
+      const fromDir = chatSourceDir(a, source);
+
+      const found = await requireCli();
+      // Check the sign-in before touching the target at all: an account
+      // that was never signed in to Claude Code has no folder, and refusing
+      // must not leave one behind.
+      const notSignedIn = () => err('not_signed_in',
+        `${b.label} isn't signed in to Claude Code yet. Sign it in from its page, then copy again.`);
+      const targetDir = ccDirFor(b);
+      if (!targetDir || !fs.existsSync(targetDir)) throw notSignedIn();
+      const auth = await ccCli.authStatus(found.path, targetDir);
+      if (!auth || !auth.loggedIn) throw notSignedIn();
+      const toDir = await prepareCcDir(b);
+
+      const r = await chatsMod.copyChat({
+        fromDir, toDir, id: chatId,
+        move: mode === 'move',
+        newId: mode === 'new' ? crypto.randomUUID() : null,
+        isAlive: deps.isAlive
+      });
+      if (open) ccCli.openTerminal(found.path, toDir, ['--resume', r.id], { title: `Claude Code: ${b.label}`, cwd: r.cwd });
+      return r;
+    },
+
+    /**
+     * Copy one chat so it shows in another account's Claude Desktop Code tab
+     * (feature 20, phase 2). The transcript is copied inside ~/.claude, where
+     * every Claude profile's Code tab keeps them, under a new chat id; then
+     * one entry is added to that profile's Code-tab list. Only while that
+     * account's Claude window is closed, since Claude Desktop reads the list
+     * at start and writes it back.
+     */
+    async copyChatToDesktop({ fromId, toId, chatId, source = 'account' }) {
+      const a = find(fromId);
+      const b = find(toId);
+      if (a.id === b.id) throw err('same_account', 'Pick a different account to copy to.');
+      const fromDir = chatSourceDir(a, source);
+      const home = deps.homeClaudeDir;
+      if (!home) throw err('unsupported', 'Claude Desktop chats are not available here.');
+      if (!b.dir || !fs.existsSync(b.dir)) throw err('missing', `${b.label}'s Claude profile folder is missing.`);
+
+      const { dirs, ok } = await scanner.scan();
+      if (!ok) throw err('scan_failed', "Couldn't check whether its Claude window is open. Try again.");
+      const target = P.normalizeDir(b.dir);
+      if (dirs.map(P.normalizeDir).includes(target)) {
+        throw err('window_open', `Close ${b.label}'s Claude window first, then copy again.`);
+      }
+
+      const newId = crypto.randomUUID();
+      const r = await chatsMod.copyChat({ fromDir, toDir: home, id: chatId, newId, isAlive: deps.isAlive });
+      try {
+        await chatsMod.addDesktopEntry({
+          profileDir: b.dir, cliSessionId: r.id, cwd: r.cwd, title: r.title,
+          completedTurns: r.completedTurns, entryId: crypto.randomUUID()
+        });
+      } catch (e) {
+        await chatsMod.removeChatFiles(home, r.id);
+        throw e;
+      }
+      return { id: r.id, cwd: r.cwd, title: r.title };
+    },
+
+    /**
+     * End the Claude Code process running one chat (asked for by the user,
+     * after a confirmation), so it can be continued or copied.
+     */
+    async closeChat({ id, chatId, source = 'account' }) {
+      const a = find(id);
+      const dir = chatSourceDir(a, source);
+      return chatsMod.closeChat({
+        ccDir: dir, id: chatId, isAlive: deps.isAlive,
+        nameOf: chatProcess.nameOf, kill: chatProcess.kill,
+        ...(deps.sleep ? { sleep: deps.sleep } : {})
+      });
+    },
+
+    /** Continue one of this account's chats in a terminal. */
+    async resumeChat({ id, chatId, source = 'account' }) {
+      const a = find(id);
+      const dir = chatSourceDir(a, source);
+      const chat = chatsMod.listChats(dir, { isAlive: deps.isAlive }).find((c) => c.id === chatId);
+      if (!chat) throw err('missing', 'That chat is no longer there.');
+      if (!chat.folderExists) throw err('folder_missing', "The chat's project folder is not on this PC.");
+      const found = await requireCli();
+      // ~/.claude is the user's own: never add Multi-Claude's status line there.
+      if (source === 'account') await prepareCcDir(a);
+      ccCli.openTerminal(found.path, dir, ['--resume', chat.id], { title: `Claude Code: ${a.label}`, cwd: chat.cwd });
       return { ok: true };
     },
 

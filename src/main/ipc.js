@@ -13,7 +13,8 @@ const CHANNELS = [
   'loginStatus', 'loginSubmit', 'loginCancel', 'loginOpenPage',
   'ccInstallStart', 'ccInstallStatus', 'openGmail', 'setFreePlan', 'setColor', 'saveIcon', 'settings', 'setTaskbarGroups',
   'setAlerts', 'setMuteAlerts', 'testAlert', 'usageHistory', 'setCloseToTray', 'acceptAccount',
-  'updateStatus', 'updateCheck', 'updateInstall', 'updateChangelog', 'updateOpenPage', 'updateQuit'
+  'listChats', 'copyChat', 'copyChatToDesktop', 'resumeChat', 'closeChat',
+  'updateStatus', 'updateCheck', 'openFeedback', 'updateInstall', 'updateChangelog', 'updateOpenPage', 'updateQuit'
 ];
 
 function register(service, updater, { exeLabel = 'claude.exe', exeFilter = { name: 'Claude', extensions: ['exe'] } } = {}) {
@@ -50,6 +51,11 @@ function register(service, updater, { exeLabel = 'claude.exe', exeFilter = { nam
     usageHistory: (p) => service.usageHistory(p),
     setCloseToTray: (p) => service.setCloseToTray(p),
     acceptAccount: (p) => service.acceptAccount(p),
+    listChats: (p) => service.listChats(p),
+    copyChat: (p) => service.copyChat(p),
+    resumeChat: (p) => service.resumeChat(p),
+    closeChat: (p) => service.closeChat(p),
+    copyChatToDesktop: (p) => service.copyChatToDesktop(p),
     loginStatus: (p) => service.loginStatus(p),
     loginSubmit: (p) => service.loginSubmit(p),
     loginCancel: (p) => service.loginCancel(p),
@@ -64,6 +70,7 @@ function register(service, updater, { exeLabel = 'claude.exe', exeFilter = { nam
     },
     updateChangelog: () => updater.changelog(),
     updateOpenPage: () => updater.openReleasesPage(),
+    openFeedback: (p) => updater.openFeedback(p),
     updateQuit: () => updater.quitApp(),
     remove: (p) => service.remove(p),
     forget: (p) => service.forget(p),

@@ -1,0 +1,43 @@
+name: Feature idea
+description: Suggest something Multi-Claude could do.
+title: "[Idea]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Multi-Claude keeps a few permanent rules: no automatic switching at a limit,
+        no pooling or "next available account", no handling of sign-ins. Ideas that
+        need one of those can't be built. See
+        [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md#rules-a-contribution-must-keep).
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The problem or the moment where Multi-Claude got in your way.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help?
+      description: How you picture it working. Screenshots or sketches welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: elsewhere
+    attributes:
+      label: Seen it somewhere else?
+      description: Another tool that does this, with a link.
+  - type: input
+    id: version
+    attributes:
+      label: Multi-Claude version
+      placeholder: "2.8.1"
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Rules
+      options:
+        - label: This idea doesn't need automatic switching, pooling accounts or handling sign-ins.
+          required: true

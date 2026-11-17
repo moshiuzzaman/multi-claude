@@ -1,4 +1,5 @@
 import React from 'react';
+import HelpMenu from '../components/HelpMenu.jsx';
 import AccountRow from '../components/AccountRow.jsx';
 import AlertSettings from '../components/AlertSettings.jsx';
 import { isMac } from '../lib/api.js';
@@ -16,6 +17,7 @@ export default function Accounts({ accounts, running, scanOk, sizes, activity, s
         </div>
         <span className="spacer" />
         <button className="primary" onClick={onAdd}>+ Add account</button>
+        <HelpMenu />
       </div>
 
       <div className="stack">

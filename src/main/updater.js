@@ -17,7 +17,7 @@ const BUSY = ['checking', 'downloading', 'installing'];
 
 function createUpdater({
   fetchText, fetchJson, download, spawn, quit, openExternal,
-  currentVersion, mode, repo, tmpDir
+  currentVersion, mode, repo, tmpDir, osLabel = ''
 }) {
   const urls = F.feedUrls(repo);
   let state = { state: 'idle', current: currentVersion, mode };
@@ -120,13 +120,21 @@ function createUpdater({
     return { ok: true };
   }
 
+  /** The Help menu's links: a new GitHub issue ('bug', 'idea') or the guide. */
+  function openFeedback({ kind } = {}) {
+    if (kind === 'guide') { openExternal(urls.guide); return { ok: true }; }
+    if (kind !== 'bug' && kind !== 'idea') throw new Error('Unknown feedback kind.');
+    openExternal(urls.feedback(kind, { version: currentVersion, os: osLabel }));
+    return { ok: true };
+  }
+
   // A required update leaves the user two ways out: update, or quit.
   function quitApp() {
     quit();
     return { ok: true };
   }
 
-  return { check, install, status, changelog, openReleasesPage, quitApp };
+  return { check, install, status, changelog, openReleasesPage, openFeedback, quitApp };
 }
 
 module.exports = { createUpdater, INSTALL_ARGS };

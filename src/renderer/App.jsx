@@ -193,6 +193,7 @@ export default function App() {
   // ---- actions -------------------------------------------------------------
 
   const actions = {
+    notify: (message, isError = false) => say(message, isError),
     launch: async (a) => {
       try {
         await api.launch(a.id);

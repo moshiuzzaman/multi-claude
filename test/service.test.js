@@ -1480,3 +1480,195 @@ test('account check: a new profile signed in to an account already in use is not
   await assert.rejects(() => { keys.delete('dup'); return h.svc.acceptAccount({ id: dup.id }); }, /isn't signed in/);
   cleanup(h);
 });
+
+// ---- chats (roadmap feature 20) ---------------------------------------------
+
+const CHAT_ID = '11111111-2222-4333-8444-555555555555';
+
+function seedChat(ccDir, cwd) {
+  const proj = path.join(ccDir, 'projects', 'proj');
+  fs.mkdirSync(proj, { recursive: true });
+  fs.writeFileSync(path.join(proj, `${CHAT_ID}.jsonl`), [
+    { type: 'user', sessionId: CHAT_ID, cwd, message: { role: 'user', content: 'start the work' } },
+    { type: 'ai-title', sessionId: CHAT_ID, aiTitle: 'Work chat' }
+  ].map((o) => JSON.stringify(o)).join('\n') + '\n');
+}
+
+async function chatHarness() {
+  const h = harness({ isAlive: () => false });
+  await h.svc.init();
+  const [def] = await h.svc.list();
+  const work = await h.svc.add({ label: 'Work' });
+  const fromDir = path.join(h.base, 'cfg', 'cc', def.id);
+  const toDir = path.join(h.base, 'cfg', 'cc', work.id);
+  const project = path.join(h.base, 'project');
+  fs.mkdirSync(project);
+  seedChat(fromDir, project);
+  return { h, def, work, fromDir, toDir, project };
+}
+
+test('listChats lists an account\'s Claude Code chats', async () => {
+  const { h, def, work, project } = await chatHarness();
+  const list = await h.svc.listChats({ id: def.id });
+  assert.strictEqual(list.length, 1);
+  assert.strictEqual(list[0].title, 'Work chat');
+  assert.strictEqual(list[0].cwd, project);
+  assert.deepStrictEqual(await h.svc.listChats({ id: work.id }), []);
+  cleanup(h);
+});
+
+test('copyChat refuses a target that is not signed in to Claude Code, and copies nothing', async () => {
+  const { h, def, work, toDir } = await chatHarness();
+  // Never signed in: no folder, and refusing must not create one.
+  h.authReply.value = { loggedIn: true };
+  await assert.rejects(() => h.svc.copyChat({ fromId: def.id, toId: work.id, chatId: CHAT_ID }),
+    (e) => e.code === 'not_signed_in');
+  assert.ok(!fs.existsSync(toDir), 'refusing created the target folder');
+  // Folder there but signed out.
+  fs.mkdirSync(toDir, { recursive: true });
+  h.authReply.value = { loggedIn: false };
+  await assert.rejects(() => h.svc.copyChat({ fromId: def.id, toId: work.id, chatId: CHAT_ID }),
+    (e) => e.code === 'not_signed_in');
+  assert.ok(!fs.existsSync(path.join(toDir, 'projects', 'proj', `${CHAT_ID}.jsonl`)));
+  assert.strictEqual(h.terminals.length, 0);
+  cleanup(h);
+});
+
+test('copyChat copies to the target and opens a terminal resuming it there', async () => {
+  const { h, def, work, toDir, project } = await chatHarness();
+  h.authReply.value = { loggedIn: true };
+  fs.mkdirSync(toDir, { recursive: true }); // signed in before, so its folder exists
+  const r = await h.svc.copyChat({ fromId: def.id, toId: work.id, chatId: CHAT_ID });
+  assert.strictEqual(r.id, CHAT_ID);
+  assert.ok(fs.existsSync(path.join(toDir, 'projects', 'proj', `${CHAT_ID}.jsonl`)));
+  assert.deepStrictEqual(h.terminals.at(-1), { dir: toDir, args: ['--resume', CHAT_ID] });
+  assert.strictEqual(r.cwd, project);
+
+  // Copying again is refused; a new copy gets a fresh id.
+  await assert.rejects(() => h.svc.copyChat({ fromId: def.id, toId: work.id, chatId: CHAT_ID }),
+    (e) => e.code === 'exists');
+  const again = await h.svc.copyChat({ fromId: def.id, toId: work.id, chatId: CHAT_ID, mode: 'new' });
+  assert.notStrictEqual(again.id, CHAT_ID);
+  assert.strictEqual((await h.svc.listChats({ id: work.id })).length, 2);
+  cleanup(h);
+});
+
+test('copyChat refuses the same account and unknown modes', async () => {
+  const { h, def, work } = await chatHarness();
+  h.authReply.value = { loggedIn: true };
+  await assert.rejects(() => h.svc.copyChat({ fromId: def.id, toId: def.id, chatId: CHAT_ID }),
+    (e) => e.code === 'same_account');
+  await assert.rejects(() => h.svc.copyChat({ fromId: def.id, toId: work.id, chatId: CHAT_ID, mode: 'all' }),
+    (e) => e.code === 'bad_mode');
+  cleanup(h);
+});
+
+test('resumeChat opens a terminal for the account in the chat\'s folder', async () => {
+  const { h, def, fromDir } = await chatHarness();
+  await h.svc.resumeChat({ id: def.id, chatId: CHAT_ID });
+  assert.deepStrictEqual(h.terminals.at(-1), { dir: fromDir, args: ['--resume', CHAT_ID] });
+  await assert.rejects(() => h.svc.resumeChat({ id: def.id, chatId: '99999999-8888-4777-8666-555555555555' }),
+    (e) => e.code === 'missing');
+  cleanup(h);
+});
+
+test('the Default account also lists ~/.claude chats, tagged home; other accounts do not', async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-home-'));
+  const h = harness({ isAlive: () => false, homeClaudeDir: home });
+  await h.svc.init();
+  const [def] = await h.svc.list();
+  const work = await h.svc.add({ label: 'Work' });
+  const project = path.join(h.base, 'project');
+  fs.mkdirSync(project);
+  seedChat(home, project);
+
+  const list = await h.svc.listChats({ id: def.id });
+  assert.deepStrictEqual(list.map((c) => [c.id, c.source]), [[CHAT_ID, 'home']]);
+  assert.deepStrictEqual(await h.svc.listChats({ id: work.id }), []);
+
+  // Continue a home chat: terminal on ~/.claude, and nothing written into it.
+  const before = fs.readdirSync(home).sort();
+  await h.svc.resumeChat({ id: def.id, chatId: CHAT_ID, source: 'home' });
+  assert.deepStrictEqual(h.terminals.at(-1), { dir: home, args: ['--resume', CHAT_ID] });
+  assert.deepStrictEqual(fs.readdirSync(home).sort(), before);
+
+  // Copy from ~/.claude to Work lands in Work's own folder.
+  const toDir = path.join(h.base, 'cfg', 'cc', work.id);
+  fs.mkdirSync(toDir, { recursive: true });
+  h.authReply.value = { loggedIn: true };
+  await h.svc.copyChat({ fromId: def.id, toId: work.id, chatId: CHAT_ID, source: 'home' });
+  assert.ok(fs.existsSync(path.join(toDir, 'projects', 'proj', `${CHAT_ID}.jsonl`)));
+  assert.ok(fs.existsSync(path.join(home, 'projects', 'proj', `${CHAT_ID}.jsonl`)), 'copy kept the original');
+
+  // Only the Default account has a home source.
+  await assert.rejects(() => h.svc.resumeChat({ id: work.id, chatId: CHAT_ID, source: 'home' }),
+    (e) => e.code === 'unsupported');
+  cleanup(h);
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test('copyChatToDesktop: refuses while the target window is open; copies inside ~/.claude and lists it', async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-home-'));
+  let runningDirs = [];
+  const h = harness({ isAlive: () => false, homeClaudeDir: home,
+    scanner: { scan: async () => ({ dirs: runningDirs, ok: true }) } });
+  await h.svc.init();
+  const [def] = await h.svc.list();
+  const work = await h.svc.add({ label: 'Work' });
+  const project = path.join(h.base, 'project');
+  fs.mkdirSync(project);
+  seedChat(home, project);
+
+  // Work's profile has used its Code tab once.
+  const listDir = path.join(work.dir, 'claude-code-sessions', 'a', 'b');
+  fs.mkdirSync(listDir, { recursive: true });
+  fs.writeFileSync(path.join(listDir, 'local_00000000-0000-4000-8000-000000000000.json'), JSON.stringify({
+    sessionId: 'local_00000000-0000-4000-8000-000000000000', cwd: project, title: 't',
+    createdAt: 1, lastActivityAt: 1, isArchived: false, model: 'm', permissionMode: 'default', remoteMcpServersConfig: []
+  }));
+
+  runningDirs = [work.dir];
+  await assert.rejects(() => h.svc.copyChatToDesktop({ fromId: def.id, toId: work.id, chatId: CHAT_ID, source: 'home' }),
+    (e) => e.code === 'window_open');
+
+  runningDirs = [];
+  const r = await h.svc.copyChatToDesktop({ fromId: def.id, toId: work.id, chatId: CHAT_ID, source: 'home' });
+  assert.notStrictEqual(r.id, CHAT_ID);
+  assert.ok(fs.existsSync(path.join(home, 'projects', 'proj', `${r.id}.jsonl`)));
+  const added = fs.readdirSync(listDir).filter((n) => n.startsWith('local_') && !n.startsWith('local_00000000'));
+  assert.strictEqual(added.length, 1);
+  const entry = JSON.parse(fs.readFileSync(path.join(listDir, added[0]), 'utf8'));
+  assert.strictEqual(entry.cliSessionId, r.id);
+  assert.strictEqual(entry.title, 'Work chat');
+  cleanup(h);
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test('copyChatToDesktop removes the copied transcript when the Code-tab list cannot take it', async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-home-'));
+  const h = harness({ isAlive: () => false, homeClaudeDir: home });
+  await h.svc.init();
+  const [def] = await h.svc.list();
+  const work = await h.svc.add({ label: 'Work' }); // never used its Code tab
+  const project = path.join(h.base, 'project');
+  fs.mkdirSync(project);
+  seedChat(home, project);
+  fs.mkdirSync(work.dir, { recursive: true });
+
+  await assert.rejects(() => h.svc.copyChatToDesktop({ fromId: def.id, toId: work.id, chatId: CHAT_ID, source: 'home' }),
+    (e) => e.code === 'no_desktop_list');
+  assert.deepStrictEqual(fs.readdirSync(path.join(home, 'projects', 'proj')), [`${CHAT_ID}.jsonl`]);
+  cleanup(h);
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test('copyChat with open: false copies without opening a terminal', async () => {
+  const { h, def, work, toDir } = await chatHarness();
+  h.authReply.value = { loggedIn: true };
+  fs.mkdirSync(toDir, { recursive: true });
+  const before = h.terminals.length;
+  await h.svc.copyChat({ fromId: def.id, toId: work.id, chatId: CHAT_ID, open: false });
+  assert.ok(fs.existsSync(path.join(toDir, 'projects', 'proj', `${CHAT_ID}.jsonl`)));
+  assert.strictEqual(h.terminals.length, before);
+  cleanup(h);
+});
