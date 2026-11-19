@@ -1912,3 +1912,118 @@ button.uf-icon:hover:not(:disabled) { background: var(--gloss-neutral-hover); bo
   color: var(--muted); font-size: 16px; line-height: 1;
 }
 .chat-search button.chat-search-clear:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+
+/* Scheduled message (SchedulePanel.jsx) */
+.schedule-switch { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 500; cursor: pointer; }
+.schedule-switch input { margin: 0; width: 15px; height: 15px; accent-color: #d97757; cursor: pointer; }
+.schedule-hint { margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+.schedule-grid {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  align-items: center;
+  gap: 12px 14px;
+  margin-top: 16px;
+}
+.schedule-label { font-size: 12px; color: var(--muted); font-weight: 600; }
+.schedule-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.schedule-row.alert-levels { margin-top: 0; }
+.schedule-time {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 4px 3px 10px;
+  border-radius: 999px;
+  font-size: 12.5px; font-variant-numeric: tabular-nums;
+  background: rgba(217, 119, 87, 0.16);
+  border: 1px solid rgba(217, 119, 87, 0.5);
+  color: #f0b39c;
+}
+.schedule-time button {
+  min-height: 0; height: 18px; width: 18px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; border-radius: 50%;
+  background: transparent; color: inherit; font-size: 10px; cursor: pointer;
+}
+.schedule-time button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+.schedule-add { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; }
+.schedule-add input[type="time"], .schedule-message {
+  height: var(--btn-h, 30px);
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font: inherit; font-size: 12.5px;
+  color-scheme: dark;
+}
+.schedule-message { width: 100%; max-width: 420px; }
+.schedule-add input[type="time"]:focus, .schedule-message:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.schedule-days-note { font-size: 11.5px; color: var(--muted); margin-left: 4px; }
+.schedule-status {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 22px;
+  margin-top: 16px; padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12.5px;
+}
+.schedule-status > button { margin-left: auto; }
+.schedule-ok { color: #7fcf9a; }
+.schedule-fail { color: var(--danger); font-size: 12.5px; }
+.schedule-login { margin-top: 12px; cursor: pointer; }
+@media (max-width: 720px) {
+  .schedule-grid { grid-template-columns: 1fr; gap: 6px; }
+}
+
+/* Scheduled message: the On/Off switch and the "it's off" callout. */
+.panel.schedule button.schedule-toggle {
+  display: inline-flex; align-items: center; gap: 9px;
+  min-height: 0; height: 30px; padding: 0 12px 0 5px;
+  border-radius: 999px;
+  font-size: 12.5px; font-weight: 600;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.14));
+  color: var(--muted);
+  cursor: pointer;
+}
+.schedule-knob {
+  position: relative; width: 34px; height: 20px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  transition: background 0.15s;
+}
+.schedule-knob::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #f5f3ee;
+  transition: transform 0.15s;
+}
+.panel.schedule button.schedule-toggle.on { color: #7fcf9a; border-color: rgba(127, 207, 154, 0.45); background: rgba(127, 207, 154, 0.08); }
+.schedule-toggle.on .schedule-knob { background: #3fa86b; }
+.schedule-toggle.on .schedule-knob::after { transform: translateX(14px); }
+.schedule-off {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 12px; padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(230, 180, 80, 0.4);
+  background: rgba(230, 180, 80, 0.08);
+  font-size: 12.5px; color: #e9c98a;
+}
+.schedule-off strong { color: #f3d9a4; }
+
+/* History: Show more under Recent sessions. */
+.history-more { display: flex; justify-content: center; margin-top: 12px; }
+
+/* Scheduled message: chips show whether they're active, and which is next. */
+.schedule-time.off {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--glass-border, rgba(255, 255, 255, 0.14));
+  color: var(--muted);
+}
+.schedule-time.next {
+  background: rgba(127, 207, 154, 0.14);
+  border-color: rgba(127, 207, 154, 0.6);
+  color: #a6e3bb;
+}
+.schedule-next-tag {
+  padding: 1px 6px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase;
+  background: rgba(127, 207, 154, 0.22); color: #c4f0d3;
+}
+.schedule-active { margin-top: -4px; font-size: 12px; color: var(--muted); }
+.schedule-active.on { color: #7fcf9a; }

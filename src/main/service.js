@@ -35,8 +35,14 @@ const vscodeMod = require('./vscode.js');
 const vscodeSettings = require('./vscode-settings.js');
 const alertsMod = require('./alerts.js');
 const chatsMod = require('./chats.js');
+const scheduleMod = require('./schedule.js');
+const scheduledSendMod = require('./scheduled-send.js');
 
 const LIMITS_FILE = 'multi-claude-limits.json';
+// History: the one id every removed account's sessions are counted under,
+// and how many recent sessions are sent to the page at most.
+const REMOVED_ID = 'removed';
+const RECENT_MAX = 1000;
 const GMAIL_URL = 'https://mail.google.com/';
 const AUTH_TTL_MS = 2 * 60 * 1000;
 // How long a fetched /usage report is reused before Claude Code is asked again.
@@ -297,6 +303,94 @@ function createService(deps) {
     return r.alerts;
   }
 
+  // Scheduled message (schedule.js): per account, the last scheduled time
+  // already handled, the chat the messages go into, and the last result.
+  // Saved apart from accounts.json so a send never rewrites the account list.
+  let scheduleState = {};
+  let scheduleSave = Promise.resolve();
+  const scheduleInFlight = new Map();
+  const scheduledSend = deps.scheduledSend || {
+    send: (cliPath, dir, opts) => scheduledSendMod.sendMessage(cliPath, dir, opts)
+  };
+
+  async function loadScheduleState() {
+    if (!deps.scheduleStateFile) return;
+    try {
+      const raw = JSON.parse(await fsp.readFile(deps.scheduleStateFile, 'utf8'));
+      scheduleState = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    } catch {
+      scheduleState = {};
+    }
+  }
+
+  function saveScheduleState() {
+    if (!deps.scheduleStateFile) return scheduleSave;
+    const text = JSON.stringify(scheduleState);
+    scheduleSave = scheduleSave.then(async () => {
+      await fsp.mkdir(path.dirname(deps.scheduleStateFile), { recursive: true });
+      const tmp = deps.scheduleStateFile + '.tmp';
+      await fsp.writeFile(tmp, text, 'utf8');
+      await fsp.rename(tmp, deps.scheduleStateFile);
+    }).catch(() => {});
+    return scheduleSave;
+  }
+
+  const scheduleStateFor = (id) => {
+    if (!scheduleState[id] || typeof scheduleState[id] !== 'object') scheduleState[id] = {};
+    return scheduleState[id];
+  };
+
+  /**
+   * Send the account's message once, into its scheduled chat (a new one when
+   * that chat is gone). Never throws: the result is kept and, when it failed,
+   * shown as a notification.
+   */
+  async function sendScheduled(a, { slot = null, manual = false } = {}) {
+    const st = scheduleStateFor(a.id);
+    const schedule = scheduleMod.normaliseSchedule(a.schedule);
+    const dir = ccDirFor(a);
+    let r;
+    const found = await cli();
+    if (!found) {
+      r = { ok: false, reason: 'Claude Code was not found on this PC.' };
+    } else if (!dir || !fs.existsSync(dir)) {
+      r = { ok: false, needsSignIn: true, reason: 'Sign in to Claude Code for this account first.' };
+    } else {
+      const cwd = path.join(dir, 'scheduled');
+      try { await fsp.mkdir(cwd, { recursive: true }); } catch { /* Claude Code says so if it matters */ }
+      const existing = st.sessionId && chatsMod.findChat(dir, st.sessionId) ? st.sessionId : null;
+      r = await scheduledSend.send(found.path, dir, { message: schedule.message, sessionId: existing, cwd });
+      if (!r.ok && r.noChat && existing) {
+        r = await scheduledSend.send(found.path, dir, { message: schedule.message, sessionId: null, cwd });
+      }
+    }
+    if (r.sessionId) st.sessionId = r.sessionId;
+    st.last = { at: Date.now(), ok: r.ok === true, reason: r.ok ? null : String(r.reason || 'Not sent.'), slot, manual };
+    await saveScheduleState();
+    if (!r.ok && !manual && deps.notify) {
+      try {
+        deps.notify({
+          id: a.id,
+          title: `${a.label}: scheduled message not sent`,
+          body: String(r.reason || 'Not sent.'),
+          icon: iconFileFor(a)
+        });
+      } catch { /* a notification that can't be shown is not an error */ }
+    }
+    return r;
+  }
+
+  function scheduleView(a) {
+    const schedule = scheduleMod.normaliseSchedule(a.schedule);
+    const st = scheduleState[a.id] || {};
+    return {
+      schedule,
+      last: st.last || null,
+      next: scheduleMod.nextSlot(schedule, Date.now()),
+      sending: scheduleInFlight.has(a.id)
+    };
+  }
+
   async function loadStorageCache() {
     if (!deps.storageCacheFile) return;
     try {
@@ -498,6 +592,7 @@ function createService(deps) {
       await loadUsageCache();
       await loadStorageCache();
       await loadAlertState();
+      await loadScheduleState();
       return { recoveredFrom };
     },
 
@@ -627,8 +722,17 @@ function createService(deps) {
         alerts: alertsMod.normaliseSettings(data.alerts),
         alertsSupported: !!deps.notify,
         closeToTray: data.closeToTray !== false,
-        traySupported: deps.traySupported === true
+        traySupported: deps.traySupported === true,
+        openAtLoginSupported: !!deps.loginItem,
+        openAtLogin: deps.loginItem ? deps.loginItem.get() === true : false
       };
+    },
+
+    /** Start Multi-Claude, hidden in the tray, when the user signs in to Windows. */
+    async setOpenAtLogin({ on }) {
+      if (!deps.loginItem) throw err('unsupported', 'Starting with the computer is not available here.');
+      deps.loginItem.set(!!on);
+      return this.settings();
     },
 
     /** Keep Multi-Claude running in the tray when its window is closed. */
@@ -842,6 +946,7 @@ function createService(deps) {
       planCache.delete(id);
       planHalted.delete(id);
       if (historyLog) await historyLog.forget(id).catch(() => {});
+      if (scheduleState[id]) { delete scheduleState[id]; await saveScheduleState(); }
 
       data.accounts = data.accounts.filter((x) => x.id !== id);
       await persist();
@@ -851,6 +956,7 @@ function createService(deps) {
     /** Drops the entry from the list. Never touches the filesystem. */
     async forget({ id }) {
       find(id);
+      if (scheduleState[id]) { delete scheduleState[id]; await saveScheduleState(); }
       data.accounts = data.accounts.filter((x) => x.id !== id);
       await persist();
       return { ok: true };
@@ -1279,15 +1385,19 @@ function createService(deps) {
 
       const events = await activity.read();
       const now = Date.now();
-      const sessions = buildSessions(events, now);
-      const summary = summariseActivity(sessions, { days, now });
       const labels = Object.fromEntries(data.accounts.map((a) => [a.id, a.label]));
-      const name = (id) => labels[id] || '(removed account)';
+      // Every account no longer in the list counts as one: "Removed accounts".
+      const sessions = buildSessions(events, now)
+        .map((s) => (s.id in labels ? s : { ...s, id: REMOVED_ID }));
+      const summary = summariseActivity(sessions, { days, now });
+      const name = (id) => labels[id] || 'Removed accounts';
 
       return {
         accounts: summary.accounts.map((a) => ({ ...a, label: name(a.id) })),
         daily: summary.daily,
-        recent: sessions.slice(0, 60).map((s) => ({ ...s, label: name(s.id) })),
+        // The page shows them 20 at a time.
+        recent: sessions.slice(0, RECENT_MAX).map((s) => ({ ...s, label: name(s.id) })),
+        sessionCount: sessions.length,
         observedSince: events.length ? Math.min(...events.map((e) => e.t)) : null
       };
     },
@@ -1334,6 +1444,7 @@ function createService(deps) {
       }
       await saveUsageCache(); // no-ops unless a scan actually changed it
       await alertSave;
+      await scheduleSave;
       if (historyLog) await historyLog.flush();
     },
 
@@ -1341,6 +1452,82 @@ function createService(deps) {
       const out = {};
       for (const a of data.accounts) out[a.id] = await profiles.dirSize(a.dir);
       return out;
+    },
+
+    /** One account's scheduled message: its settings, last result and next time. */
+    getSchedule({ id }) {
+      return scheduleView(find(id));
+    },
+
+    /**
+     * Change an account's scheduled message. Turning it on, or changing its
+     * times or days, starts counting from now: a time earlier today is not
+     * sent straight away.
+     */
+    async setSchedule({ id, ...p }) {
+      const a = find(id);
+      const cur = scheduleMod.normaliseSchedule(a.schedule);
+      if ('message' in p && !scheduleMod.normaliseMessage(p.message)) {
+        throw err('bad_message', `Type a message of up to ${scheduleMod.MAX_MESSAGE} characters that doesn't start with "-".`);
+      }
+      if (Array.isArray(p.times) && p.times.some((t) => !scheduleMod.normaliseTime(t))) {
+        throw err('bad_time', 'Use a time like 09:00.');
+      }
+      if (Array.isArray(p.times) && new Set(p.times.map(scheduleMod.normaliseTime)).size > scheduleMod.MAX_TIMES) {
+        throw err('too_many_times', `Up to ${scheduleMod.MAX_TIMES} times a day.`);
+      }
+      const next = scheduleMod.normaliseSchedule({
+        on: 'on' in p ? !!p.on : cur.on,
+        times: Array.isArray(p.times) ? p.times : cur.times,
+        days: Array.isArray(p.days) ? p.days : cur.days,
+        message: 'message' in p ? p.message : cur.message
+      });
+      const restart = (next.on && !cur.on)
+        || JSON.stringify(next.times) !== JSON.stringify(cur.times)
+        || JSON.stringify(next.days) !== JSON.stringify(cur.days);
+      a.schedule = next;
+      await persist();
+      if (restart) {
+        scheduleStateFor(a.id).lastSlot = Date.now();
+        await saveScheduleState();
+      }
+      return scheduleView(a);
+    },
+
+    /** Send the account's message now, to try it. */
+    async sendScheduledNow({ id }) {
+      const a = find(id);
+      const r = await once(scheduleInFlight, a.id, () => sendScheduled(a, { manual: true }));
+      return { ...scheduleView(a), result: { ok: r.ok === true, reason: r.ok ? null : r.reason } };
+    },
+
+    /**
+     * Called every few seconds and when the PC wakes: sends each account's
+     * message when one of its times has passed. After a sleep only the latest
+     * missed time is sent.
+     */
+    async scheduleTick() {
+      const now = Date.now();
+      const runs = [];
+      for (const a of data.accounts) {
+        const schedule = scheduleMod.normaliseSchedule(a.schedule);
+        if (!schedule.on || scheduleInFlight.has(a.id)) continue;
+        const st = scheduleStateFor(a.id);
+        if (!Number.isFinite(st.lastSlot)) {
+          // No record (a lost state file): start counting now rather than guess.
+          st.lastSlot = now;
+          await saveScheduleState();
+          continue;
+        }
+        const slot = scheduleMod.dueSlot(schedule, now, st.lastSlot);
+        if (slot === null) continue;
+        // Marked before sending, so a slow send is never sent twice.
+        st.lastSlot = slot;
+        await saveScheduleState();
+        runs.push(once(scheduleInFlight, a.id, () => sendScheduled(a, { slot })));
+      }
+      await Promise.all(runs);
+      return { sent: runs.length };
     },
 
     _setScannerForTest(s) { scanner = s; },

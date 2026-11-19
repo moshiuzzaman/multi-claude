@@ -7,7 +7,7 @@
 [![Download](https://img.shields.io/github/v/release/moshiuzzaman/multi-claude?label=download&color=f97316)](https://github.com/moshiuzzaman/multi-claude/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0f172a)](#install)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-457%20passing-brightgreen)](CONTRIBUTING.md#development)
+[![Tests](https://img.shields.io/badge/tests-479%20passing-brightgreen)](CONTRIBUTING.md#development)
 
 [Install](#install) · [Why it's different](#why-its-different) · [Features](#features) · [Docs](docs/GUIDE.md) · [Contributing](CONTRIBUTING.md)
 

@@ -9,7 +9,7 @@
 // because ES modules are blocked by CORS on file:// and because a real origin
 // lets the Content-Security-Policy stay at 'self'.
 
-const { app, BrowserWindow, shell, protocol, Notification, nativeImage, Tray, Menu, dialog } = require('electron');
+const { app, BrowserWindow, shell, protocol, Notification, nativeImage, Tray, Menu, dialog, powerMonitor } = require('electron');
 const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs');
@@ -60,6 +60,26 @@ if (!app.requestSingleInstanceLock()) {
   const shownAlerts = new Set();
   const ALERT_EVERY_MS = 5 * 60 * 1000;
   const ALERT_FIRST_MS = 30 * 1000;
+  // Scheduled messages (schedule.js) are checked this often, and on waking.
+  const SCHEDULE_EVERY_MS = 30 * 1000;
+  // Started by Windows at sign-in ("Start Multi-Claude when Windows starts"):
+  // stay in the tray instead of opening the window.
+  const startHidden = process.argv.includes('--hidden');
+
+  /**
+   * Starting with the computer. Only for an installed build: run from source,
+   * it would register electron.exe. The portable build registers the real
+   * .exe, not the copy it unpacks to a temporary folder.
+   */
+  function loginItem() {
+    if (!app.isPackaged || (process.platform !== 'win32' && process.platform !== 'darwin')) return null;
+    const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+    const opts = { path: exe, args: ['--hidden'] };
+    return {
+      get: () => app.getLoginItemSettings(opts).openAtLogin === true,
+      set: (on) => app.setLoginItemSettings({ ...opts, openAtLogin: on })
+    };
+  }
 
   function showWindow() {
     if (!win) return;
@@ -265,6 +285,9 @@ if (!app.requestSingleInstanceLock()) {
       activityFile: path.join(appDir, 'activity.jsonl'),
       // Which limit alerts were already shown, so a restart doesn't repeat them.
       alertStateFile: path.join(appDir, 'alert-state.json'),
+      // Scheduled messages: the last time handled and the chat they go into.
+      scheduleStateFile: path.join(appDir, 'schedule-state.json'),
+      loginItem: loginItem(),
       notify,
       // The tray icon and close-to-tray (tray.js).
       traySupported: true,
@@ -402,7 +425,8 @@ if (!app.requestSingleInstanceLock()) {
     });
 
     win.removeMenu();
-    win.once('ready-to-show', () => win.show());
+    // Started with Windows: Multi-Claude waits in the tray.
+    win.once('ready-to-show', () => { if (!(startHidden && tray)) win.show(); });
 
     // Close keeps Multi-Claude in the tray (a setting, on by default). The
     // first time, a notification says where it went.
@@ -500,6 +524,11 @@ if (!app.requestSingleInstanceLock()) {
                   await new Promise((r) => setTimeout(r, Number(process.env.MULTI_CLAUDE_SHOT_WAIT) || 1400));
                   await fsp.writeFile(`${base}-detail.png`, (await win.webContents.capturePage()).toPNG());
                   log(`[renderer] screenshot -> ${base}-detail.png`);
+                  // The Scheduled message panel, further down the same page.
+                  await win.webContents.executeJavaScript("document.querySelector('.panel.schedule')?.scrollIntoView({ block: 'center' })");
+                  await new Promise((r) => setTimeout(r, 500));
+                  await fsp.writeFile(`${base}-schedule.png`, (await win.webContents.capturePage()).toPNG());
+                  log(`[renderer] screenshot -> ${base}-schedule.png`);
 
                   // Opt-in: the Chats panel and the Copy dialog (Copy a
                   // chat to another account). Picks the account named by
@@ -636,6 +665,15 @@ if (!app.requestSingleInstanceLock()) {
     // Multi-Claude is open, even minimised. The screen's own refreshes count too.
     const tick = () => { service.backgroundTick().then(refreshTrayTip).catch(() => {}); };
     setTimeout(() => { tick(); setInterval(tick, ALERT_EVERY_MS); }, ALERT_FIRST_MS);
+    // Scheduled messages: checked often, and as soon as the PC wakes or is
+    // unlocked, so a missed time is sent then (only the latest one).
+    const scheduleTick = () => { service.scheduleTick().catch(() => {}); };
+    setTimeout(scheduleTick, 5000);
+    setInterval(scheduleTick, SCHEDULE_EVERY_MS);
+    try {
+      powerMonitor.on('resume', () => setTimeout(scheduleTick, 15000));
+      powerMonitor.on('unlock-screen', scheduleTick);
+    } catch { /* the timer still runs */ }
   });
 
   // Close any open activity session and flush the usage cache before exiting.

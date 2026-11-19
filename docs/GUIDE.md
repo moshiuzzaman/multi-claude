@@ -21,6 +21,7 @@ feature, see [Features](FEATURES.md).
 - [Limit alerts](#limit-alerts)
 - [Usage history](#usage-history)
 - [Claude Code chats](#claude-code-chats)
+- [Scheduled message](#scheduled-message)
 - [Using an account in VS Code or a terminal](#using-an-account-in-vs-code-or-a-terminal)
 - [Tray icon and menu](#tray-icon-and-menu)
 - [Taskbar and tray icons per account (Windows)](#taskbar-and-tray-icons-per-account-windows)
@@ -292,6 +293,38 @@ When a copy is refused, the dialog says why:
 
 ---
 
+## Scheduled message
+
+Claude's **5-hour limit starts with your first message**. If a short message goes out at
+9:00 every morning, the window always runs 9:00 → 14:00, and a fresh one starts at 14:00, in
+the middle of your workday. **Scheduled message** sends it for you.
+
+On an account's page, in **Scheduled message**:
+
+1. Tick **On**.
+2. Pick the **times**: choose a time and click **+ Add time**. Add as many as you like, for
+   example 9:00, 14:00 and 19:00. ✕ removes one.
+3. Pick the **days**. All seven are on at first.
+4. Change the **message** if you like. It's `hi` at first.
+5. Click **Send now** to try it once.
+
+The section shows when it **last sent** (✓, or ✕ with the reason) and when it sends **next**.
+If a scheduled send fails, for example because the account reached its limit or isn't signed
+in, you also get a notification.
+
+Good to know:
+- It sends through Claude Code in the background, as that account, with the smallest model.
+  **No window opens.** The account must be signed in to Claude Code (the same sign-in as
+  [Terminal and VS Code](#using-an-account-in-vs-code-or-a-terminal)).
+- Every message goes into **the same chat**, which shows in [Claude Code chats](#claude-code-chats).
+  If you delete it, the next message starts a new one.
+- **Multi-Claude must be running** at those times. In the tray is enough. Tick **Start
+  Multi-Claude when Windows starts** (on the Accounts page, or in this section) so it's
+  always there.
+- If the PC was off or asleep, **only the latest missed time** is sent when it's back, once.
+- Turning it on, or changing its times or days, never sends straight away for a time that
+  has already passed today.
+
 ## Using an account in VS Code or a terminal
 
 - **Use in VS Code** switches the Claude Code extension in your normal VS Code to that
@@ -464,7 +497,9 @@ The **?** button at the top-right of every page opens:
 - copies or exports a sign-in;
 - switches accounts automatically, pools accounts or picks the "next available" one;
 - sends your data anywhere. The only network calls are update checks to GitHub, and
-  Anthropic's own Claude Code when you turn on live limits.
+  Anthropic's own Claude Code when you turn on live limits;
+- sends a message to Claude unless you set up a [Scheduled message](#scheduled-message)
+  (or click **Send now**), and then only the message you typed.
 
 **It reads only:**
 - the *names* of settings in a profile's `config.json` (to tell whether it's signed in), and
@@ -486,6 +521,7 @@ The **?** button at the top-right of every page opens:
 | Launch history | `%APPDATA%\multi-claude\activity.jsonl` |
 | Usage history (percentages and times, 90 days) | `%APPDATA%\multi-claude\usage-history.jsonl` |
 | Alerts already shown | `%APPDATA%\multi-claude\alert-state.json` |
+| Scheduled message: last sent and its chat | `%APPDATA%\multi-claude\schedule-state.json` |
 | Storage cache | `%APPDATA%\multi-claude\storage-cache.json` |
 | VS Code's active account | `%APPDATA%\Code\User\settings.json` (a marked block) |
 | Claude Code downloaded by Multi-Claude (only if you clicked) | `%APPDATA%\multi-claude\claude-code\<version>\claude.exe` |

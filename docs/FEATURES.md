@@ -83,6 +83,11 @@ Started a chat in the wrong account? Copy it to the right one, for its terminal,
 Claude Desktop's Code tab. The original stays where it was.
 → [Copying a chat](GUIDE.md#copying-a-chat-to-another-account)
 
+#### ⏰ Scheduled message `NEW`
+Sends a short message from an account at the times you pick, such as 9:00, 14:00 and 19:00,
+so its 5-hour limit starts when you want. In the background, with no window.
+→ [Scheduled message](GUIDE.md#scheduled-message)
+
 ---
 
 ## 🪟 Windows and the app
@@ -94,6 +99,11 @@ Each account gets its own taskbar button and tray icon, in its own colour and le
 #### 🧭 Tray icon and menu
 Every account's usage and quick actions from the tray, even with the window closed.
 → [Tray icon and menu](GUIDE.md#tray-icon-and-menu)
+
+#### 🚀 Start with Windows `NEW`
+Multi-Claude can start quietly in the tray when you sign in, so scheduled messages and alerts
+never miss.
+→ [Scheduled message](GUIDE.md#scheduled-message)
 
 #### 🔄 In-app updates
 See what's new and update with one click. Your accounts and settings are kept.
