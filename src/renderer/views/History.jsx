@@ -1,10 +1,20 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import HelpMenu from '../components/HelpMenu.jsx';
 import StatTile from '../components/StatTile.jsx';
 import BarList from '../charts/BarList.jsx';
 import { duration, clockTime, relativeTime, seriesColor } from '../lib/format.js';
 
+// Every removed account is counted as one (see service.activity).
+const REMOVED_ID = 'removed';
+const REMOVED_COLOR = 'var(--faint)';
+// Recent sessions shown at first, and added by each "Show more".
+const PAGE = 20;
+
 export default function History({ activity, accounts, days, setDays }) {
+  const [shown, setShown] = useState(PAGE);
+  // A new period starts from the first 20 again.
+  useEffect(() => { setShown(PAGE); }, [days]);
+
   if (!activity) {
     return (
       <>
@@ -16,6 +26,11 @@ export default function History({ activity, accounts, days, setDays }) {
 
   const colorFor = {};
   accounts.forEach((a, i) => { colorFor[a.id] = seriesColor(i); });
+  colorFor[REMOVED_ID] = REMOVED_COLOR;
+  const hasRemoved = activity.accounts.some((a) => a.id === REMOVED_ID);
+  const sessionCount = activity.sessionCount ?? activity.recent.length;
+  const recent = activity.recent.slice(0, shown);
+  const more = Math.min(PAGE, activity.recent.length - recent.length);
 
   const totalMs = activity.accounts.reduce((a, b) => a + b.ms, 0);
   const totalLaunches = activity.accounts.reduce((a, b) => a + b.launches, 0);
@@ -49,10 +64,10 @@ export default function History({ activity, accounts, days, setDays }) {
         <div className="grid tiles">
           <StatTile label="Total time" value={duration(totalMs)} color="var(--series-1)"
                     foot={`${totalLaunches} launches recorded`} />
-          <StatTile label="Accounts used" value={String(activity.accounts.length)} color="var(--series-2)"
+          <StatTile label="Accounts used" value={String(activity.accounts.filter((a) => a.id !== REMOVED_ID).length)} color="var(--series-2)"
                     foot={`of ${accounts.length} configured`} />
-          <StatTile label="Sessions logged" value={String(activity.recent.length)} color="var(--series-3)"
-                    foot="most recent 60 shown below" />
+          <StatTile label="Sessions logged" value={String(sessionCount)} color="var(--series-3)"
+                    foot="newest first, below" />
         </div>
 
         {activity.accounts.length > 0 && (
@@ -106,11 +121,19 @@ export default function History({ activity, accounts, days, setDays }) {
                 {a.label}
               </span>
             ))}
+            {hasRemoved && (
+              <span className="legend-item">
+                <span className="swatch" style={{ background: REMOVED_COLOR }} />
+                Removed accounts
+              </span>
+            )}
           </div>
         </div>
 
         <div className="panel">
-          <div className="panel-title">Recent sessions</div>
+          <div className="panel-title">
+            Recent sessions{activity.recent.length > 0 ? ` · ${recent.length} of ${activity.recent.length}` : ''}
+          </div>
           {activity.recent.length === 0 ? (
             <div className="empty">
               Nothing recorded yet. Multi-Claude logs a session when it sees a profile
@@ -126,7 +149,7 @@ export default function History({ activity, accounts, days, setDays }) {
                 </tr>
               </thead>
               <tbody>
-                {activity.recent.map((s, i) => (
+                {recent.map((s, i) => (
                   <tr key={`${s.id}-${s.start}-${i}`}>
                     <td>
                       <span className="bar-name">
@@ -144,6 +167,13 @@ export default function History({ activity, accounts, days, setDays }) {
                 ))}
               </tbody>
             </table>
+          )}
+          {more > 0 && (
+            <div className="history-more">
+              <button type="button" className="ghost" onClick={() => setShown((n) => n + PAGE)}>
+                Show {more} more
+              </button>
+            </div>
           )}
         </div>
 

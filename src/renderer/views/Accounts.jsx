@@ -71,6 +71,23 @@ export default function Accounts({ accounts, running, scanOk, sizes, activity, s
           </label>
         )}
 
+        {settings && settings.openAtLoginSupported && (
+          <label className="setting-row">
+            <input
+              type="checkbox"
+              checked={settings.openAtLogin}
+              onChange={(e) => actions.setOpenAtLogin(e.target.checked)}
+            />
+            <span>
+              <strong>Start Multi-Claude when {isMac ? 'you log in' : 'Windows starts'}</strong>
+              <span className="setting-hint">
+                It starts quietly in the {isMac ? 'menu bar' : 'tray'}, without opening its window, so
+                scheduled messages and limit alerts work from the moment you sign in.
+              </span>
+            </span>
+          </label>
+        )}
+
         <AlertSettings settings={settings} actions={actions} />
 
         <div className="note">

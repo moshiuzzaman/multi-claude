@@ -328,6 +328,14 @@ export default function App() {
           : 'Closing the window now quits Multi-Claude.');
       } catch (e) { fail(e); }
     },
+    setOpenAtLogin: async (on) => {
+      try {
+        setSettings(await api.setOpenAtLogin(on));
+        say(on
+          ? `Multi-Claude now starts in the ${isMac ? 'menu bar' : 'tray'} when ${isMac ? 'you log in' : 'Windows starts'}.`
+          : `Multi-Claude no longer starts by itself.`);
+      } catch (e) { fail(e); }
+    },
     setAlerts: async (opts) => {
       try { setSettings(await api.setAlerts(opts)); } catch (e) { fail(e); }
     },

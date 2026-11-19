@@ -306,18 +306,26 @@ test('scan records launch activity, and a failed scan records nothing', async ()
   cleanup(h);
 });
 
-test('activity labels a session whose account was deleted', async () => {
+test('activity counts every removed account as one "Removed accounts"', async () => {
   const h = harness();
   await h.svc.init();
   const a = await h.svc.add({ label: 'Gone Soon' });
-  h.svc._setScannerForTest({ scan: async () => ({ dirs: [a.dir], ok: true }) });
+  const b = await h.svc.add({ label: 'Gone Too' });
+  h.svc._setScannerForTest({ scan: async () => ({ dirs: [a.dir, b.dir], ok: true }) });
   await h.svc.scan();
   h.svc._setScannerForTest({ scan: async () => ({ dirs: [], ok: true }) });
   await h.svc.scan();
   await h.svc.remove({ id: a.id, confirmLabel: 'Gone Soon', unlockOutsideRoot: false });
+  await h.svc.remove({ id: b.id, confirmLabel: 'Gone Too', unlockOutsideRoot: false });
 
   const act = await h.svc.activity({ days: 7 });
-  assert.strictEqual(act.recent[0].label, '(removed account)');
+  assert.strictEqual(act.recent.length, 2);
+  assert.ok(act.recent.every((s) => s.id === 'removed' && s.label === 'Removed accounts'));
+  assert.strictEqual(act.accounts.length, 1);
+  assert.strictEqual(act.accounts[0].launches, 2);
+  assert.strictEqual(act.sessionCount, 2);
+  const today = act.daily[act.daily.length - 1].byAccount;
+  assert.deepStrictEqual(Object.keys(today), ['removed']);
   cleanup(h);
 });
 

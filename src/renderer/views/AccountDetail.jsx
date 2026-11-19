@@ -7,6 +7,7 @@ import StackedBar from '../charts/StackedBar.jsx';
 import { LimitsBlock } from '../components/AccountLimits.jsx';
 import UsageHistory from '../components/UsageHistory.jsx';
 import ChatsPanel from '../components/ChatsPanel.jsx';
+import SchedulePanel from '../components/SchedulePanel.jsx';
 import { AccountCheckPill, AccountCheckBanner } from '../components/AccountCheck.jsx';
 import { STORAGE_CATEGORIES } from '../lib/storageCategories.js';
 import { bytes, duration, relativeTime, clockTime } from '../lib/format.js';
@@ -163,6 +164,8 @@ export default function AccountDetail({
         <UsageHistory account={account} color={colorOf(account)} refreshKey={limits} />
 
         <ChatsPanel account={account} accounts={accounts} actions={actions} running={running} scanOk={scanOk} />
+
+        <SchedulePanel account={account} settings={settings} actions={actions} />
 
         <div className="grid halves detail-pair">
           <div className="panel">

@@ -14,6 +14,7 @@ const CHANNELS = [
   'ccInstallStart', 'ccInstallStatus', 'openGmail', 'setFreePlan', 'setColor', 'saveIcon', 'settings', 'setTaskbarGroups',
   'setAlerts', 'setMuteAlerts', 'testAlert', 'usageHistory', 'setCloseToTray', 'acceptAccount',
   'listChats', 'copyChat', 'copyChatToDesktop', 'resumeChat', 'closeChat',
+  'getSchedule', 'setSchedule', 'sendScheduledNow', 'setOpenAtLogin',
   'updateStatus', 'updateCheck', 'openFeedback', 'updateInstall', 'updateChangelog', 'updateOpenPage', 'updateQuit'
 ];
 
@@ -56,6 +57,10 @@ function register(service, updater, { exeLabel = 'claude.exe', exeFilter = { nam
     resumeChat: (p) => service.resumeChat(p),
     closeChat: (p) => service.closeChat(p),
     copyChatToDesktop: (p) => service.copyChatToDesktop(p),
+    getSchedule: (p) => service.getSchedule(p),
+    setSchedule: (p) => service.setSchedule(p),
+    sendScheduledNow: (p) => service.sendScheduledNow(p),
+    setOpenAtLogin: (p) => service.setOpenAtLogin(p),
     loginStatus: (p) => service.loginStatus(p),
     loginSubmit: (p) => service.loginSubmit(p),
     loginCancel: (p) => service.loginCancel(p),
