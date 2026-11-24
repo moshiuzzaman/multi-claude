@@ -62,21 +62,38 @@ if (!app.requestSingleInstanceLock()) {
   const ALERT_FIRST_MS = 30 * 1000;
   // Scheduled messages (schedule.js) are checked this often, and on waking.
   const SCHEDULE_EVERY_MS = 30 * 1000;
-  // Started by Windows at sign-in ("Start Multi-Claude when Windows starts"):
-  // stay in the tray instead of opening the window.
-  const startHidden = process.argv.includes('--hidden');
+  // Started at sign-in ("Start Multi-Claude when Windows starts"): stay in the
+  // tray instead of opening the window. Windows passes --hidden; a Mac login
+  // item can't carry arguments, so macOS says whether it opened us at login.
+  const HIDDEN_ARG = '--hidden';
+  function startedAtLogin() {
+    if (process.argv.includes(HIDDEN_ARG)) return true;
+    if (process.platform !== 'darwin') return false;
+    try { return app.getLoginItemSettings().wasOpenedAtLogin === true; } catch { return false; }
+  }
 
   /**
-   * Starting with the computer. Only for an installed build: run from source,
-   * it would register electron.exe. The portable build registers the real
-   * .exe, not the copy it unpacks to a temporary folder.
+   * Starting with the computer (Windows: a Run entry; Mac: a login item).
+   * Only for an installed build: run from source, it would register
+   * electron.exe. The portable build registers the real .exe, not the copy it
+   * unpacks to a temporary folder. The Run entry is named after the app's
+   * AppUserModelId, which the uninstaller removes (build/installer.nsh).
    */
   function loginItem() {
     if (!app.isPackaged || (process.platform !== 'win32' && process.platform !== 'darwin')) return null;
     const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
-    const opts = { path: exe, args: ['--hidden'] };
+    const opts = process.platform === 'win32'
+      ? { path: exe, args: [HIDDEN_ARG], name: APP_USER_MODEL_ID }
+      : {};
     return {
-      get: () => app.getLoginItemSettings(opts).openAtLogin === true,
+      get: () => {
+        const s = app.getLoginItemSettings(opts);
+        return {
+          on: s.openAtLogin === true,
+          // Windows: switched off in Settings > Apps > Startup (or Task Manager).
+          blocked: process.platform === 'win32' && s.openAtLogin === true && s.executableWillLaunchAtLogin === false
+        };
+      },
       set: (on) => app.setLoginItemSettings({ ...opts, openAtLogin: on })
     };
   }
@@ -426,7 +443,7 @@ if (!app.requestSingleInstanceLock()) {
 
     win.removeMenu();
     // Started with Windows: Multi-Claude waits in the tray.
-    win.once('ready-to-show', () => { if (!(startHidden && tray)) win.show(); });
+    win.once('ready-to-show', () => { if (!(startedAtLogin() && tray)) win.show(); });
 
     // Close keeps Multi-Claude in the tray (a setting, on by default). The
     // first time, a notification says where it went.
@@ -631,6 +648,8 @@ if (!app.requestSingleInstanceLock()) {
   }
 
   app.on('second-instance', async (_e, argv) => {
+    // Windows starting it at sign-in while it already runs: stay in the tray.
+    if (argv.includes(HIDDEN_ARG)) return;
     const id = parseLaunchArg(argv);
     if (id) {
       await launchById(id);

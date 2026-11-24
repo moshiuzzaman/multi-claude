@@ -380,6 +380,26 @@ function createService(deps) {
     return r;
   }
 
+  // Start with the computer. The choice is kept in accounts.json; at every
+  // start it is applied again, so a portable .exe that was moved registers its
+  // new place instead of leaving a Run entry that points nowhere.
+  function loginItemState() {
+    try { return deps.loginItem.get() || {}; } catch { return {}; }
+  }
+
+  async function syncLoginItem() {
+    if (!deps.loginItem) return;
+    // 2.8.3 kept no record of the choice: adopt what the system has.
+    if (typeof data.openAtLogin !== 'boolean') {
+      if (loginItemState().on !== true) return;
+      data.openAtLogin = true;
+      await persist();
+    }
+    if (data.openAtLogin === true) {
+      try { deps.loginItem.set(true); } catch { /* shown as off next time it's read */ }
+    }
+  }
+
   function scheduleView(a) {
     const schedule = scheduleMod.normaliseSchedule(a.schedule);
     const st = scheduleState[a.id] || {};
@@ -593,6 +613,7 @@ function createService(deps) {
       await loadStorageCache();
       await loadAlertState();
       await loadScheduleState();
+      await syncLoginItem();
       return { recoveredFrom };
     },
 
@@ -724,7 +745,9 @@ function createService(deps) {
         closeToTray: data.closeToTray !== false,
         traySupported: deps.traySupported === true,
         openAtLoginSupported: !!deps.loginItem,
-        openAtLogin: deps.loginItem ? deps.loginItem.get() === true : false
+        openAtLogin: !!deps.loginItem && data.openAtLogin === true,
+        // On, but switched off in Windows' own Startup apps list.
+        openAtLoginBlocked: !!deps.loginItem && data.openAtLogin === true && loginItemState().blocked === true
       };
     },
 
@@ -732,6 +755,8 @@ function createService(deps) {
     async setOpenAtLogin({ on }) {
       if (!deps.loginItem) throw err('unsupported', 'Starting with the computer is not available here.');
       deps.loginItem.set(!!on);
+      data.openAtLogin = !!on;
+      await persist();
       return this.settings();
     },
 
@@ -1274,7 +1299,7 @@ function createService(deps) {
 
     /**
      * Copy one chat so it shows in another account's Claude Desktop Code tab
-     * (feature 20, phase 2). The transcript is copied inside ~/.claude, where
+     * (copying a chat, phase 2). The transcript is copied inside ~/.claude, where
      * every Claude profile's Code tab keeps them, under a new chat id; then
      * one entry is added to that profile's Code-tab list. Only while that
      * account's Claude window is closed, since Claude Desktop reads the list

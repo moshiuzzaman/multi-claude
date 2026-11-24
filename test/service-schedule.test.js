@@ -28,7 +28,7 @@ function harness({ reply } = {}) {
     scheduledSend: {
       send: async (cli, dir, opts) => { sends.push({ dir, ...opts }); return replyBox.value(sends.length, opts); }
     },
-    loginItem: { get: () => loginBox.value, set: (on) => { loginBox.value = on; } },
+    loginItem: { get: () => ({ on: loginBox.value, blocked: loginBox.blocked === true }), set: (on) => { loginBox.value = on; loginBox.sets = (loginBox.sets || 0) + 1; } },
     notify: (n) => notes.push(n),
     profilesRoot: path.join(userProfile, 'ClaudeProfiles'),
     userProfile,
@@ -176,13 +176,44 @@ test('bad messages and times are refused', async () => {
   fs.rmSync(h.base, { recursive: true, force: true });
 });
 
-test('start with Windows is a setting', async () => {
+test('start with Windows is a setting, kept in accounts.json', async () => {
   const h = harness();
   await h.svc.init();
   assert.strictEqual(h.svc.settings().openAtLoginSupported, true);
   assert.strictEqual(h.svc.settings().openAtLogin, false);
+  assert.strictEqual(h.loginBox.sets, undefined, 'nothing registered until asked');
   const s = await h.svc.setOpenAtLogin({ on: true });
   assert.strictEqual(s.openAtLogin, true);
   assert.strictEqual(h.loginBox.value, true);
+  const saved = JSON.parse(fs.readFileSync(path.join(h.base, 'cfg', 'accounts.json'), 'utf8'));
+  assert.strictEqual(saved.openAtLogin, true);
+  const off = await h.svc.setOpenAtLogin({ on: false });
+  assert.strictEqual(off.openAtLogin, false);
+  assert.strictEqual(h.loginBox.value, false);
+  fs.rmSync(h.base, { recursive: true, force: true });
+});
+
+test('start with Windows is registered again at every start (a moved portable .exe)', async () => {
+  const h = harness();
+  await h.svc.init();
+  await h.svc.setOpenAtLogin({ on: true });
+  // The entry now points somewhere else: the system no longer reports it on.
+  h.loginBox.value = false;
+  h.loginBox.sets = 0;
+  const svc = createService({ ...harnessDeps(h), loginItem: { get: () => ({ on: h.loginBox.value }), set: (on) => { h.loginBox.value = on; h.loginBox.sets += 1; } } });
+  await svc.init();
+  assert.strictEqual(h.loginBox.sets, 1);
+  assert.strictEqual(h.loginBox.value, true);
+  assert.strictEqual(svc.settings().openAtLogin, true);
+  fs.rmSync(h.base, { recursive: true, force: true });
+});
+
+test('start with Windows: adopts a 2.8.3 entry, and says when Windows blocks it', async () => {
+  const h = harness();
+  h.loginBox.value = true; // turned on in 2.8.3, which kept no record
+  h.loginBox.blocked = true;
+  await h.svc.init();
+  assert.strictEqual(h.svc.settings().openAtLogin, true);
+  assert.strictEqual(h.svc.settings().openAtLoginBlocked, true);
   fs.rmSync(h.base, { recursive: true, force: true });
 });

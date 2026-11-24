@@ -84,6 +84,9 @@ export default function Accounts({ accounts, running, scanOk, sizes, activity, s
                 It starts quietly in the {isMac ? 'menu bar' : 'tray'}, without opening its window, so
                 scheduled messages and limit alerts work from the moment you sign in.
               </span>
+              {settings.openAtLoginBlocked && (
+                <span className="setting-hint setting-warn">Windows has Multi-Claude switched off in Settings › Apps › Startup, so it won't start. Turn it on there.</span>
+              )}
             </span>
           </label>
         )}

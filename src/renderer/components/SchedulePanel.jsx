@@ -256,6 +256,10 @@ export default function SchedulePanel({ account, settings, actions }) {
         </label>
       )}
 
+      {schedule.on && settings && settings.openAtLoginBlocked && (
+        <div className="schedule-fail" style={{ marginTop: 12 }}>Windows has Multi-Claude switched off in Settings › Apps › Startup, so it won't start. Turn it on there.</div>
+      )}
+
       <div className="panel-foot">
         Multi-Claude must be running at those times (in the {tray} is enough). If the PC was off
         or asleep, only the latest missed time is sent when it's back. Every message goes into

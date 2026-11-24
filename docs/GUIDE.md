@@ -320,7 +320,9 @@ Good to know:
   If you delete it, the next message starts a new one.
 - **Multi-Claude must be running** at those times. In the tray is enough. Tick **Start
   Multi-Claude when Windows starts** (on the Accounts page, or in this section) so it's
-  always there.
+  always there. It starts in the tray with no window, and never opens a Claude account by
+  itself. If Windows has it switched off in **Settings › Apps › Startup**, Multi-Claude says
+  so. Uninstalling Multi-Claude removes it from start-up.
 - If the PC was off or asleep, **only the latest missed time** is sent when it's back, once.
 - Turning it on, or changing its times or days, never sends straight away for a time that
   has already passed today.

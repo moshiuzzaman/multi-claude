@@ -219,8 +219,24 @@ From an ordinary terminal (see [Building](#building)):
 4. **Publish:** on GitHub, write the release notes (or **Generate release notes**) and click
    **Publish**. Installed copies see it the next time they open.
 
-No token? Run `npm run dist` and upload `Multi-Claude-Setup-<version>.exe`, `latest.yml` and
-the portable `.exe` to a new release by hand.
+No token? Run `npm run dist` and upload `Multi-Claude-Setup-<version>.exe`, `latest.yml`,
+the portable `.exe`, `Multi-Claude-Setup.exe` and `Multi-Claude-portable.exe` to a new
+release by hand.
+
+**Always-latest links.** `build/latest-links.js` (electron-builder's `afterAllArtifactBuild`
+hook) adds a copy of each installer without the version in its name: `Multi-Claude-Setup.exe`,
+`Multi-Claude-portable.exe`, `Multi-Claude-arm64.dmg` and `Multi-Claude-x64.dmg`. Every release
+carries them, so `https://github.com/moshiuzzaman/multi-claude/releases/latest/download/<name>`
+always downloads the newest version. The in-app updater still uses `latest.yml` and the
+versioned installer.
+
+**Only the newest release keeps its files.** When a release is published,
+`.github/workflows/prune-old-assets.yml` deletes the files of every older release. Their
+titles, notes, dates and tags stay. Drafts and pre-releases are never touched, and nothing is
+deleted unless the newest release has an installer and `latest.yml`. To preview or clean up
+by hand, run **Prune old release files** from the Actions tab: it is a dry run unless you
+choose `dry_run: false`. Locally: `GH_TOKEN=... node .github/scripts/prune-release-assets.js --dry-run`.
+Deleted files cannot be restored; to offer an old version again, build it from its tag.
 
 The Mac `.dmg` files are built by GitHub Actions (`.github/workflows/mac.yml`) for every pushed
 version tag, and attached to that release automatically.

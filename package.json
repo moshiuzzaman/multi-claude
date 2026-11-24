@@ -38,6 +38,7 @@
       "dist-renderer/**/*",
       "package.json"
     ],
+    "afterAllArtifactBuild": "build/latest-links.js",
     "publish": {
       "provider": "github",
       "owner": "moshiuzzaman",
@@ -56,7 +57,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "shortcutName": "Multi-Claude",
-      "artifactName": "Multi-Claude-Setup-${version}.${ext}"
+      "artifactName": "Multi-Claude-Setup-${version}.${ext}",
+      "include": "build/installer.nsh"
     },
     "portable": {
       "artifactName": "Multi-Claude-${version}-portable.${ext}"

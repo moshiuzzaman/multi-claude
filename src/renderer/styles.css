@@ -2027,3 +2027,6 @@ button.uf-icon:hover:not(:disabled) { background: var(--gloss-neutral-hover); bo
 }
 .schedule-active { margin-top: -4px; font-size: 12px; color: var(--muted); }
 .schedule-active.on { color: #7fcf9a; }
+
+/* A setting that is on but won't work (Start with Windows blocked by Windows). */
+.setting-hint.setting-warn { color: #e9c98a; }

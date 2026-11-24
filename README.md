@@ -7,7 +7,7 @@
 [![Download](https://img.shields.io/github/v/release/moshiuzzaman/multi-claude?label=download&color=f97316)](https://github.com/moshiuzzaman/multi-claude/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0f172a)](#install)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-479%20passing-brightgreen)](CONTRIBUTING.md#development)
+[![Tests](https://img.shields.io/badge/tests-481%20passing-brightgreen)](CONTRIBUTING.md#development)
 
 [Install](#install) · [Why it's different](#why-its-different) · [Features](#features) · [Docs](docs/GUIDE.md) · [Contributing](CONTRIBUTING.md)
 
@@ -82,6 +82,16 @@ Download from the [**Releases page**](https://github.com/moshiuzzaman/multi-clau
 | `Multi-Claude-Setup-<version>.exe` | Windows — installs and updates itself |
 | `Multi-Claude-<version>-portable.exe` | Windows — no install |
 | `Multi-Claude-<version>-arm64.dmg` / `-x64.dmg` | macOS — Apple Silicon / Intel |
+
+**Links that always download the latest version.** These never change, so they are safe to
+bookmark, share or put on a website:
+
+| For | Always-latest link |
+|---|---|
+| Windows installer | https://github.com/moshiuzzaman/multi-claude/releases/latest/download/Multi-Claude-Setup.exe |
+| Windows portable | https://github.com/moshiuzzaman/multi-claude/releases/latest/download/Multi-Claude-portable.exe |
+| macOS, Apple Silicon | https://github.com/moshiuzzaman/multi-claude/releases/latest/download/Multi-Claude-arm64.dmg |
+| macOS, Intel | https://github.com/moshiuzzaman/multi-claude/releases/latest/download/Multi-Claude-x64.dmg |
 
 The builds are not code-signed, so the first run needs one extra step: on Windows,
 SmartScreen → **More info** → **Run anyway**; on macOS, right-click the app → **Open** →

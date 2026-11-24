@@ -1,0 +1,47 @@
+# Keeps download files only on the newest release.
+#
+# When a release is published, every older release keeps its title, notes, date
+# and tag, but its files are deleted. Drafts and pre-releases are never touched,
+# and nothing is deleted unless the newest release has an installer and
+# latest.yml. The in-app updater only reads the newest release's files.
+#
+# It can also be run by hand from the Actions tab (to clean up old releases).
+# A hand run is a dry run unless "dry_run" is set to false.
+
+name: Prune old release files
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only list what would be deleted (true), or delete (false)'
+        required: true
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prune-old-assets
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Delete the files of older releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: node .github/scripts/prune-release-assets.js

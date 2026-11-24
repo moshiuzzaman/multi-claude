@@ -382,7 +382,7 @@ async function removeChatFiles(ccDir, id) {
   }
 }
 
-// ---- Claude Desktop's Code-tab chat list (feature 20, phase 2) -------------
+// ---- Claude Desktop's Code-tab chat list (copying a chat, phase 2) -------------
 //
 // Each Claude profile lists its Code-tab chats as
 // <profile>/claude-code-sessions/<a>/<b>/local_<uuid>.json, where <a>/<b> are
